@@ -131,7 +131,6 @@ Parkinson-Disease-Detection/
 │
 ├── Parkinson's.ipynb
 ├── parkinsons.csv
-├── patient_records.db
 ├── README.md
 └── requirements.txt
 ```
