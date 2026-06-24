@@ -153,5 +153,6 @@ The AI Monitoring Agent successfully predicts Parkinson's disease risk, generate
 
 A complete Parkinson's Disease Detection and Neurological Monitoring System was developed using Machine Learning and Artificial Intelligence techniques. The project combines predictive analytics with an intelligent monitoring agent to support early disease screening and patient monitoring. 
 
-4 
+Live Demo:
+https://parkinson-disease-detection-r3kk3p6enxgkur7laxmkes.streamlit.app/
 
