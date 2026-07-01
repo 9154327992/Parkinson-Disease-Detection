@@ -127,6 +127,9 @@ Parkinson-Disease-Detection/
 │
 ├── Parkinson's.ipynb
 ├── parkinsons.csv
+├── app.py
+├── model.pkl
+├── scaler.pkl
 ├── README.md
 └── requirements.txt
 ```
