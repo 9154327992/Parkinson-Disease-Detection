@@ -46,8 +46,6 @@ The system analyzes biomedical voice measurements, predicts Parkinson's disease 
 
 The project uses the Parkinson's Disease dataset containing voice-related biomedical measurements collected from patients. 
 
-1 
-
 Target Variable: 
 
 - status 
@@ -88,9 +86,7 @@ Implemented as an extension to improve classification performance and compare re
 
 ## **AI Neurological Monitoring Agent** 
 
-The ParkinsonMonitoringAgent performs the following tasks: 
-
-2 
+The ParkinsonMonitoringAgent performs the following tasks:  
 
 ## **Patient Analysis** 
 
@@ -134,8 +130,6 @@ Parkinson-Disease-Detection/
 ├── README.md
 └── requirements.txt
 ```
-
-3 
 
 ## **Results** 
 
