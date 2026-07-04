@@ -380,15 +380,11 @@ Backend
 
 Platform: Render
 
-Backend URL: [https://parkinson-disease-detection-qy5l.onrender.com/]
-
 -----------------------------------------------------------------------------------------------------------------------------------
 
 Frontend
 
 Platform: Streamlit Community Cloud
-
-Frontend URL: [https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/]
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
