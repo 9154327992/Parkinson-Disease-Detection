@@ -1,4 +1,8 @@
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
 🧠 Parkinson's Disease Detection and Neurological Monitoring Agent
+------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------
 
 📌 Project Overview
 
@@ -10,6 +14,7 @@ The system analyzes biomedical voice measurements, predicts Parkinson's disease 
 
 The project is deployed as a full-stack web application using FastAPI and Streamlit.
 
+------------------------------------------------------------------------------------------------------------------------------------
 
 🎯 Objectives
 
@@ -71,9 +76,9 @@ Target Variable
 
 |---------|----------|
 
-| 0 | Healthy |
+|    0    |  Healthy |
 
-| 1 | Parkinson's Disease |
+|    1    | Parkinson's Disease |
 
 Number of Features
 
@@ -321,8 +326,6 @@ The web application provides:
 
 📂 Project Structure
 
-\`\`\`
-
 Parkinson-Disease-Detection/
 
 │
@@ -343,15 +346,13 @@ Parkinson-Disease-Detection/
 
 ├── README.md
 
-\`\`\`
-
 -----------------------------------------------------------------------------------------------------------------------------------
 
 🚀 Installation
 
 Clone Repository
 
-git clone https://github.com/yourusername/Parkinson-Disease-Detection.git
+git clone [https://github.com/yourusername/Parkinson-Disease-Detection.git]
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -379,7 +380,7 @@ Backend
 
 Platform: Render
 
-Backend URL: [https://parkinson-disease-detection-qy5l.onrender.com](https://parkinson-disease-detection-qy5l.onrender.com/)
+Backend URL: [https://parkinson-disease-detection-qy5l.onrender.com/]
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -387,7 +388,7 @@ Frontend
 
 Platform: Streamlit Community Cloud
 
-Frontend URL: [https://parkinson-disease-detection-r3kk3p6enxgkur7laxmkes.streamlit.app](https://parkinson-disease-detection-axp3erboepb5s4yhxw7c6p.streamlit.app/)
+Frontend URL: [https://parkinson-disease-detection-qy5l.onrender.com/]
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -491,7 +492,7 @@ B.Tech CSD (Data Science)
 
 🌐 Streamlit Web Application
 
-https://parkinson-disease-detection-axp3erboepb5s4yhxw7c6p.streamlit.app/
+https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/
 
 ⚡ FastAPI Backend
 
