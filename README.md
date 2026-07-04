@@ -376,15 +376,17 @@ streamlit run frontend.py
 
 ☁ Deployment
 
-Backend
+⚡Backend
 
 Platform: Render
 
------------------------------------------------------------------------------------------------------------------------------------
+Backend URL (FastAPI Backend): https://parkinson-disease-detection-qy5l.onrender.com/
 
-Frontend
+🌐Frontend
 
 Platform: Streamlit Community Cloud
+
+Frontend URL (Streamlit Web Application): https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -481,17 +483,3 @@ This project is developed for educational and research purposes.
 Matta Venkata Karthik
 
 B.Tech CSD (Data Science)
-
-------------------------------------------------------------------------------------------------------------------------------------
-
-🔗 Live Demo
-
-🌐 Streamlit Web Application
-
-https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/
-
-------------------------------------------------------------------------------------------------------------------------------------
-
-⚡ FastAPI Backend
-
-https://parkinson-disease-detection-qy5l.onrender.com/
