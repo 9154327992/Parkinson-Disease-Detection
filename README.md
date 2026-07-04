@@ -352,7 +352,7 @@ Parkinson-Disease-Detection/
 
 Clone Repository
 
-git clone [https://github.com/yourusername/Parkinson-Disease-Detection.git]
+github link: [https://github.com/9154327992/Parkinson-Disease-Detection]
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -388,7 +388,7 @@ Frontend
 
 Platform: Streamlit Community Cloud
 
-Frontend URL: [https://parkinson-disease-detection-qy5l.onrender.com/]
+Frontend URL: [https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/]
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
@@ -493,6 +493,8 @@ B.Tech CSD (Data Science)
 🌐 Streamlit Web Application
 
 https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/
+
+------------------------------------------------------------------------------------------------------------------------------------
 
 ⚡ FastAPI Backend
 
