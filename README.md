@@ -225,8 +225,6 @@ Stored Information
 
 🌐 System Architecture
 
-\`\`\`text
-
 User
 
 │
@@ -263,19 +261,13 @@ Diagnostic Report
 
 SQLite Database
 
-\`\`\`
-
 -----------------------------------------------------------------------------------------------------------------------------------
 
 ⚙ FastAPI API Endpoints
 
 Home Endpoint
 
-\`\`\`
-
-GET /
-
-\`\`\`
+GET
 
 Returns API status.
 
@@ -283,11 +275,7 @@ Returns API status.
 
 Health Endpoint
 
-\`\`\`
-
 GET /health
-
-\`\`\`
 
 Checks whether the backend is running.
 
@@ -295,11 +283,7 @@ Checks whether the backend is running.
 
 Prediction Endpoint
 
-\`\`\`
-
 POST /predict
-
-\`\`\`
 
 Accepts 22 biomedical voice features and returns:
 
