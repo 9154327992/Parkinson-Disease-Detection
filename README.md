@@ -1,6 +1,6 @@
-\# 🧠 Parkinson's Disease Detection and Neurological Monitoring Agent
+🧠 Parkinson's Disease Detection and Neurological Monitoring Agent
 
-\## 📌 Project Overview
+📌 Project Overview
 
 Parkinson's Disease is a progressive neurological disorder that affects movement and speech. Early diagnosis plays a crucial role in improving patient care and treatment planning.
 
@@ -10,59 +10,58 @@ The system analyzes biomedical voice measurements, predicts Parkinson's disease 
 
 The project is deployed as a full-stack web application using FastAPI and Streamlit.
 
-\---
 
-\# 🎯 Objectives
+🎯 Objectives
 
-\## Phase 1 – Machine Learning Model
+Phase 1 – Machine Learning Model
 
-\- Data preprocessing
+- Data preprocessing
 
-\- Feature scaling using StandardScaler
+- Feature scaling using StandardScaler
 
-\- Train Logistic Regression model
+- Train Logistic Regression model
 
-\- Compare with Artificial Neural Network (ANN) (Extension)
+- Compare with Artificial Neural Network (ANN) (Extension)
 
-\- Evaluate model performance using:
+- Evaluate model performance using:
 
-\- Accuracy
+- Accuracy
 
-\- Precision
+- Precision
 
-\- Recall
+- Recall
 
-\- F1-Score
+- F1-Score
 
-\- ROC-AUC Score
+- ROC-AUC Score
 
-\- Confusion Matrix
+- Confusion Matrix
 
-\---
+------------------------------------------------------------------------------------------------------------------------------------
 
-\## Phase 2 – Intelligent Neurological Monitoring Agent
+Phase 2 – Intelligent Neurological Monitoring Agent
 
 Develop an intelligent monitoring system capable of:
 
-\- Predicting Parkinson's Disease
+- Predicting Parkinson's Disease
 
-\- Generating diagnostic reports
+- Generating diagnostic reports
 
-\- Calculating patient risk scores
+- Calculating patient risk scores
 
-\- Classifying patient risk levels
+- Classifying patient risk levels
 
-\- Providing medical recommendations
+- Providing medical recommendations
 
-\- Storing monitoring records
+- Storing monitoring records
 
-\- Retrieving patient history
+- Retrieving patient history
 
-\- Deploying as a web application
+- Deploying as a web application
 
-\---
+------------------------------------------------------------------------------------------------------------------------------------
 
-\# 📊 Dataset
+📊 Dataset
 
 The project uses the Parkinson's Disease Dataset containing biomedical voice measurements collected from healthy individuals and Parkinson's patients.
 
@@ -78,151 +77,151 @@ Target Variable
 
 Number of Features
 
-\- 22 Biomedical Voice Features
+- 22 Biomedical Voice Features
 
-\---
+------------------------------------------------------------------------------------------------------------------------------------
 
-\# 🛠 Technologies Used
+🛠 Technologies Used
 
-\- Python
+- Python
 
-\- Pandas
+- Pandas
 
-\- NumPy
+- NumPy
 
-\- Scikit-learn
+- Scikit-learn
 
-\- Joblib
+- Joblib
 
-\- FastAPI
+- FastAPI
 
-\- Streamlit
+- Streamlit
 
-\- SQLite
+- SQLite
 
-\- Requests
+- Requests
 
-\- Uvicorn
+- Uvicorn
 
-\- Render
+- Render
 
-\- Streamlit Community Cloud
+- Streamlit Community Cloud
 
-\- GitHub
+- GitHub
 
-\---
+------------------------------------------------------------------------------------------------------------------------------------
 
-\# 🤖 Machine Learning Model
+🤖 Machine Learning Model
 
-\## Logistic Regression
+Logistic Regression
 
 The final deployed model uses Logistic Regression because of its excellent performance on the Parkinson's Disease dataset.
 
-\### Performance
+Performance
 
-\- Accuracy: \*\*92.31%\*\*
+- Accuracy: 92.31%
 
-\### Evaluation Metrics
+Evaluation Metrics
 
-\- Accuracy
+- Accuracy
 
-\- Precision
+- Precision
 
-\- Recall
+- Recall
 
-\- F1-Score
+- F1-Score
 
-\- ROC-AUC Score
+- ROC-AUC Score
 
-\- Confusion Matrix
+- Confusion Matrix
 
-\---
+------------------------------------------------------------------------------------------------------------------------------------
 
-\## Artificial Neural Network (ANN)
+Artificial Neural Network (ANN)
 
 An ANN model was implemented as an extension to compare deep learning performance with Logistic Regression.
 
-\---
+------------------------------------------------------------------------------------------------------------------------------------
 
-\# 🧠 AI Neurological Monitoring Agent
+🧠 AI Neurological Monitoring Agent
 
 The Intelligent Monitoring Agent performs the following tasks:
 
-\- Accepts biomedical voice measurements
+- Accepts biomedical voice measurements
 
-\- Validates patient input
+- Validates patient input
 
-\- Scales features using StandardScaler
+- Scales features using StandardScaler
 
-\- Predicts Parkinson's Disease
+- Predicts Parkinson's Disease
 
-\- Calculates Risk Score
+- Calculates Risk Score
 
-\- Classifies Risk Level
+- Classifies Risk Level
 
-\- Generates Diagnostic Reports
+- Generates Diagnostic Reports
 
-\- Provides Medical Recommendations
+- Provides Medical Recommendations
 
-\- Stores Patient Records
+- Stores Patient Records
 
-\- Retrieves Patient History
+- Retrieves Patient History
 
-\- Communicates using FastAPI
+- Communicates using FastAPI
 
-\- Provides an interactive Streamlit interface
+- Provides an interactive Streamlit interface
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 📋 Diagnostic Report
+📋 Diagnostic Report
 
 For every patient, the system generates:
 
-\- Diagnosis
+- Diagnosis
 
-\- Risk Score
+- Risk Score
 
-\- Risk Level
+- Risk Level
 
-\- Recommendation
+- Recommendation
 
-\### Example
+Example
 
-\*\*Diagnosis\*\*
+Diagnosis
 
 Parkinson's Disease Detected
 
-\*\*Risk Score\*\*
+Risk Score
 
 99.70%
 
-\*\*Risk Level\*\*
+Risk Level
 
 High Risk
 
-\*\*Recommendation\*\*
+Recommendation
 
 Immediate neurological consultation recommended.
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 📁 Database
+📁 Database
 
 Patient monitoring records are stored using SQLite.
 
 Stored Information
 
-\- Patient Name
+- Patient Name
 
-\- Diagnosis
+- Diagnosis
 
-\- Risk Score
+- Risk Score
 
-\- Risk Level
+- Risk Level
 
-\- Recommendation
+- Recommendation
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
 \# 🌐 System Architecture
 
@@ -266,7 +265,7 @@ SQLite Database
 
 \`\`\`
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
 \# ⚙ FastAPI API Endpoints
 
@@ -280,7 +279,7 @@ GET /
 
 Returns API status.
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
 \## Health Endpoint
 
@@ -292,7 +291,7 @@ GET /health
 
 Checks whether the backend is running.
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
 \## Prediction Endpoint
 
@@ -304,39 +303,39 @@ POST /predict
 
 Accepts 22 biomedical voice features and returns:
 
-\- Diagnosis
+- Diagnosis
 
-\- Risk Score
+- Risk Score
 
-\- Risk Level
+- Risk Level
 
-\- Recommendation
+- Recommendation
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 💻 Streamlit Features
+💻 Streamlit Features
 
 The web application provides:
 
-\- Patient Name Input
+- Patient Name Input
 
-\- 22 Biomedical Feature Inputs
+- 22 Biomedical Feature Inputs
 
-\- AI Prediction
+- AI Prediction
 
-\- Risk Score Display
+- Risk Score Display
 
-\- Risk Level Classification
+- Risk Level Classification
 
-\- Diagnostic Report
+- Diagnostic Report
 
-\- SQLite Record Storage
+- SQLite Record Storage
 
-\- Patient History Retrieval
+- Patient History Retrieval
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 📂 Project Structure
+📂 Project Structure
 
 \`\`\`
 
@@ -362,178 +361,154 @@ Parkinson-Disease-Detection/
 
 \`\`\`
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 🚀 Installation
+🚀 Installation
 
-\## Clone Repository
-
-\`\`\`bash
+Clone Repository
 
 git clone https://github.com/yourusername/Parkinson-Disease-Detection.git
 
-\`\`\`
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\---
-
-\## Install Dependencies
-
-\`\`\`bash
+Install Dependencies
 
 pip install -r requirements.txt
 
-\`\`\`
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\---
-
-\## Run FastAPI Backend
-
-\`\`\`bash
+Run FastAPI Backend
 
 uvicorn backend:app --reload
 
-\`\`\`
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\---
-
-\## Run Streamlit Frontend
-
-\`\`\`bash
+Run Streamlit Frontend
 
 streamlit run frontend.py
 
-\`\`\`
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\---
+☁ Deployment
 
-\# ☁ Deployment
+Backend
 
-\## Backend
+Platform: Render
 
-Platform:
+Backend URL: [https://parkinson-disease-detection-qy5l.onrender.com](https://parkinson-disease-detection-qy5l.onrender.com/)
 
-\*\*Render\*\*
+-----------------------------------------------------------------------------------------------------------------------------------
 
-Backend URL
+Frontend
 
-[https://parkinson-disease-detection-qy5l.onrender.com](https://parkinson-disease-detection-qy5l.onrender.com/)
+Platform: Streamlit Community Cloud
 
-\---
+Frontend URL: [https://parkinson-disease-detection-r3kk3p6enxgkur7laxmkes.streamlit.app](https://parkinson-disease-detection-axp3erboepb5s4yhxw7c6p.streamlit.app/)
 
-\## Frontend
+-----------------------------------------------------------------------------------------------------------------------------------
 
-Platform:
+✅ Features
 
-\*\*Streamlit Community Cloud\*\*
+- ✔ Data Preprocessing
 
-Frontend URL
+- ✔ Logistic Regression Model
 
-[https://parkinson-disease-detection-r3kk3p6enxgkur7laxmkes.streamlit.app](https://parkinson-disease-detection-axp3erboepb5s4yhxw7c6p.streamlit.app/)
+- ✔ StandardScaler
 
-\---
+- ✔ FastAPI Backend
 
-\# ✅ Features
+- ✔ Streamlit Frontend
 
-\- ✔ Data Preprocessing
+- ✔ AI Monitoring Agent
 
-\- ✔ Logistic Regression Model
+- ✔ Risk Score Generation
 
-\- ✔ StandardScaler
+- ✔ Risk Level Classification
 
-\- ✔ FastAPI Backend
+- ✔ Recommendation Engine
 
-\- ✔ Streamlit Frontend
+- ✔ SQLite Database Integration
 
-\- ✔ AI Monitoring Agent
+- ✔ Input Validation
 
-\- ✔ Risk Score Generation
+- ✔ Patient History Retrieval
 
-\- ✔ Risk Level Classification
+- ✔ REST API
 
-\- ✔ Recommendation Engine
+- ✔ Web Deployment
 
-\- ✔ SQLite Database Integration
+- ✔ GitHub Repository
 
-\- ✔ Input Validation
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\- ✔ Patient History Retrieval
-
-\- ✔ REST API
-
-\- ✔ Web Deployment
-
-\- ✔ GitHub Repository
-
-\---
-
-\# 📈 Results
+📈 Results
 
 Best Performing Model
 
-\*\*Logistic Regression\*\*
+Logistic Regression
 
 Accuracy
 
-\*\*92.31%\*\*
+92.31%
 
 The deployed application successfully:
 
-\- Predicts Parkinson's Disease
+- Predicts Parkinson's Disease
 
-\- Generates Diagnostic Reports
+- Generates Diagnostic Reports
 
-\- Calculates Risk Scores
+- Calculates Risk Scores
 
-\- Classifies Patient Risk Levels
+- Classifies Patient Risk Levels
 
-\- Stores Monitoring Records
+- Stores Monitoring Records
 
-\- Retrieves Patient History
+- Retrieves Patient History
 
-\- Provides an Interactive Web Interface
+- Provides an Interactive Web Interface
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 🎯 Future Enhancements
+🎯 Future Enhancements
 
-\- Deep Learning Models
+- Deep Learning Models
 
-\- XGBoost Classifier
+- XGBoost Classifier
 
-\- Explainable AI (SHAP/LIME)
+- Explainable AI (SHAP/LIME)
 
-\- Doctor Dashboard
+- Doctor Dashboard
 
-\- Email Report Generation
+- Email Report Generation
 
-\- Cloud Database Integration
+- Cloud Database Integration
 
-\- Patient Authentication
+- Patient Authentication
 
-\- Multi-user Support
+- Multi-user Support
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 📄 License
+📄 License
 
 This project is developed for educational and research purposes.
 
-\---
+-----------------------------------------------------------------------------------------------------------------------------------
 
-\# 👨‍💻 Author
+👨‍💻 Author
 
-\*\*Matta Venkata Karthik\*\*
+Matta Venkata Karthik
 
 B.Tech CSD (Data Science)
 
-\---
+------------------------------------------------------------------------------------------------------------------------------------
 
-\# 🔗 Live Demo
+🔗 Live Demo
 
-\### 🌐 Streamlit Web Application
+🌐 Streamlit Web Application
 
-[https://parkinson-disease-detection-r3kk3p6enxgkur7laxmkes.streamlit.app](https://parkinson-disease-detection-axp3erboepb5s4yhxw7c6p.streamlit.app/)
+https://parkinson-disease-detection-axp3erboepb5s4yhxw7c6p.streamlit.app/
 
-\### ⚡ FastAPI Backend
+⚡ FastAPI Backend
 
-[https://parkinson-disease-detection-qy5l.onrender.com](https://parkinson-disease-detection-qy5l.onrender.com/)
+https://parkinson-disease-detection-qy5l.onrender.com/
