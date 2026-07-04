@@ -482,4 +482,12 @@ This project is developed for educational and research purposes.
 
 Matta Venkata Karthik
 
-B.Tech CSD (Data Science)
+🎓 B.Tech – Computer Science and Design (Data Science)
+
+🏫 College: NRI Institute Of Technology
+
+🔗 LinkedIn: https://www.linkedin.com/in/venkata-karthik-matta-b0536b321
+
+🏫 College LinkedIn: https://www.linkedin.com/company/datascience-nriit
+
+💻 GitHub: https://github.com/9154327992
