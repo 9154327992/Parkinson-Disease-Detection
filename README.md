@@ -10,7 +10,7 @@ Parkinson's Disease is a progressive neurological disorder that affects movement
 
 This project presents an AI-powered Parkinson's Disease Detection and Neurological Monitoring System that combines Machine Learning with a modern web application.
 
-The system analyzes biomedical voice measurements, predicts Parkinson's disease risk using a Logistic Regression model, generates diagnostic reports, classifies patient risk levels, and stores patient monitoring records for future reference.
+The system analyzes biomedical voice measurements, compares multiple Machine Learning algorithms including Logistic Regression, Artificial Neural Network (ANN), Random Forest, XGBoost, Support Vector Machine (SVM), and K-Nearest Neighbors (KNN). Based on the evaluation results, Logistic Regression was selected as the final deployed model. The system generates diagnostic reports, classifies patient risk levels, and stores patient monitoring records for future reference.
 
 The project is deployed as a full-stack web application using FastAPI and Streamlit.
 
@@ -24,9 +24,20 @@ Phase 1 – Machine Learning Model
 
 - Feature scaling using StandardScaler
 
-- Train Logistic Regression model
+- Train and evaluate multiple Machine Learning models:
 
-- Compare with Artificial Neural Network (ANN) (Extension)
+  • Logistic Regression
+  • Artificial Neural Network (ANN)
+  • Random Forest
+  • XGBoost
+  • Support Vector Machine (SVM)
+  • K-Nearest Neighbors (KNN)
+
+- Compare model performance
+
+- Select the best performing model
+
+- Save the final trained model
 
 - Evaluate model performance using:
 
@@ -96,6 +107,8 @@ Number of Features
 
 - Scikit-learn
 
+- TensorFlow
+
 - Joblib
 
 - FastAPI
@@ -116,11 +129,31 @@ Number of Features
 
 ------------------------------------------------------------------------------------------------------------------------------------
 
-🤖 Machine Learning Model
+🤖 Machine Learning Models
 
-Logistic Regression
+The following Machine Learning models were implemented and evaluated:
 
-The final deployed model uses Logistic Regression because of its excellent performance on the Parkinson's Disease dataset.
+• Logistic Regression
+
+• Artificial Neural Network (ANN)
+
+• Random Forest
+
+• XGBoost
+
+• Support Vector Machine (SVM)
+
+• K-Nearest Neighbors (KNN)
+
+All models were compared using:
+
+- Accuracy
+- Precision
+- Recall
+- F1-Score
+- ROC-AUC Score
+
+Based on the evaluation results, Logistic Regression achieved the best overall performance and was selected as the final deployed model.
 
 Performance
 
@@ -139,12 +172,6 @@ Evaluation Metrics
 - ROC-AUC Score
 
 - Confusion Matrix
-
-------------------------------------------------------------------------------------------------------------------------------------
-
-Artificial Neural Network (ANN)
-
-An ANN model was implemented as an extension to compare deep learning performance with Logistic Regression.
 
 ------------------------------------------------------------------------------------------------------------------------------------
 
@@ -252,7 +279,8 @@ FastAPI Backend
 
 ▼
 
-Logistic Regression Model
+Selected Machine Learning Model
+(Logistic Regression)
 
 │
 
@@ -394,7 +422,19 @@ Frontend URL (Streamlit Web Application): https://parkinson-disease-detection-lw
 
 - ✔ Data Preprocessing
 
-- ✔ Logistic Regression Model
+- ✔ Multiple Machine Learning Models:
+
+     Logistic Regression
+
+     Artificial Neural Network (ANN)
+
+     Random Forest
+
+     XGBoost
+
+     Support Vector Machine (SVM)
+
+     K-Nearest Neighbors (KNN)
 
 - ✔ StandardScaler
 
@@ -426,13 +466,43 @@ Frontend URL (Streamlit Web Application): https://parkinson-disease-detection-lw
 
 📈 Results
 
+Model Comparison
+
+The following Machine Learning algorithms were evaluated:
+
+• Logistic Regression
+
+• Artificial Neural Network (ANN)
+
+• Random Forest
+
+• XGBoost
+
+• Support Vector Machine (SVM)
+
+• K-Nearest Neighbors (KNN)
+
+Evaluation Metrics
+
+- Accuracy
+
+- Precision
+
+- Recall
+
+- F1-Score
+
+- ROC-AUC Score
+
 Best Performing Model
 
 Logistic Regression
 
-Accuracy
+Performance
 
-92.31%
+- Accuracy: 92.31%
+
+The Logistic Regression model achieved the best overall performance based on the evaluation metrics and was selected as the final deployed model.
 
 The deployed application successfully:
 
@@ -444,31 +514,37 @@ The deployed application successfully:
 
 - Classifies Patient Risk Levels
 
-- Stores Monitoring Records
+- Provides Medical Recommendations
+
+- Stores Patient Records
 
 - Retrieves Patient History
 
-- Provides an Interactive Web Interface
+- Offers an Interactive Web Interface
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
 🎯 Future Enhancements
 
-- Deep Learning Models
+- Decision Tree Classifier
 
-- XGBoost Classifier
+- Naïve Bayes Classifier
+
+- Ensemble Learning
 
 - Explainable AI (SHAP/LIME)
 
 - Doctor Dashboard
 
-- Email Report Generation
+- Cloud Database (PostgreSQL/MySQL)
 
-- Cloud Database Integration
+- Email Report Generation
 
 - Patient Authentication
 
 - Multi-user Support
+
+- Mobile Application
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
