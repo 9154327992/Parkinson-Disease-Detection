@@ -1,8 +1,9 @@
+from pathlib import Path
 import streamlit as st
 
-# ==========================================
+# ==========================================================
 # Page Configuration
-# ==========================================
+# ==========================================================
 
 st.set_page_config(
     page_title="Parkinson Disease Detection Agent",
@@ -11,110 +12,179 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ==========================================
+# ==========================================================
+# Load Global CSS
+# ==========================================================
+
+def load_css():
+    css_file = Path(__file__).parent / "assets" / "style.css"
+
+    if css_file.exists():
+        with open(css_file, encoding="utf-8") as f:
+            st.markdown(
+                f"<style>{f.read()}</style>",
+                unsafe_allow_html=True,
+            )
+
+load_css()
+
+# ==========================================================
+# Initialize Session State
+# ==========================================================
+
+defaults = {
+    "logged_in": False,
+    "username": "Guest",
+    "role": "User",
+    "theme": "Light",
+}
+
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+# ==========================================================
 # Sidebar
-# ==========================================
+# ==========================================================
 
 with st.sidebar:
+
+    st.image("assets/logo.png", width=100)
+
     st.title("🧠 PD Detection Agent")
-
-    st.markdown("---")
-
-    st.write("### Navigation")
-    st.info(
-        """
-        Select a page from the sidebar.
-
-        • Home
-
-        • Prediction
-
-        • Patient History
-
-        • AI Health Assistant
-
-        • Reports
-
-        • Analytics
-
-        • Admin Dashboard
-
-        • Settings
-        """
-    )
-
-    st.markdown("---")
-
-    st.write("### Model Information")
-
-    st.success("Machine Learning Model Loaded")
-
-    st.write("Dataset : Parkinson Voice Dataset")
-
-    st.write("Backend : FastAPI")
-
-    st.write("Frontend : Streamlit")
-
-    st.markdown("---")
 
     st.caption("Version 1.0.0")
 
-# ==========================================
-# Main Page
-# ==========================================
+    st.divider()
+
+    st.write("### User")
+
+    st.write(f"**Name:** {st.session_state.username}")
+
+    st.write(f"**Role:** {st.session_state.role}")
+
+    st.divider()
+
+    st.write("### System Status")
+
+    st.success("🟢 FastAPI Connected")
+
+    st.success("🟢 ML Model Loaded")
+
+    st.success("🟢 Database Connected")
+
+    st.divider()
+
+    st.info(
+        """
+Select a module from the sidebar.
+
+🏠 Home
+
+🩺 Prediction
+
+👤 Patient History
+
+🤖 AI Assistant
+
+📄 Reports
+
+📊 Analytics
+
+🛠 Admin Dashboard
+
+⚙ Settings
+"""
+    )
+
+# ==========================================================
+# Main Dashboard
+# ==========================================================
 
 st.title("🧠 Parkinson Disease Detection Agent")
 
-st.markdown(
+st.write(
     """
 Welcome to the **AI-powered Parkinson Disease Detection and Monitoring System**.
 
-Use the navigation menu on the left to access the different modules of the application.
+This application uses machine learning to predict Parkinson's disease from
+voice measurements and provides patient management, analytics, reports,
+and an AI health assistant.
 """
 )
 
-st.markdown("---")
+st.divider()
 
-col1, col2, col3 = st.columns(3)
+# ==========================================================
+# Quick Status
+# ==========================================================
+
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric(
-        "Prediction Model",
-        "Ready"
-    )
+    st.metric("Patients", "0")
 
 with col2:
-    st.metric(
-        "Backend API",
-        "Connected"
-    )
+    st.metric("Predictions", "0")
 
 with col3:
-    st.metric(
-        "Database",
-        "Ready"
-    )
+    st.metric("Reports", "0")
 
-st.markdown("---")
+with col4:
+    st.metric("AI Status", "Ready")
 
-st.subheader("Available Modules")
+st.divider()
 
-modules = [
-    "🏠 Home",
-    "🩺 Parkinson Prediction",
-    "👤 Patient History",
-    "🤖 AI Health Assistant",
-    "📄 Reports",
-    "📊 Analytics",
-    "🛠️ Admin Dashboard",
-    "⚙️ Settings",
-]
+# ==========================================================
+# Features
+# ==========================================================
 
-for module in modules:
-    st.write(f"✅ {module}")
+st.subheader("✨ Application Features")
 
-st.markdown("---")
+feature1, feature2 = st.columns(2)
 
-st.info(
-    "Choose any page from the sidebar to begin using the application."
+with feature1:
+
+    st.markdown("""
+- ✅ Parkinson Disease Prediction
+- ✅ Patient History
+- ✅ Report Generation
+- ✅ Analytics Dashboard
+""")
+
+with feature2:
+
+    st.markdown("""
+- ✅ AI Health Assistant
+- ✅ Exercise Recommendations
+- ✅ Medication Guidance
+- ✅ Admin Dashboard
+""")
+
+st.divider()
+
+# ==========================================================
+# Workflow
+# ==========================================================
+
+st.subheader("📋 Workflow")
+
+st.markdown("""
+1. Open **Prediction**.
+2. Enter patient information.
+3. Enter the 22 voice measurements.
+4. Click **Analyze Patient**.
+5. View diagnosis and recommendations.
+6. Save the prediction.
+7. Review patient history and reports.
+""")
+
+st.divider()
+
+# ==========================================================
+# Footer
+# ==========================================================
+
+st.caption(
+    "© 2026 Parkinson Disease Detection Agent | Streamlit + FastAPI + Scikit-learn"
 )
