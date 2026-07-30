@@ -1,302 +1,402 @@
 /* ==========================================================
    Parkinson Disease Detection Agent
-   Global Styles
+   Global Theme
 ========================================================== */
 
-/* Import Google Font */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* ==========================================================
+   Color Variables
+========================================================== */
+
+:root{
+
+    --primary:#2563eb;
+    --primary-dark:#1d4ed8;
+    --secondary:#0f172a;
+
+    --success:#16a34a;
+    --warning:#f59e0b;
+    --danger:#dc2626;
+
+    --background:#f8fafc;
+    --card:#ffffff;
+
+    --border:#dbe4ee;
+    --text:#1e293b;
+    --text-light:#64748b;
+
+    --radius:14px;
+}
+
+/* ==========================================================
+   Global
+========================================================== */
 
 html,
 body,
-[class*="css"] {
-    font-family: 'Poppins', sans-serif;
-}
+[class*="css"]{
 
+    font-family:'Poppins',sans-serif;
+    background:var(--background);
+    color:var(--text);
+
+}
 
 /* ==========================================================
-   Main App
+   Main Area
 ========================================================== */
 
-.main {
-    background-color: #f5f7fb;
-}
+.main{
 
+    background:var(--background);
+
+    padding:1rem;
+
+}
 
 /* ==========================================================
    Sidebar
 ========================================================== */
 
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg,#0f4c81,#1565c0);
+section[data-testid="stSidebar"]{
+
+    background:linear-gradient(
+        180deg,
+        #2563eb,
+        #1e40af
+    );
+
 }
 
-section[data-testid="stSidebar"] * {
-    color: white;
-}
+section[data-testid="stSidebar"] *{
 
+    color:white;
+
+}
 
 /* ==========================================================
-   Header
+   Titles
 ========================================================== */
 
-h1 {
-    color: #0f4c81;
-    font-weight: 700;
+h1{
+
+    color:var(--secondary);
+
+    font-weight:700;
+
 }
 
-h2 {
-    color: #1565c0;
-    font-weight: 600;
+h2{
+
+    color:var(--primary);
+
+    font-weight:600;
+
 }
 
-h3 {
-    color: #1976d2;
-}
+h3{
 
+    color:var(--primary-dark);
+
+}
 
 /* ==========================================================
    Buttons
 ========================================================== */
 
-.stButton>button {
+.stButton>button{
 
-    width: 100%;
+    width:100%;
 
-    border-radius: 10px;
+    background:var(--primary);
 
-    border: none;
+    color:white;
 
-    padding: 12px;
+    border:none;
 
-    font-size: 16px;
+    border-radius:12px;
 
-    font-weight: 600;
+    padding:12px;
 
-    background-color: #1565c0;
+    font-size:16px;
 
-    color: white;
+    font-weight:600;
 
-    transition: 0.3s;
-}
-
-.stButton>button:hover {
-
-    background-color: #0d47a1;
-
-    transform: scale(1.02);
+    transition:.3s;
 
 }
 
+.stButton>button:hover{
+
+    background:var(--primary-dark);
+
+    transform:translateY(-2px);
+
+}
 
 /* ==========================================================
-   Text Inputs
+   Input Fields
 ========================================================== */
 
 .stTextInput input,
 .stNumberInput input,
-.stTextArea textarea {
+.stTextArea textarea{
 
-    border-radius: 8px;
+    border-radius:10px;
 
-    border: 1px solid #b0bec5;
+    border:1px solid var(--border);
 
 }
 
+.stSelectbox{
+
+    border-radius:10px;
+
+}
 
 /* ==========================================================
-   Select Box
+   Metric Cards
 ========================================================== */
 
-.stSelectbox div[data-baseweb="select"] {
+div[data-testid="metric-container"]{
 
-    border-radius: 8px;
+    background:var(--card);
+
+    border-radius:var(--radius);
+
+    border:1px solid var(--border);
+
+    padding:18px;
+
+    box-shadow:0 3px 10px rgba(0,0,0,.06);
 
 }
-
 
 /* ==========================================================
-   Metrics
+   Custom Card
 ========================================================== */
 
-div[data-testid="metric-container"] {
+.custom-card{
 
-    background-color: white;
+    background:white;
 
-    border-radius: 12px;
+    border-radius:16px;
 
-    padding: 15px;
+    padding:20px;
 
-    border-left: 5px solid #1565c0;
+    border:1px solid var(--border);
 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow:0 5px 15px rgba(0,0,0,.06);
+
+    margin-bottom:20px;
 
 }
-
 
 /* ==========================================================
-   Cards
+   Status Cards
 ========================================================== */
 
-.custom-card {
+.success-card{
 
-    background: white;
-
-    padding: 20px;
-
-    border-radius: 15px;
-
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-
-    margin-bottom: 20px;
+    border-left:6px solid var(--success);
 
 }
 
+.warning-card{
+
+    border-left:6px solid var(--warning);
+
+}
+
+.danger-card{
+
+    border-left:6px solid var(--danger);
+
+}
 
 /* ==========================================================
-   Success Message
+   Alert Boxes
 ========================================================== */
 
-div[data-testid="stSuccess"] {
+div[data-testid="stSuccess"]{
 
-    border-radius: 10px;
+    border-radius:10px;
 
 }
 
+div[data-testid="stWarning"]{
+
+    border-radius:10px;
+
+}
+
+div[data-testid="stError"]{
+
+    border-radius:10px;
+
+}
+
+div[data-testid="stInfo"]{
+
+    border-radius:10px;
+
+}
 
 /* ==========================================================
-   Error Message
+   Tables
 ========================================================== */
 
-div[data-testid="stError"] {
+[data-testid="stDataFrame"]{
 
-    border-radius: 10px;
+    border-radius:12px;
 
-}
-
-
-/* ==========================================================
-   Warning Message
-========================================================== */
-
-div[data-testid="stWarning"] {
-
-    border-radius: 10px;
+    border:1px solid var(--border);
 
 }
-
-
-/* ==========================================================
-   Info Message
-========================================================== */
-
-div[data-testid="stInfo"] {
-
-    border-radius: 10px;
-
-}
-
-
-/* ==========================================================
-   DataFrames
-========================================================== */
-
-[data-testid="stDataFrame"] {
-
-    border-radius: 10px;
-
-    overflow: hidden;
-
-}
-
 
 /* ==========================================================
    Tabs
 ========================================================== */
 
-button[role="tab"] {
+button[role="tab"]{
 
-    font-weight: 600;
+    border-radius:10px;
 
-    border-radius: 8px;
+    font-weight:600;
 
 }
-
 
 /* ==========================================================
-   Expanders
+   Expander
 ========================================================== */
 
-.streamlit-expanderHeader {
+.streamlit-expanderHeader{
 
-    font-weight: 600;
+    font-weight:600;
 
 }
 
+/* ==========================================================
+   Divider
+========================================================== */
+
+hr{
+
+    border:1px solid #e2e8f0;
+
+}
 
 /* ==========================================================
    Footer
 ========================================================== */
 
-footer {
+footer{
 
-    visibility: hidden;
+    visibility:hidden;
 
 }
-
 
 /* ==========================================================
    Scrollbar
 ========================================================== */
 
-::-webkit-scrollbar {
+::-webkit-scrollbar{
 
-    width: 8px;
-
-}
-
-::-webkit-scrollbar-thumb {
-
-    background: #1565c0;
-
-    border-radius: 10px;
+    width:8px;
 
 }
 
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-thumb{
 
-    background: #eceff1;
+    background:var(--primary);
+
+    border-radius:20px;
 
 }
 
+::-webkit-scrollbar-track{
+
+    background:#eef2f7;
+
+}
 
 /* ==========================================================
    Utility Classes
 ========================================================== */
 
-.center-text {
-    text-align: center;
+.center{
+
+    text-align:center;
+
 }
 
-.primary-text {
-    color: #1565c0;
+.text-primary{
+
+    color:var(--primary);
+
 }
 
-.success-text {
-    color: #2e7d32;
+.text-success{
+
+    color:var(--success);
+
 }
 
-.warning-text {
-    color: #f57c00;
+.text-danger{
+
+    color:var(--danger);
+
 }
 
-.error-text {
-    color: #c62828;
+.text-warning{
+
+    color:var(--warning);
+
 }
 
-.card-shadow {
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+.shadow{
+
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+
 }
 
-.rounded {
-    border-radius: 12px;
+.rounded{
+
+    border-radius:16px;
+
+}
+
+.p20{
+
+    padding:20px;
+
+}
+
+.mt20{
+
+    margin-top:20px;
+
+}
+
+.mb20{
+
+    margin-bottom:20px;
+
+}
+
+/* ==========================================================
+   Hide Streamlit Menu
+========================================================== */
+
+#MainMenu{
+
+    visibility:hidden;
+
+}
+
+header{
+
+    visibility:hidden;
+
 }
