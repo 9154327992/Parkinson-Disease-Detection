@@ -1,8 +1,8 @@
 import streamlit as st
 
-# ==========================================
+# ==========================================================
 # Page Configuration
-# ==========================================
+# ==========================================================
 
 st.set_page_config(
     page_title="Home",
@@ -10,131 +10,189 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==========================================
+# ==========================================================
 # Header
-# ==========================================
+# ==========================================================
 
-st.title("🏠 Home")
+st.title("🏠 Home Dashboard")
 
 st.write(
     """
-    Welcome to the **Parkinson Disease Detection Agent**.
+Welcome to the **Parkinson Disease Detection Agent**.
 
-    This AI-powered system helps healthcare professionals and researchers
-    predict Parkinson's disease risk using voice features, monitor patients,
-    generate reports, and provide AI-assisted health guidance.
-    """
+This platform uses Machine Learning and Artificial Intelligence
+to assist in Parkinson's Disease prediction, patient management,
+analytics, and health recommendations.
+"""
 )
 
 st.divider()
 
-# ==========================================
-# System Status
-# ==========================================
-
-st.subheader("🖥️ System Status")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.metric("Backend API", "🟢 Online")
-
-with col2:
-    st.metric("ML Model", "🟢 Loaded")
-
-with col3:
-    st.metric("Database", "🟢 Connected")
-
-st.divider()
-
-# ==========================================
-# Dashboard Overview
-# ==========================================
+# ==========================================================
+# Quick Statistics
+# ==========================================================
 
 st.subheader("📊 Dashboard Overview")
 
-c1, c2, c3, c4 = st.columns(4)
+col1, col2, col3, col4 = st.columns(4)
 
-with c1:
-    st.metric("Total Patients", "0")
+with col1:
+    st.metric(
+        label="👤 Total Patients",
+        value="0"
+    )
 
-with c2:
-    st.metric("Predictions", "0")
+with col2:
+    st.metric(
+        label="🧠 Predictions",
+        value="0"
+    )
 
-with c3:
-    st.metric("High Risk Cases", "0")
+with col3:
+    st.metric(
+        label="⚠ High Risk Cases",
+        value="0"
+    )
 
-with c4:
-    st.metric("Reports Generated", "0")
-
-st.divider()
-
-# ==========================================
-# Application Modules
-# ==========================================
-
-st.subheader("🚀 Available Modules")
-
-modules = [
-    ("🩺", "Prediction", "Predict Parkinson's disease risk."),
-    ("👤", "Patient History", "View and manage patient records."),
-    ("🤖", "AI Health Assistant", "Ask health-related questions."),
-    ("📄", "Reports", "Generate and download reports."),
-    ("📊", "Analytics", "Visualize prediction statistics."),
-    ("🛠️", "Admin Dashboard", "Manage users and system."),
-    ("⚙️", "Settings", "Configure the application.")
-]
-
-for icon, title, description in modules:
-    st.markdown(
-        f"""
-        ### {icon} {title}
-        {description}
-        """
+with col4:
+    st.metric(
+        label="📄 Reports",
+        value="0"
     )
 
 st.divider()
 
-# ==========================================
-# Project Features
-# ==========================================
+# ==========================================================
+# System Status
+# ==========================================================
 
-st.subheader("✨ Key Features")
+st.subheader("🖥️ System Status")
+
+left, right = st.columns(2)
+
+with left:
+
+    st.success("✅ FastAPI Backend Connected")
+
+    st.success("✅ Machine Learning Model Loaded")
+
+    st.success("✅ Database Connected")
+
+with right:
+
+    st.info("Frontend : Streamlit")
+
+    st.info("Backend : FastAPI")
+
+    st.info("Deployment : Render")
+
+st.divider()
+
+# ==========================================================
+# Available Modules
+# ==========================================================
+
+st.subheader("🚀 Available Modules")
+
+modules = [
+
+    ("🏠 Home", "Application Dashboard"),
+
+    ("🩺 Prediction", "Predict Parkinson's Disease"),
+
+    ("👤 Patient History", "View Patient Records"),
+
+    ("🤖 AI Health Assistant", "Medical Chat Assistant"),
+
+    ("📄 Reports", "Generate PDF Reports"),
+
+    ("📊 Analytics", "View Charts & Statistics"),
+
+    ("🛠 Admin Dashboard", "Manage System"),
+
+    ("⚙ Settings", "Application Preferences"),
+]
+
+for icon, description in modules:
+
+    st.markdown(
+        f"""
+### {icon}
+
+{description}
+"""
+    )
+
+st.divider()
+
+# ==========================================================
+# Application Workflow
+# ==========================================================
+
+st.subheader("📋 How It Works")
 
 st.markdown("""
-- ✅ AI-based Parkinson Disease Prediction
-- ✅ Voice Feature Analysis
-- ✅ Patient Record Management
-- ✅ AI Health Assistant
-- ✅ Risk Score & Recommendations
-- ✅ Analytics Dashboard
-- ✅ PDF Report Generation
-- ✅ Secure FastAPI Backend
-- ✅ Streamlit Interactive Interface
+1. Open the **Prediction** page.
+
+2. Enter patient information.
+
+3. Enter the 22 voice measurements.
+
+4. Click **Analyze Patient**.
+
+5. Receive diagnosis and risk score.
+
+6. Save patient records.
+
+7. Generate reports.
+
+8. View analytics.
 """)
 
 st.divider()
 
-# ==========================================
-# How to Use
-# ==========================================
+# ==========================================================
+# Key Features
+# ==========================================================
 
-st.subheader("📖 How to Use")
+st.subheader("⭐ Features")
 
-st.markdown("""
-1. Open **Prediction** from the sidebar.
-2. Enter the patient's voice feature values.
-3. Click **Analyze Patient**.
-4. View the diagnosis, risk score, and recommendations.
-5. Save the patient record.
-6. Review previous records in **Patient History**.
-7. Generate reports or explore analytics.
+feature1, feature2 = st.columns(2)
+
+with feature1:
+
+    st.markdown("""
+- ✔ Parkinson Disease Prediction
+- ✔ Patient History
+- ✔ AI Health Assistant
+- ✔ PDF Report Generation
+""")
+
+with feature2:
+
+    st.markdown("""
+- ✔ Interactive Analytics
+- ✔ Risk Assessment
+- ✔ Medical Recommendations
+- ✔ Secure FastAPI Backend
 """)
 
 st.divider()
 
-# ==========================================
+# ==========================================================
+# Recent Activity
+# ==========================================================
+
+st.subheader("📝 Recent Activity")
+
+st.info("No recent activity available.")
+
+st.divider()
+
+# ==========================================================
 # Footer
-# ==========================================
+# ==========================================================
 
-st.caption("Parkinson Disease Detection Agent • Version 1.0.0")
+st.caption(
+    "Parkinson Disease Detection Agent | Version 1.0.0"
+)
