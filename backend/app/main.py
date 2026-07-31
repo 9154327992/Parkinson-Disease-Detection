@@ -1,117 +1,90 @@
-"""
-Main entry point for the
-Parkinson Disease Detection Agent API.
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# ==========================================================
-# Import Routers
-# ==========================================================
-
-from app.routes.predict import router as predict_router
-from app.routes.patients import router as patient_router
-from app.routes.reports import router as report_router
+from app.routes.auth import router as auth_router
+from app.routes.prediction import router as prediction_router
+from app.routes.patient import router as patient_router
 from app.routes.analytics import router as analytics_router
+from app.routes.recommendation import router as recommendation_router
+from app.routes.reports import router as reports_router
 from app.routes.chatbot import router as chatbot_router
-from app.routes.admin import router as admin_router
-from app.routes.users import router as user_router
-from app.routes.settings import router as settings_router
 
-# ==========================================================
-# FastAPI App
-# ==========================================================
 
 app = FastAPI(
     title="Parkinson Disease Detection API",
-    description="Backend API for Parkinson Disease Detection Agent",
-    version="1.0.0"
+    description="Backend API for Parkinson Disease Detection System",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-# ==========================================================
-# CORS
-# ==========================================================
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # Change in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ==========================================================
-# Include Routers
-# ==========================================================
+
+# Routers
+app.include_router(
+    auth_router,
+    prefix="/auth",
+    tags=["Authentication"],
+)
 
 app.include_router(
-    predict_router,
-    prefix="/predict",
-    tags=["Prediction"]
+    prediction_router,
+    prefix="/prediction",
+    tags=["Prediction"],
 )
 
 app.include_router(
     patient_router,
     prefix="/patients",
-    tags=["Patients"]
-)
-
-app.include_router(
-    report_router,
-    prefix="/reports",
-    tags=["Reports"]
+    tags=["Patients"],
 )
 
 app.include_router(
     analytics_router,
     prefix="/analytics",
-    tags=["Analytics"]
+    tags=["Analytics"],
+)
+
+app.include_router(
+    recommendation_router,
+    prefix="/recommendations",
+    tags=["Recommendations"],
+)
+
+app.include_router(
+    reports_router,
+    prefix="/reports",
+    tags=["Reports"],
 )
 
 app.include_router(
     chatbot_router,
     prefix="/chatbot",
-    tags=["AI Assistant"]
+    tags=["AI Chatbot"],
 )
 
-app.include_router(
-    admin_router,
-    prefix="/admin",
-    tags=["Admin"]
-)
 
-app.include_router(
-    user_router,
-    prefix="/users",
-    tags=["Users"]
-)
-
-app.include_router(
-    settings_router,
-    prefix="/settings",
-    tags=["Settings"]
-)
-
-# ==========================================================
-# Root Endpoint
-# ==========================================================
-
-@app.get("/")
-def root():
+@app.get("/", tags=["Root"])
+async def root():
     return {
-        "message": "Parkinson Disease Detection API",
+        "status": "success",
+        "message": "Parkinson Disease Detection API is running",
         "version": "1.0.0",
-        "status": "Running"
     }
 
-# ==========================================================
-# Health Check
-# ==========================================================
 
-@app.get("/health")
-def health():
+@app.get("/health", tags=["Health"])
+async def health():
     return {
         "status": "healthy",
-        "api": "running"
+        "service": "Parkinson Disease Detection API",
     }
