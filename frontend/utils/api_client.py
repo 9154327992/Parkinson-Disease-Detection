@@ -1,0 +1,248 @@
+import requests
+from typing import Optional, Dict, List
+
+# ==========================================================
+# Backend Configuration
+# ==========================================================
+
+BASE_URL = "http://127.0.0.1:8000"
+
+TIMEOUT = 30
+
+
+# ==========================================================
+# Generic Request Functions
+# ==========================================================
+
+def get(endpoint: str):
+
+    try:
+
+        response = requests.get(
+            f"{BASE_URL}{endpoint}",
+            timeout=TIMEOUT
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException:
+
+        return None
+
+
+def post(endpoint: str, data: Dict):
+
+    try:
+
+        response = requests.post(
+            f"{BASE_URL}{endpoint}",
+            json=data,
+            timeout=TIMEOUT
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException:
+
+        return None
+
+
+def put(endpoint: str, data: Dict):
+
+    try:
+
+        response = requests.put(
+            f"{BASE_URL}{endpoint}",
+            json=data,
+            timeout=TIMEOUT
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException:
+
+        return None
+
+
+def delete(endpoint: str):
+
+    try:
+
+        response = requests.delete(
+            f"{BASE_URL}{endpoint}",
+            timeout=TIMEOUT
+        )
+
+        response.raise_for_status()
+
+        return True
+
+    except requests.RequestException:
+
+        return False
+
+
+# ==========================================================
+# Prediction
+# ==========================================================
+
+def predict_patient(features: List[float]) -> Optional[Dict]:
+
+    payload = {
+        "features": features
+    }
+
+    return post(
+        "/predict",
+        payload
+    )
+
+
+# ==========================================================
+# Patient History
+# ==========================================================
+
+def get_patient_history():
+
+    return get("/patients")
+
+
+def get_patients():
+
+    return get("/patients")
+
+
+def delete_patient(patient_id: int):
+
+    return delete(
+        f"/patients/{patient_id}"
+    )
+
+
+# ==========================================================
+# Reports
+# ==========================================================
+
+def get_reports():
+
+    return get("/reports")
+
+
+def download_report(report_id):
+
+    try:
+
+        response = requests.get(
+            f"{BASE_URL}/reports/{report_id}/download",
+            timeout=TIMEOUT
+        )
+
+        response.raise_for_status()
+
+        return response.content
+
+    except requests.RequestException:
+
+        return None
+
+
+# ==========================================================
+# Analytics
+# ==========================================================
+
+def get_analytics():
+
+    return get("/analytics")
+
+
+# ==========================================================
+# AI Assistant
+# ==========================================================
+
+def ask_ai_assistant(question: str):
+
+    payload = {
+        "question": question
+    }
+
+    return post(
+        "/chatbot",
+        payload
+    )
+
+
+# ==========================================================
+# Admin
+# ==========================================================
+
+def get_admin_dashboard():
+
+    return get("/admin/dashboard")
+
+
+def get_users():
+
+    return get("/users")
+
+
+def delete_user(user_id):
+
+    return delete(
+        f"/users/{user_id}"
+    )
+
+
+# ==========================================================
+# Settings
+# ==========================================================
+
+def get_user_settings():
+
+    return get("/settings")
+
+
+def update_user_settings(data):
+
+    return put(
+        "/settings",
+        data
+    )
+
+
+def change_password(current_password, new_password):
+
+    payload = {
+        "current_password": current_password,
+        "new_password": new_password
+    }
+
+    return post(
+        "/change-password",
+        payload
+    )
+
+
+# ==========================================================
+# Health Check
+# ==========================================================
+
+def check_backend():
+
+    try:
+
+        response = requests.get(
+            f"{BASE_URL}/health",
+            timeout=5
+        )
+
+        return response.status_code == 200
+
+    except requests.RequestException:
+
+        return False
