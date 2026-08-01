@@ -19,7 +19,7 @@ APP_DESCRIPTION = (
 # Backend
 # ==========================================================
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "https://parkinson-disease-detection-wced.onrender.com"
 
 API_TIMEOUT = 30
 
