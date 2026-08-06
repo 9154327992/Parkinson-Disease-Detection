@@ -42,11 +42,17 @@ def post(endpoint: str, data: Dict):
             timeout=TIMEOUT
         )
 
+        print("URL:", f"{BASE_URL}{endpoint}")
+        print("Status Code:", response.status_code)
+        print("Response:", response.text)
+
         response.raise_for_status()
 
         return response.json()
 
-    except requests.RequestException:
+    except requests.RequestException as e:
+
+        print("ERROR:", e)
 
         return None
 
