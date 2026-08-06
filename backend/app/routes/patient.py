@@ -1,7 +1,3 @@
-"""
-Patient Management API Routes
-"""
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.dependencies import get_current_user
@@ -10,6 +6,7 @@ from app.schemas.patient import (
     PatientCreate,
     PatientUpdate,
     PatientResponse,
+    PatientSummary
 )
 
 from app.services.patient_service import PatientService
@@ -52,7 +49,7 @@ def create_patient(
 
 @router.get(
     "/",
-    response_model=list[PatientResponse]
+    response_model=list[PatientSummary]
 )
 def get_patients(
     skip: int = Query(0, ge=0),
