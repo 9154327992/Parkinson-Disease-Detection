@@ -65,7 +65,7 @@ st.subheader("🎤 Voice Measurements")
 
 feature_names = [
 
-    "MDVP:Fo(Hz)",
+    "MDVP:Fo(Hz): Average fundamental frequency (voice pitch)",
     "MDVP:Fhi(Hz)",
     "MDVP:Flo(Hz)",
 
