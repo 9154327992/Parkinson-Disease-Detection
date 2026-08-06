@@ -63,7 +63,7 @@ search = st.text_input(
 if search:
 
     df = df[
-        df["patient_name"]
+        df["full_name"]
         .str.contains(
             search,
             case=False,
@@ -93,7 +93,7 @@ st.divider()
 
 st.subheader("📄 Patient Details")
 
-patient_names = df["patient_name"].tolist()
+patient_names = df["full_name"].tolist()
 
 selected = st.selectbox(
     "Select Patient",
@@ -101,7 +101,7 @@ selected = st.selectbox(
 )
 
 patient = df[
-    df["patient_name"] == selected
+    df["full_name"] == selected
 ].iloc[0]
 
 left, right = st.columns(2)
@@ -110,7 +110,7 @@ with left:
 
     st.write("### Patient Information")
 
-    st.write(f"**Name:** {patient['patient_name']}")
+    st.write(f"**Name:** {patient['full_name']}")
 
     if "age" in patient:
         st.write(f"**Age:** {patient['age']}")
@@ -120,23 +120,13 @@ with left:
 
 with right:
 
-    st.write("### Prediction")
+    st.write("### Patient Information")
 
-    st.write(f"**Diagnosis:** {patient['diagnosis']}")
+    st.write(f"**Age:** {patient['age']}")
+    
+    st.write(f"**Gender:** {patient['gender']}")
 
-    st.write(f"**Risk Score:** {patient['risk_score']}%")
-
-    st.write(f"**Risk Level:** {patient['risk_level']}")
-
-st.divider()
-
-# ==========================================================
-# Recommendation
-# ==========================================================
-
-st.subheader("💡 Recommendation")
-
-st.info(patient["recommendation"])
+    st.info("Prediction details will be available after prediction history is integrated.")
 
 st.divider()
 
