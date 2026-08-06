@@ -1,10 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from utils.api_client import (
-    get_patient_history,
-    delete_patient
-)
+from utils.api_client import get_prediction_history
 
 # ==========================================================
 # Page Configuration
@@ -34,7 +31,7 @@ st.divider()
 # Load Patient Records
 # ==========================================================
 
-patients = get_patient_history()
+history = get_prediction_history()
 
 if patients is None:
 
