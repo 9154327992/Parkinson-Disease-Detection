@@ -1,12 +1,5 @@
-"""
-Database Seeder
-
-Populate the database with sample data for
-development and testing.
-"""
-
 from datetime import datetime
-
+from app.utils.security import hash_password
 from app.database.database import SessionLocal
 from app.database.database import create_tables
 
@@ -60,7 +53,7 @@ class DatabaseSeeder:
             User(
                 username="admin",
                 email="admin@example.com",
-                password="admin123",
+                password=hash_password("admin123"),
                 full_name="System Administrator",
                 role="admin",
             ),
@@ -68,7 +61,7 @@ class DatabaseSeeder:
             User(
                 username="doctor",
                 email="doctor@example.com",
-                password="doctor123",
+                password=hash_password("doctor123"),
                 full_name="Neurologist",
                 role="doctor",
             ),
@@ -76,7 +69,7 @@ class DatabaseSeeder:
             User(
                 username="patient",
                 email="patient@example.com",
-                password="patient123",
+                password=hash_password("patient123"),
                 full_name="John Smith",
                 role="user",
             ),
