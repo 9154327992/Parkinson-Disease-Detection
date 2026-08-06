@@ -38,8 +38,7 @@ app.include_router(
 
 app.include_router(
     prediction_router,
-    prefix="/prediction",
-    tags=["Prediction"],
+    tags=["Prediction"]
 )
 
 app.include_router(
