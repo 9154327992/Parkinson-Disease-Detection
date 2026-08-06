@@ -66,33 +66,33 @@ st.subheader("🎤 Voice Measurements")
 feature_names = [
 
     "MDVP:Fo(Hz): Average fundamental frequency (voice pitch)",
-    "MDVP:Fhi(Hz)",
-    "MDVP:Flo(Hz)",
+    "MDVP:Fhi(Hz): Maximum fundamental frequency",
+    "MDVP:Flo(Hz): Minimum fundamental frequency",
 
-    "MDVP:Jitter(%)",
-    "MDVP:Jitter(Abs)",
-    "MDVP:RAP",
-    "MDVP:PPQ",
-    "Jitter:DDP",
+    "MDVP:Jitter(%): Percentage variation in voice frequency",
+    "MDVP:Jitter(Abs): Absolute variation in voice frequency",
+    "MDVP:RAP: Relative Average Perturbation",
+    "MDVP:PPQ: Pitch Period Perturbation Quotient",
+    "Jitter:DDP: Average absolute pitch variation",
 
-    "MDVP:Shimmer",
-    "MDVP:Shimmer(dB)",
-    "Shimmer:APQ3",
-    "Shimmer:APQ5",
-    "MDVP:APQ",
-    "Shimmer:DDA",
+    "MDVP:Shimmer: Amplitude variation in voice",
+    "MDVP:Shimmer(dB): Shimmer measured in decibels",
+    "Shimmer:APQ3: Three-point amplitude perturbation quotient",
+    "Shimmer:APQ5: Five-point amplitude perturbation quotient",
+    "MDVP:APQ: Amplitude Perturbation Quotient",
+    "Shimmer:DDA: Average amplitude variation",
 
-    "NHR",
-    "HNR",
+    "NHR: Noise-to-Harmonics Ratio",
+    "HNR: Harmonics-to-Noise Ratio",
 
-    "RPDE",
-    "DFA",
+    "RPDE: Recurrence Period Density Entropy",
+    "DFA: Detrended Fluctuation Analysis",
 
-    "Spread1",
-    "Spread2",
+    "Spread1: Nonlinear frequency variation measure",
+    "Spread2: Nonlinear voice characteristic measure",
 
-    "D2",
-    "PPE"
+    "D2: Correlation Dimension",
+    "PPE: Pitch Period Entropy"
 ]
 
 values = []
