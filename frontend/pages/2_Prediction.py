@@ -137,7 +137,12 @@ if st.button(
 
     with st.spinner("Analyzing patient..."):
 
-        result = predict_patient(values)
+        result = predict_patient(
+            patient_name,
+            patient_age,
+            patient_gender,
+            values
+        )
 
     if result is None:
 
