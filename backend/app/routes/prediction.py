@@ -1,7 +1,3 @@
-"""
-Prediction API Routes
-"""
-
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.schemas.prediction import (
@@ -14,7 +10,6 @@ from app.services.prediction_service import PredictionService
 from app.dependencies import get_current_user
 
 router = APIRouter(
-    prefix="/prediction",
     tags=["Prediction"]
 )
 
