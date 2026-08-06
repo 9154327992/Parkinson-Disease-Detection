@@ -31,8 +31,7 @@ prediction_service = PredictionService()
     status_code=status.HTTP_200_OK,
 )
 def predict(
-    request: PredictionRequest,
-    current_user=Depends(get_current_user)
+    request: PredictionRequest
 ):
     """
     Predict Parkinson Disease using the trained ML model.
@@ -42,7 +41,7 @@ def predict(
 
         result = prediction_service.predict(
             request=request,
-            user=current_user
+            user=None
         )
 
         return result
