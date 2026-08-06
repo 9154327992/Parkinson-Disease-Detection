@@ -35,7 +35,8 @@ def predict(
     try:
 
         result = prediction_service.predict(
-            request=request
+            request=request,
+            user=current_user
         )
 
         return result
