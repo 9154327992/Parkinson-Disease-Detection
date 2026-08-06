@@ -111,22 +111,16 @@ with left:
     st.write("### Patient Information")
 
     st.write(f"**Name:** {patient['full_name']}")
-
-    if "age" in patient:
-        st.write(f"**Age:** {patient['age']}")
-
-    if "gender" in patient:
-        st.write(f"**Gender:** {patient['gender']}")
+    st.write(f"**Age:** {patient['age']}")
+    st.write(f"**Gender:** {patient['gender']}")
 
 with right:
 
-    st.write("### Patient Information")
+    st.write("### Prediction Status")
 
-    st.write(f"**Age:** {patient['age']}")
-    
-    st.write(f"**Gender:** {patient['gender']}")
-
-    st.info("Prediction details will be available after prediction history is integrated.")
+    st.info(
+        "Prediction details will be available after prediction history is integrated."
+    )
 
 st.divider()
 
