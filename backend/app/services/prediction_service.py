@@ -1,9 +1,3 @@
-"""
-Prediction Service
-
-Business logic for Parkinson disease prediction.
-"""
-
 from datetime import datetime
 from typing import List
 
@@ -33,7 +27,7 @@ class PredictionService:
 
         # from app.ml.model_loader import load_model
         # self.model = load_model()
-        pass
+        self.history = []
 
     # =====================================================
     # Predict
