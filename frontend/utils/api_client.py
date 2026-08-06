@@ -122,7 +122,7 @@ def predict_patient(
     }
 
     return post(
-        "/predict",
+        "/prediction/predict",
         payload
     )
 
