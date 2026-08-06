@@ -1,5 +1,6 @@
 import requests
 from typing import Optional, Dict, List
+import streamlit as st
 
 # ==========================================================
 # Backend Configuration
@@ -32,28 +33,30 @@ def get(endpoint: str):
         return None
 
 
-def post(endpoint: str, data: Dict):
+import requests
+import streamlit as st
+
+def post(endpoint: str, data: dict):
+
+    url = f"{BASE_URL}{endpoint}"
 
     try:
-
         response = requests.post(
-            f"{BASE_URL}{endpoint}",
+            url,
             json=data,
-            timeout=TIMEOUT
+            timeout=30
         )
 
-        print("URL:", f"{BASE_URL}{endpoint}")
-        print("Status Code:", response.status_code)
-        print("Response:", response.text)
+        st.write("URL:", url)
+        st.write("Status Code:", response.status_code)
+        st.write("Response:", response.text)
 
         response.raise_for_status()
 
         return response.json()
 
-    except requests.RequestException as e:
-
-        print("ERROR:", e)
-
+    except Exception as e:
+        st.error(f"Error: {e}")
         return None
 
 
