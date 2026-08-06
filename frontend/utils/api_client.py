@@ -133,7 +133,7 @@ def predict_patient(
 
 def get_patient_history():
 
-    return get("/patients")
+    return get("/prediction/history")
 
 
 def get_patients():
