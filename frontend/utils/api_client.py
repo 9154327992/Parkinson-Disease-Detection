@@ -17,19 +17,25 @@ TIMEOUT = 30
 
 def get(endpoint: str):
 
+    url = f"{BASE_URL}{endpoint}"
+
     try:
 
         response = requests.get(
-            f"{BASE_URL}{endpoint}",
+            url,
             timeout=TIMEOUT
         )
+
+        st.write("URL:", url)
+        st.write("Status Code:", response.status_code)
+        st.write("Response:", response.text)
 
         response.raise_for_status()
 
         return response.json()
 
-    except requests.RequestException:
-
+    except Exception as e:
+        st.error(f"Error: {e}")
         return None
 
 
