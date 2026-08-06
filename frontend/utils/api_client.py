@@ -99,7 +99,7 @@ def predict_patient(features: List[float]) -> Optional[Dict]:
     }
 
     return post(
-        "/predict",
+        "/prediction/predictions/predict",
         payload
     )
 
