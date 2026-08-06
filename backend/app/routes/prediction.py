@@ -34,12 +34,23 @@ def predict(
 
     try:
 
-        result = prediction_service.predict(
-            request=request,
-            user=current_user
-        )
+        result = prediction_service.predict(request)
 
         return result
+
+    except ValueError as e:
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Prediction failed: {str(e)}"
+        )
 
     except ValueError as e:
 
@@ -71,7 +82,7 @@ def model_information(
     Return ML model information.
     """
 
-    return prediction_service.model_information()
+    return prediction_service.model_info()
 
 
 # ==========================================================
@@ -107,7 +118,7 @@ def prediction_history(
     Return prediction history for the current user.
     """
 
-    return prediction_service.history(
+    return prediction_service.get_history(
         current_user["id"]
     )
 
