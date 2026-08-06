@@ -38,13 +38,13 @@ app.include_router(
 
 app.include_router(
     prediction_router,
+    prefix="/prediction",
     tags=["Prediction"]
 )
 
 app.include_router(
     patient_router,
-    prefix="/patients",
-    tags=["Patients"],
+    tags=["Patients"]
 )
 
 app.include_router(
