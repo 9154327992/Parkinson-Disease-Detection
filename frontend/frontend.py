@@ -49,7 +49,15 @@ for key, value in defaults.items():
 
 with st.sidebar:
 
-    st.image("assets/logo.png", width=100)
+    from pathlib import Path
+    
+    import streamlit as st
+
+    BASE_DIR = Path(__file__).parent
+
+    logo_path = BASE_DIR / "assets" / "logo.png"
+
+    st.image(str(logo_path), width=100)
 
     st.title("🧠 PD Detection Agent")
 
