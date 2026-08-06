@@ -1,9 +1,3 @@
-"""
-Patient Service
-
-Business logic for patient management.
-"""
-
 from datetime import datetime
 from typing import List
 
@@ -100,12 +94,13 @@ class PatientService:
     # Get All Patients
     # =====================================================
 
-    def get_patients(self) -> List[PatientSummary]:
-        """
-        Return all patients.
-        """
-
-        return [
+    def get_patients(
+        self,
+        skip: int = 0,
+        limit: int = 20,
+        search: str | None = None,
+    ) -> List[PatientSummary]:
+        patients = [
             PatientSummary(
                 id=1,
                 full_name="John Doe",
@@ -119,6 +114,15 @@ class PatientService:
                 gender="Female",
             ),
         ]
+
+        if search:
+            patients = [
+                patient
+                for patient in patients
+                if search.lower() in patient.full_name.lower()
+            ]
+
+        return patients[skip:skip + limit]
 
     # =====================================================
     # Update Patient
