@@ -101,14 +101,22 @@ def delete(endpoint: str):
 # Prediction
 # ==========================================================
 
-def predict_patient(features: List[float]) -> Optional[Dict]:
+def predict_patient(
+    patient_name: str,
+    age: int,
+    gender: str,
+    features: List[float]
+) -> Optional[Dict]:
 
     payload = {
+        "patient_name": patient_name,
+        "age": age,
+        "gender": gender,
         "features": features
     }
 
     return post(
-        "/prediction/predictions/predict",
+        "/prediction/predict",
         payload
     )
 
