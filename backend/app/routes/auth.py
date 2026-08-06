@@ -1,7 +1,3 @@
-"""
-Authentication Routes
-"""
-
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.schemas.auth import (
@@ -13,7 +9,9 @@ from app.schemas.auth import (
 
 from app.services.auth_service import AuthService
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(
+    tags=["Authentication"]
+)
 
 auth_service = AuthService()
 
