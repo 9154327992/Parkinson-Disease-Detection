@@ -161,23 +161,31 @@ if st.button(
     with c1:
 
         st.metric(
-            "Diagnosis",
-            result["diagnosis"]
+            "Prediction",
+            result["prediction"]
         )
+
+        st.metric(
+            "Confidence",
+            f'{result["confidence"]:.2f}%'
+        )
+
+    with c2:
 
         st.metric(
             "Risk Score",
             f'{result["risk_score"]:.2f}%'
         )
 
-    with c2:
-
         st.metric(
             "Risk Level",
             result["risk_level"]
         )
-
-    st.info(result["recommendation"])
+    st.success(f"**Recommendation:** {result['recommendation']}")
+    st.write("### Model Information")
+    st.write(f"**Model:** {result['model_name']}")
+    st.write(f"**Version:** {result['model_version']}")
+    st.write(f"**Prediction ID:** {result['prediction_id']}")
 
     st.divider()
 
