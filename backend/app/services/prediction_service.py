@@ -16,8 +16,10 @@ class PredictionService:
 
     Current implementation uses in-memory storage.
 
-    In production, this should be replaced with
-    database persistence.
+    The complete prediction record is stored so that:
+    - Patient History can display it
+    - Reports can use the same patient information
+    - Reports can use the same prediction information
     """
 
     def __init__(self):
@@ -25,24 +27,21 @@ class PredictionService:
         Initialize prediction service.
         """
 
-        # --------------------------------------------------
-        # Prediction history
-        # --------------------------------------------------
+        # ==================================================
+        # Prediction History
+        # ==================================================
 
         self.history: List[PredictionHistory] = []
 
-        # --------------------------------------------------
-        # Complete prediction records
-        #
-        # Stores the full PredictionResponse together with
-        # patient information needed later by Reports.
-        # --------------------------------------------------
+        # ==================================================
+        # Complete Prediction Records
+        # ==================================================
 
         self.predictions: Dict[int, Dict] = {}
 
-        # --------------------------------------------------
-        # Prediction ID counter
-        # --------------------------------------------------
+        # ==================================================
+        # Prediction ID
+        # ==================================================
 
         self.next_prediction_id = 1
 
@@ -61,8 +60,8 @@ class PredictionService:
         # --------------------------------------------------
         # ML prediction
         #
-        # Replace this section with the real ML model when
-        # model integration is enabled.
+        # Replace this section with the real ML model
+        # when model integration is enabled.
         # --------------------------------------------------
 
         prediction_value = 1
@@ -116,14 +115,13 @@ class PredictionService:
         self.next_prediction_id += 1
 
         # --------------------------------------------------
-        # Patient ID
+        # Current patient ID
         #
-        # Your current PredictionRequest does not contain
-        # patient_id, so the existing application currently
-        # uses patient_id=1.
+        # PredictionRequest currently contains patient_name,
+        # age, gender and features, but not patient_id.
         #
-        # This can be connected to the real patient database
-        # later.
+        # Until patient database integration is completed,
+        # use patient_id=1.
         # --------------------------------------------------
 
         patient_id = 1
@@ -135,10 +133,11 @@ class PredictionService:
         created_at = datetime.utcnow()
 
         # --------------------------------------------------
-        # Create API response
+        # Prediction Response
         # --------------------------------------------------
 
         response = PredictionResponse(
+
             prediction_id=prediction_id,
 
             patient_id=patient_id,
@@ -167,6 +166,7 @@ class PredictionService:
         # ==================================================
 
         history_item = PredictionHistory(
+
             prediction_id=prediction_id,
 
             patient_id=patient_id,
@@ -187,10 +187,11 @@ class PredictionService:
         )
 
         # ==================================================
-        # Save Complete Prediction Record
+        # Save Complete Prediction
         # ==================================================
 
         self.predictions[prediction_id] = {
+
             "response": response,
 
             "patient_name": request.patient_name,
@@ -248,14 +249,20 @@ class PredictionService:
 
     def get_history(
         self,
-        patient_id: int = 1,
+        patient_id: Optional[int] = None,
     ) -> List[PredictionHistory]:
         """
         Return prediction history.
 
-        Only records belonging to the requested patient
-        are returned.
+        If patient_id is provided, return only records
+        belonging to that patient.
+
+        If no patient_id is provided, return all records.
         """
+
+        if patient_id is None:
+
+            return self.history
 
         return [
             item
@@ -273,8 +280,6 @@ class PredictionService:
     ) -> Optional[PredictionResponse]:
         """
         Retrieve the actual prediction by ID.
-
-        This no longer returns a fake Healthy prediction.
         """
 
         record = self.predictions.get(
@@ -296,10 +301,10 @@ class PredictionService:
         prediction_id: int,
     ) -> Optional[Dict]:
         """
-        Return complete prediction information including
-        patient information.
+        Return complete prediction data.
 
-        This method is intended for ReportService.
+        This is used by the report system when detailed
+        patient and prediction information is required.
         """
 
         return self.predictions.get(
@@ -323,7 +328,7 @@ class PredictionService:
             return False
 
         # --------------------------------------------------
-        # Remove complete prediction record
+        # Delete complete prediction
         # --------------------------------------------------
 
         del self.predictions[
@@ -331,7 +336,7 @@ class PredictionService:
         ]
 
         # --------------------------------------------------
-        # Remove history record
+        # Delete corresponding history
         # --------------------------------------------------
 
         self.history = [
@@ -350,8 +355,7 @@ class PredictionService:
         self,
     ) -> PredictionStatistics:
         """
-        Calculate prediction statistics from
-        the predictions currently stored.
+        Calculate statistics from stored predictions.
         """
 
         total_predictions = len(
