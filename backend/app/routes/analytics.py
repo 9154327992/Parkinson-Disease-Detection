@@ -1,8 +1,8 @@
-"""
-Analytics API Routes
-"""
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    status,
+)
 
 from app.dependencies import get_current_user
 
@@ -12,28 +12,33 @@ from app.schemas.analytics import (
     PatientAnalytics,
 )
 
-from app.services.analytics_service import AnalyticsService
+from app.services.analytics_service import (
+    AnalyticsService,
+)
 
 
 router = APIRouter(
     prefix="/analytics",
-    tags=["Analytics"]
+    tags=["Analytics"],
 )
+
 
 analytics_service = AnalyticsService()
 
 
 # ==========================================================
-# Dashboard Analytics
+# Dashboard
 # ==========================================================
 
 @router.get(
     "/dashboard",
     response_model=DashboardAnalytics,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
 )
 def dashboard_analytics(
-    current_user=Depends(get_current_user)
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
     Return dashboard statistics.
@@ -49,10 +54,12 @@ def dashboard_analytics(
 @router.get(
     "/predictions",
     response_model=PredictionAnalytics,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
 )
 def prediction_analytics(
-    current_user=Depends(get_current_user)
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
     Return prediction statistics.
@@ -68,10 +75,12 @@ def prediction_analytics(
 @router.get(
     "/patients",
     response_model=PatientAnalytics,
-    status_code=status.HTTP_200_OK
+    status_code=status.HTTP_200_OK,
 )
 def patient_analytics(
-    current_user=Depends(get_current_user)
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
     Return patient statistics.
@@ -84,12 +93,16 @@ def patient_analytics(
 # Monthly Trend
 # ==========================================================
 
-@router.get("/monthly-trend")
+@router.get(
+    "/monthly-trend",
+)
 def monthly_trend(
-    current_user=Depends(get_current_user)
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
-    Monthly prediction trend.
+    Return monthly prediction trend.
     """
 
     return analytics_service.monthly_trend()
@@ -99,12 +112,16 @@ def monthly_trend(
 # Age Distribution
 # ==========================================================
 
-@router.get("/age-distribution")
+@router.get(
+    "/age-distribution",
+)
 def age_distribution(
-    current_user=Depends(get_current_user)
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
-    Patient age distribution.
+    Return patient age distribution.
     """
 
     return analytics_service.age_distribution()
@@ -114,12 +131,16 @@ def age_distribution(
 # Gender Distribution
 # ==========================================================
 
-@router.get("/gender-distribution")
+@router.get(
+    "/gender-distribution",
+)
 def gender_distribution(
-    current_user=Depends(get_current_user)
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
-    Gender distribution.
+    Return gender distribution.
     """
 
     return analytics_service.gender_distribution()
@@ -129,27 +150,79 @@ def gender_distribution(
 # Risk Distribution
 # ==========================================================
 
-@router.get("/risk-distribution")
+@router.get(
+    "/risk-distribution",
+)
 def risk_distribution(
-    current_user=Depends(get_current_user)
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
-    Low, Medium and High risk distribution.
+    Return risk distribution.
     """
 
     return analytics_service.risk_distribution()
 
 
 # ==========================================================
-# System Summary
+# Disease Distribution
 # ==========================================================
 
-@router.get("/summary")
-def summary(
-    current_user=Depends(get_current_user)
+@router.get(
+    "/disease-distribution",
+)
+def disease_distribution(
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
-    Overall analytics summary.
+    Return disease distribution.
     """
 
-    return analytics_service.summary()
+    return analytics_service.disease_distribution()
+
+
+# ==========================================================
+# Complete Summary
+# ==========================================================
+
+@router.get(
+    "/summary",
+)
+def summary(
+    current_user=Depends(
+        get_current_user
+    ),
+):
+    """
+    Return complete analytics summary.
+    """
+
+    return analytics_service.analytics_summary()
+
+
+# ==========================================================
+# Frontend Convenience Endpoint
+# ==========================================================
+
+@router.get(
+    "",
+)
+def analytics_root(
+    current_user=Depends(
+        get_current_user
+    ),
+):
+    """
+    Return complete analytics summary.
+
+    This allows the frontend to call:
+
+        GET /analytics
+
+    instead of requiring multiple API requests.
+    """
+
+    return analytics_service.analytics_summary()
