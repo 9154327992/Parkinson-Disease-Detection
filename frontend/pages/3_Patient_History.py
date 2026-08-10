@@ -1,15 +1,18 @@
 import streamlit as st
 import pandas as pd
 
-from utils.api_client import get_prediction_history
+from utils.api_client import (
+    get_prediction_history,
+    delete_prediction,
+)
 
 # ==========================================================
 # Page Configuration
 # ==========================================================
 
 st.set_page_config(
-    page_title="Patient History",
-    page_icon="👤",
+    page_title="Prediction History",
+    page_icon="📋",
     layout="wide"
 )
 
@@ -17,67 +20,96 @@ st.set_page_config(
 # Header
 # ==========================================================
 
-st.title("👤 Patient History")
+st.title("📋 Prediction History")
 
 st.write(
     """
-View, search, and manage previously analyzed patient records.
+View, search, and manage previously analyzed prediction records.
 """
 )
 
 st.divider()
 
 # ==========================================================
-# Load Patient Records
+# Load Prediction History
 # ==========================================================
 
 history = get_prediction_history()
 
-if patients is None:
+if history is None:
 
-    st.error("Unable to fetch patient records.")
-
-    st.stop()
-
-if len(patients) == 0:
-
-    st.info("No patient records found.")
+    st.error("Unable to fetch prediction history.")
 
     st.stop()
 
-df = pd.DataFrame(patients)
+if len(history) == 0:
+
+    st.info("No prediction records found.")
+
+    st.stop()
+
+df = pd.DataFrame(history)
 
 # ==========================================================
 # Search
 # ==========================================================
 
-st.subheader("🔍 Search Patient")
+st.subheader("🔍 Search Prediction")
 
 search = st.text_input(
     "Search by Patient Name"
 )
 
-if search:
+if search.strip():
 
     df = df[
-        df["full_name"]
+        df["patient_name"]
+        .astype(str)
         .str.contains(
-            search,
+            search.strip(),
             case=False,
             na=False
         )
     ]
 
+if df.empty:
+
+    st.info("No matching prediction records found.")
+
+    st.stop()
+
 st.divider()
 
 # ==========================================================
-# Patient Table
+# Prediction Records
 # ==========================================================
 
-st.subheader("📋 Patient Records")
+st.subheader("📋 Prediction Records")
+
+display_df = df[
+    [
+        "prediction_id",
+        "patient_id",
+        "patient_name",
+        "prediction",
+        "confidence",
+        "risk_level",
+        "created_at"
+    ]
+].copy()
+
+display_df.columns = [
+    "Prediction ID",
+    "Patient ID",
+    "Patient Name",
+    "Prediction",
+    "Confidence",
+    "Risk Level",
+    "Date"
+]
 
 st.dataframe(
-    df,
+    display_df,
     use_container_width=True,
     hide_index=True
 )
@@ -85,61 +117,81 @@ st.dataframe(
 st.divider()
 
 # ==========================================================
-# Patient Details
+# Prediction Details
 # ==========================================================
 
-st.subheader("📄 Patient Details")
+st.subheader("📄 Prediction Details")
 
-patient_names = df["full_name"].tolist()
+prediction_ids = df["prediction_id"].tolist()
 
-selected = st.selectbox(
-    "Select Patient",
-    patient_names
+selected_id = st.selectbox(
+    "Select Prediction",
+    prediction_ids
 )
 
-patient = df[
-    df["full_name"] == selected
+selected = df[
+    df["prediction_id"] == selected_id
 ].iloc[0]
 
 left, right = st.columns(2)
 
 with left:
 
-    st.write("### Patient Information")
+    st.write("### 👤 Patient Information")
 
-    st.write(f"**Name:** {patient['full_name']}")
-    st.write(f"**Age:** {patient['age']}")
-    st.write(f"**Gender:** {patient['gender']}")
+    st.write(
+        f"**Patient:** {selected['patient_name']}"
+    )
+
+    st.write(
+        f"**Patient ID:** {selected['patient_id']}"
+    )
+
+    st.write(
+        f"**Prediction ID:** {selected['prediction_id']}"
+    )
 
 with right:
 
-    st.write("### Prediction Status")
+    st.write("### 🩺 Prediction Result")
 
-    st.info(
-        "Prediction details will be available after prediction history is integrated."
+    st.write(
+        f"**Prediction:** {selected['prediction']}"
+    )
+
+    st.write(
+        f"**Confidence:** {selected['confidence']:.2f}%"
+    )
+
+    st.write(
+        f"**Risk Level:** {selected['risk_level']}"
+    )
+
+    st.write(
+        f"**Date:** {selected['created_at']}"
     )
 
 st.divider()
 
 # ==========================================================
-# Delete Record
+# Delete Prediction
 # ==========================================================
 
-st.subheader("🗑 Delete Patient Record")
+st.subheader("🗑 Delete Prediction")
 
 if st.button(
-    "Delete Record",
+    "Delete Selected Prediction",
     use_container_width=True
 ):
 
-    response = delete_patient(
-        patient["id"]
+    response = delete_prediction(
+        selected["prediction_id"]
     )
 
     if response:
 
         st.success(
-            "Patient record deleted successfully."
+            "Prediction deleted successfully."
         )
 
         st.rerun()
@@ -147,7 +199,7 @@ if st.button(
     else:
 
         st.error(
-            "Unable to delete patient."
+            "Unable to delete prediction."
         )
 
 st.divider()
@@ -156,12 +208,14 @@ st.divider()
 # Export
 # ==========================================================
 
-csv = df.to_csv(index=False)
+csv = df.to_csv(
+    index=False
+)
 
 st.download_button(
-    label="⬇ Download CSV",
+    label="⬇ Download Prediction History",
     data=csv,
-    file_name="patient_history.csv",
+    file_name="prediction_history.csv",
     mime="text/csv",
     use_container_width=True
 )
