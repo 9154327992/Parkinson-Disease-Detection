@@ -153,6 +153,13 @@ def get_prediction_history():
     )
 
 
+def delete_prediction(prediction_id: int):
+
+    return delete(
+        f"/prediction/{prediction_id}"
+    )
+
+
 # ==========================================================
 # Patient History / Patients
 # ==========================================================
