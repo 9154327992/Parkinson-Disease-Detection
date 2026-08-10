@@ -6,7 +6,7 @@ from app.schemas.prediction import (
 )
 
 from app.services.prediction_service import PredictionService
-from app.services.report_service import ReportService
+from app.services.report_service import report_service
 
 from app.dependencies import get_current_user
 
@@ -26,8 +26,6 @@ router = APIRouter(
 
 prediction_service = PredictionService()
 
-report_service = ReportService()
-
 
 # ==========================================================
 # Predict Parkinson Disease
@@ -44,8 +42,8 @@ def predict(
     """
     Predict Parkinson Disease.
 
-    After a successful prediction, a patient report
-    is automatically generated from the same prediction.
+    After a successful prediction, a report is automatically
+    generated using the same patient and prediction data.
     """
 
     try:
@@ -59,7 +57,7 @@ def predict(
         )
 
         # --------------------------------------------------
-        # Automatically generate report
+        # Automatically create report
         # --------------------------------------------------
 
         report_service.generate_from_prediction(
@@ -157,7 +155,7 @@ def prediction_by_id(
     current_user=Depends(get_current_user),
 ):
     """
-    Retrieve a prediction by its ID.
+    Retrieve a prediction by ID.
     """
 
     prediction = prediction_service.get_prediction(
