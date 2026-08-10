@@ -40,11 +40,6 @@ st.divider()
 
 reports_response = get_reports()
 
-
-# ==========================================================
-# Backend Error
-# ==========================================================
-
 if reports_response is None:
 
     st.error(
@@ -55,7 +50,7 @@ if reports_response is None:
 
 
 # ==========================================================
-# Extract Reports
+# Extract Report List
 # ==========================================================
 
 if isinstance(
@@ -87,7 +82,7 @@ if not reports:
 
 
 # ==========================================================
-# DataFrame
+# Convert to DataFrame
 # ==========================================================
 
 df = pd.DataFrame(
@@ -102,7 +97,7 @@ df = pd.DataFrame(
 st.subheader("🔍 Search Report")
 
 search = st.text_input(
-    "Search by Patient Name",
+    "Search by Patient Name"
 )
 
 
@@ -143,6 +138,7 @@ st.divider()
 
 st.subheader("📋 Report List")
 
+
 display_columns = [
     column
     for column in [
@@ -154,6 +150,7 @@ display_columns = [
     ]
     if column in df.columns
 ]
+
 
 st.dataframe(
     df[display_columns],
@@ -181,9 +178,9 @@ if "report_id" not in df.columns:
     st.stop()
 
 
-# ----------------------------------------------------------
-# Create selection labels
-# ----------------------------------------------------------
+# ==========================================================
+# Report Selection
+# ==========================================================
 
 report_options = []
 
@@ -266,41 +263,41 @@ if full_report is None:
 
 metadata = full_report.get(
     "metadata",
-    {},
+    {}
 )
 
 patient = full_report.get(
     "patient",
-    {},
+    {}
 )
 
 prediction = full_report.get(
     "prediction",
-    {},
+    {}
 )
 
 recommendations = full_report.get(
     "recommendations",
-    [],
+    []
 )
 
 exercises = full_report.get(
     "exercises",
-    [],
+    []
 )
 
 medication = full_report.get(
     "medication",
-    [],
+    []
 )
 
 follow_up = full_report.get(
     "follow_up",
-    {},
+    {}
 )
 
 doctor_notes = full_report.get(
-    "doctor_notes",
+    "doctor_notes"
 )
 
 
@@ -477,7 +474,7 @@ st.divider()
 
 
 # ==========================================================
-# Exercises
+# Recommended Exercises
 # ==========================================================
 
 st.subheader(
@@ -497,17 +494,14 @@ if exercises:
                     "name",
                     "",
                 ),
-
                 "Duration": exercise.get(
                     "duration",
                     "",
                 ),
-
                 "Frequency": exercise.get(
                     "frequency",
                     "",
                 ),
-
                 "Description": exercise.get(
                     "description",
                     "",
@@ -515,10 +509,12 @@ if exercises:
             }
         )
 
+    exercise_df = pd.DataFrame(
+        exercise_data
+    )
+
     st.dataframe(
-        pd.DataFrame(
-            exercise_data
-        ),
+        exercise_df,
         use_container_width=True,
         hide_index=True,
     )
@@ -575,7 +571,7 @@ st.divider()
 
 
 # ==========================================================
-# Follow-up
+# Follow-up Plan
 # ==========================================================
 
 st.subheader(
@@ -628,7 +624,7 @@ st.divider()
 
 
 # ==========================================================
-# Download PDF
+# Download Report
 # ==========================================================
 
 st.subheader(
@@ -674,15 +670,10 @@ if isinstance(
         use_container_width=True,
     )
 
-
 elif isinstance(
     download_response,
     dict,
 ):
-
-    # ------------------------------------------------------
-    # Backend currently returns metadata rather than bytes.
-    # ------------------------------------------------------
 
     download_url = download_response.get(
         "download_url"
@@ -692,19 +683,15 @@ elif isinstance(
 
         st.info(
             "The report download endpoint is available, "
-            "but the backend has not generated the PDF file yet."
-        )
-
-        st.code(
-            download_url
+            "but the backend currently returns download "
+            "information rather than PDF file data."
         )
 
     else:
 
         st.warning(
-            "PDF report is not available yet."
+            "PDF report is not available."
         )
-
 
 else:
 
@@ -717,7 +704,7 @@ st.divider()
 
 
 # ==========================================================
-# Export Current Report List
+# Export Reports CSV
 # ==========================================================
 
 st.subheader(
