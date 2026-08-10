@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse
 
 from app.dependencies import get_current_user
 
@@ -8,7 +7,7 @@ from app.schemas.report import (
     ReportResponse,
 )
 
-from app.services.report_service import ReportService
+from app.services.report_service import report_service
 
 
 # ==========================================================
@@ -18,9 +17,6 @@ from app.services.report_service import ReportService
 router = APIRouter(
     tags=["Reports"]
 )
-
-
-report_service = ReportService()
 
 
 # ==========================================================
@@ -37,14 +33,16 @@ def generate_report(
     current_user=Depends(get_current_user),
 ):
     """
-    Generate a patient report.
+    Generate a patient report manually.
     """
 
     try:
 
-        return report_service.generate_report(
+        report = report_service.generate_report(
             request=request
         )
+
+        return report
 
     except ValueError as e:
 
@@ -72,14 +70,63 @@ def get_reports(
     current_user=Depends(get_current_user),
 ):
     """
-    Return all reports.
+    Return all generated reports.
     """
 
     return report_service.get_reports()
 
 
 # ==========================================================
-# Get Report
+# Get Patient Reports
+# ==========================================================
+
+@router.get(
+    "/patient/{patient_id}",
+)
+def get_patient_reports(
+    patient_id: int,
+    current_user=Depends(get_current_user),
+):
+    """
+    Return all reports belonging to a patient.
+    """
+
+    return report_service.get_patient_reports(
+        patient_id=patient_id
+    )
+
+
+# ==========================================================
+# Download Report
+# ==========================================================
+
+@router.get(
+    "/{report_id}/download",
+)
+def download_report(
+    report_id: int,
+    current_user=Depends(get_current_user),
+):
+    """
+    Return report download information.
+    """
+
+    report = report_service.download_report(
+        report_id=report_id
+    )
+
+    if report is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+
+    return report
+
+
+# ==========================================================
+# Get Report By ID
 # ==========================================================
 
 @router.get(
@@ -90,11 +137,11 @@ def get_report(
     current_user=Depends(get_current_user),
 ):
     """
-    Return a report by ID.
+    Retrieve one report by ID.
     """
 
     report = report_service.get_report(
-        report_id
+        report_id=report_id
     )
 
     if report is None:
@@ -105,57 +152,6 @@ def get_report(
         )
 
     return report
-
-
-# ==========================================================
-# Download Report
-# ==========================================================
-
-@router.get(
-    "/{report_id}/download"
-)
-def download_report(
-    report_id: int,
-    current_user=Depends(get_current_user),
-):
-    """
-    Download PDF report.
-    """
-
-    report = report_service.download_report(
-        report_id
-    )
-
-    if report is None:
-
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Report not found.",
-        )
-
-    # The current service returns download metadata,
-    # not an actual PDF file.
-    return report
-
-
-# ==========================================================
-# Patient Reports
-# ==========================================================
-
-@router.get(
-    "/patient/{patient_id}"
-)
-def patient_reports(
-    patient_id: int,
-    current_user=Depends(get_current_user),
-):
-    """
-    Return all reports for a patient.
-    """
-
-    return report_service.get_patient_reports(
-        patient_id
-    )
 
 
 # ==========================================================
@@ -163,16 +159,25 @@ def patient_reports(
 # ==========================================================
 
 @router.delete(
-    "/{report_id}"
+    "/{report_id}",
 )
 def delete_report(
     report_id: int,
     current_user=Depends(get_current_user),
 ):
     """
-    Delete a report.
+    Delete a report by ID.
     """
 
-    return report_service.delete_report(
-        report_id
+    result = report_service.delete_report(
+        report_id=report_id
     )
+
+    if result is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+
+    return result
