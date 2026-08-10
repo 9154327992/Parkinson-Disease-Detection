@@ -138,7 +138,7 @@ def get_patient_history():
 
 def get_patients():
 
-    return get("/patients")
+    return get("/prediction/history")
 
 
 def delete_patient(patient_id: int):
