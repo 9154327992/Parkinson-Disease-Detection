@@ -3,8 +3,9 @@ import pandas as pd
 
 from utils.api_client import (
     get_reports,
-    download_report
+    download_report,
 )
+
 
 # ==========================================================
 # Page Configuration
@@ -13,8 +14,9 @@ from utils.api_client import (
 st.set_page_config(
     page_title="Reports",
     page_icon="📄",
-    layout="wide"
+    layout="wide",
 )
+
 
 # ==========================================================
 # Header
@@ -30,25 +32,62 @@ View, search, download, and manage generated patient reports.
 
 st.divider()
 
+
 # ==========================================================
 # Load Reports
 # ==========================================================
 
-reports = get_reports()
+reports_response = get_reports()
 
-if reports is None:
+
+# ==========================================================
+# Handle Backend Error
+# ==========================================================
+
+if reports_response is None:
 
     st.error("Unable to load reports.")
 
     st.stop()
 
-if len(reports) == 0:
 
-    st.info("No reports available.")
+# ==========================================================
+# Handle Report Response
+# ==========================================================
+
+if isinstance(reports_response, dict):
+
+    reports = reports_response.get(
+        "reports",
+        []
+    )
+
+else:
+
+    reports = reports_response
+
+
+# ==========================================================
+# No Reports
+# ==========================================================
+
+if not reports:
+
+    st.info(
+        "No reports available."
+    )
 
     st.stop()
 
-df = pd.DataFrame(reports)
+
+# ==========================================================
+# Create DataFrame
+# ==========================================================
+
+df = pd.DataFrame(
+    reports
+)
+
 
 # ==========================================================
 # Search
@@ -60,15 +99,40 @@ search = st.text_input(
     "Search by Patient Name"
 )
 
+
 if search:
 
-    df = df[
-        df["patient_name"].str.contains(
-            search,
-            case=False,
-            na=False
+    if "patient_name" in df.columns:
+
+        df = df[
+            df["patient_name"]
+            .astype(str)
+            .str.contains(
+                search,
+                case=False,
+                na=False,
+            )
+        ]
+
+    else:
+
+        st.warning(
+            "Patient name is not available in the report data."
         )
-    ]
+
+
+# ==========================================================
+# Search Result Check
+# ==========================================================
+
+if df.empty:
+
+    st.info(
+        "No reports match your search."
+    )
+
+    st.stop()
+
 
 # ==========================================================
 # Reports Table
@@ -79,10 +143,12 @@ st.subheader("📋 Report List")
 st.dataframe(
     df,
     use_container_width=True,
-    hide_index=True
+    hide_index=True,
 )
 
+
 st.divider()
+
 
 # ==========================================================
 # Select Report
@@ -90,83 +156,233 @@ st.divider()
 
 st.subheader("📄 Report Details")
 
-selected_patient = st.selectbox(
-    "Select Patient",
-    df["patient_name"].tolist()
+
+if "report_id" not in df.columns:
+
+    st.error(
+        "Report ID is missing from the backend response."
+    )
+
+    st.stop()
+
+
+# ----------------------------------------------------------
+# Create readable report selection
+# ----------------------------------------------------------
+
+def report_label(row):
+
+    patient_name = row.get(
+        "patient_name",
+        "Patient"
+    )
+
+    report_name = row.get(
+        "report_name",
+        "Report"
+    )
+
+    report_id = row.get(
+        "report_id",
+        ""
+    )
+
+    return (
+        f"{patient_name} - "
+        f"{report_name} "
+        f"(ID: {report_id})"
+    )
+
+
+report_options = [
+    report_label(row)
+    for _, row in df.iterrows()
+]
+
+
+selected_report_label = st.selectbox(
+    "Select Report",
+    report_options,
 )
 
-report = df[
-    df["patient_name"] == selected_patient
-].iloc[0]
+
+selected_index = report_options.index(
+    selected_report_label
+)
+
+
+report = df.iloc[
+    selected_index
+]
+
+
+# ==========================================================
+# Report Information
+# ==========================================================
 
 left, right = st.columns(2)
 
+
 with left:
 
-    st.write("### Patient Information")
+    st.write("### 👤 Patient Information")
 
-    st.write(f"**Name:** {report['patient_name']}")
+    st.write(
+        f"**Name:** "
+        f"{report.get('patient_name', 'Not available')}"
+    )
 
-    st.write(f"**Diagnosis:** {report['diagnosis']}")
+    st.write(
+        f"**Patient ID:** "
+        f"{report.get('patient_id', 'Not available')}"
+    )
 
-    st.write(f"**Risk Level:** {report['risk_level']}")
 
 with right:
 
-    st.write("### Report")
+    st.write("### 📄 Report Information")
 
-    st.write(f"**Risk Score:** {report['risk_score']}%")
+    st.write(
+        f"**Report ID:** "
+        f"{report.get('report_id', 'Not available')}"
+    )
 
-    st.write(f"**Generated On:** {report['created_at']}")
+    st.write(
+        f"**Report Name:** "
+        f"{report.get('report_name', 'Not available')}"
+    )
+
+    st.write(
+        f"**Generated On:** "
+        f"{report.get('generated_at', 'Not available')}"
+    )
+
 
 st.divider()
 
+
 # ==========================================================
-# Recommendation
+# Report Details
 # ==========================================================
 
-st.subheader("💡 Recommendation")
+st.subheader("📋 Report Status")
 
-st.info(report["recommendation"])
+st.info(
+    """
+The report list currently contains report metadata.
+
+Detailed prediction information such as diagnosis,
+confidence, risk score, risk level, and recommendation
+will be displayed when the report is connected to the
+corresponding prediction record.
+"""
+)
+
 
 st.divider()
 
+
 # ==========================================================
-# Download PDF
+# Download Report
 # ==========================================================
 
 st.subheader("⬇ Download Report")
 
-pdf = download_report(report["id"])
 
-if pdf:
+report_id = int(
+    report["report_id"]
+)
 
-    st.download_button(
 
-        label="📄 Download PDF",
+download = download_report(
+    report_id
+)
 
-        data=pdf,
 
-        file_name=f"{report['patient_name']}_Report.pdf",
+if download:
 
-        mime="application/pdf",
+    # ------------------------------------------------------
+    # Actual PDF bytes
+    # ------------------------------------------------------
 
-        use_container_width=True
+    if isinstance(
+        download,
+        bytes
+    ):
 
-    )
+        patient_name = str(
+            report.get(
+                "patient_name",
+                "Patient"
+            )
+        )
+
+        st.download_button(
+            label="📄 Download PDF",
+
+            data=download,
+
+            file_name=(
+                f"{patient_name}_Report.pdf"
+            ),
+
+            mime="application/pdf",
+
+            use_container_width=True,
+        )
+
+    # ------------------------------------------------------
+    # Backend returned metadata
+    # ------------------------------------------------------
+
+    elif isinstance(
+        download,
+        dict
+    ):
+
+        st.info(
+            "PDF generation is not implemented yet."
+        )
+
+        download_url = download.get(
+            "download_url"
+        )
+
+        if download_url:
+
+            st.write(
+                f"Download endpoint: "
+                f"{download_url}"
+            )
+
+    else:
+
+        st.warning(
+            "PDF report is not available."
+        )
 
 else:
 
-    st.warning("PDF report not available.")
+    st.warning(
+        "PDF report is not available."
+    )
+
+
+st.divider()
+
 
 # ==========================================================
 # Export CSV
 # ==========================================================
 
-csv = df.to_csv(index=False)
+st.subheader("⬇ Export Reports")
+
+csv = df.to_csv(
+    index=False
+)
+
 
 st.download_button(
-
     label="⬇ Export Reports (CSV)",
 
     data=csv,
@@ -175,6 +391,5 @@ st.download_button(
 
     mime="text/csv",
 
-    use_container_width=True
-
+    use_container_width=True,
 )
