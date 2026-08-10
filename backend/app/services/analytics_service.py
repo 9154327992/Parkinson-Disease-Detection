@@ -1,9 +1,3 @@
-"""
-Analytics Service
-
-Business logic for analytics and dashboard data.
-"""
-
 from datetime import datetime
 from typing import List
 
@@ -23,17 +17,15 @@ from app.schemas.analytics import (
 
 class AnalyticsService:
     """
-    Service for dashboard analytics.
+    Service for analytics and dashboard data.
+
+    Current implementation uses the existing analytics
+    data structure. Database integration can be added later.
     """
 
     def __init__(self):
         """
         Initialize analytics service.
-
-        Future integrations:
-            - PredictionRepository
-            - PatientRepository
-            - ReportRepository
         """
         pass
 
@@ -60,9 +52,11 @@ class AnalyticsService:
     # Prediction Analytics
     # =====================================================
 
-    def prediction_statistics(self) -> PredictionAnalytics:
+    def prediction_statistics(
+        self,
+    ) -> PredictionAnalytics:
         """
-        Prediction statistics.
+        Return prediction statistics.
         """
 
         return PredictionAnalytics(
@@ -77,9 +71,11 @@ class AnalyticsService:
     # Patient Analytics
     # =====================================================
 
-    def patient_statistics(self) -> PatientAnalytics:
+    def patient_statistics(
+        self,
+    ) -> PatientAnalytics:
         """
-        Patient demographics.
+        Return patient demographic statistics.
         """
 
         return PatientAnalytics(
@@ -94,45 +90,87 @@ class AnalyticsService:
     # Monthly Trend
     # =====================================================
 
-    def monthly_trend(self) -> List[MonthlyTrend]:
+    def monthly_trend(
+        self,
+    ) -> List[MonthlyTrend]:
         """
-        Monthly prediction trend.
+        Return monthly prediction trend.
         """
 
         return [
-            MonthlyTrend(month="January", predictions=31),
-            MonthlyTrend(month="February", predictions=42),
-            MonthlyTrend(month="March", predictions=56),
-            MonthlyTrend(month="April", predictions=61),
-            MonthlyTrend(month="May", predictions=47),
-            MonthlyTrend(month="June", predictions=58),
-            MonthlyTrend(month="July", predictions=63),
+            MonthlyTrend(
+                month="January",
+                predictions=31,
+            ),
+            MonthlyTrend(
+                month="February",
+                predictions=42,
+            ),
+            MonthlyTrend(
+                month="March",
+                predictions=56,
+            ),
+            MonthlyTrend(
+                month="April",
+                predictions=61,
+            ),
+            MonthlyTrend(
+                month="May",
+                predictions=47,
+            ),
+            MonthlyTrend(
+                month="June",
+                predictions=58,
+            ),
+            MonthlyTrend(
+                month="July",
+                predictions=63,
+            ),
         ]
 
     # =====================================================
     # Age Distribution
     # =====================================================
 
-    def age_distribution(self) -> List[AgeDistribution]:
+    def age_distribution(
+        self,
+    ) -> List[AgeDistribution]:
         """
-        Age group distribution.
+        Return patient age distribution.
         """
 
         return [
-            AgeDistribution(age_group="40-50", count=54),
-            AgeDistribution(age_group="51-60", count=119),
-            AgeDistribution(age_group="61-70", count=221),
-            AgeDistribution(age_group="71-80", count=102),
-            AgeDistribution(age_group="81+", count=24),
+            AgeDistribution(
+                age_group="40-50",
+                count=54,
+            ),
+            AgeDistribution(
+                age_group="51-60",
+                count=119,
+            ),
+            AgeDistribution(
+                age_group="61-70",
+                count=221,
+            ),
+            AgeDistribution(
+                age_group="71-80",
+                count=102,
+            ),
+            AgeDistribution(
+                age_group="81+",
+                count=24,
+            ),
         ]
 
     # =====================================================
     # Gender Distribution
     # =====================================================
 
-    def gender_distribution(self) -> List[GenderDistribution]:
+    def gender_distribution(
+        self,
+    ) -> List[GenderDistribution]:
         """
-        Gender distribution.
+        Return gender distribution.
         """
 
         return [
@@ -154,9 +192,11 @@ class AnalyticsService:
     # Risk Distribution
     # =====================================================
 
-    def risk_distribution(self) -> List[RiskDistribution]:
+    def risk_distribution(
+        self,
+    ) -> List[RiskDistribution]:
         """
-        Risk level distribution.
+        Return risk distribution.
         """
 
         return [
@@ -178,9 +218,11 @@ class AnalyticsService:
     # Disease Distribution
     # =====================================================
 
-    def disease_distribution(self) -> List[DiseaseDistribution]:
+    def disease_distribution(
+        self,
+    ) -> List[DiseaseDistribution]:
         """
-        Healthy vs Parkinson.
+        Return healthy vs Parkinson distribution.
         """
 
         return [
@@ -198,9 +240,11 @@ class AnalyticsService:
     # Recent Predictions
     # =====================================================
 
-    def recent_predictions(self) -> List[RecentPrediction]:
+    def recent_predictions(
+        self,
+    ) -> List[RecentPrediction]:
         """
-        Recent predictions.
+        Return recent predictions.
         """
 
         return [
@@ -226,9 +270,11 @@ class AnalyticsService:
     # Complete Dashboard
     # =====================================================
 
-    def analytics_summary(self) -> AnalyticsSummary:
+    def analytics_summary(
+        self,
+    ) -> AnalyticsSummary:
         """
-        Complete analytics response.
+        Return complete analytics dashboard.
         """
 
         return AnalyticsSummary(
@@ -242,3 +288,19 @@ class AnalyticsService:
             disease_distribution=self.disease_distribution(),
             recent_predictions=self.recent_predictions(),
         )
+
+    # =====================================================
+    # Compatibility Alias
+    # =====================================================
+
+    def summary(
+        self,
+    ) -> AnalyticsSummary:
+        """
+        Compatibility method for the API route.
+
+        The route can call summary(), while the main
+        implementation remains analytics_summary().
+        """
+
+        return self.analytics_summary()
