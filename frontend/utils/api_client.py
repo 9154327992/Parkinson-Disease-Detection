@@ -232,7 +232,7 @@ def get_analytics():
 def ask_ai_assistant(question: str):
 
     payload = {
-        "question": question
+        "message": question
     }
 
     return post(
