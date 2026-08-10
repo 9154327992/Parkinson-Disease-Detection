@@ -44,6 +44,10 @@ st.divider()
 # ==========================================================
 
 def ask_question(question: str):
+    """
+    Send the question to the FastAPI chatbot
+    and save the response in the conversation.
+    """
 
     question = question.strip()
 
@@ -51,7 +55,7 @@ def ask_question(question: str):
         return
 
     # ------------------------------------------------------
-    # Add user question to conversation
+    # Add User Question
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
@@ -81,36 +85,21 @@ def ask_question(question: str):
             "Unable to connect to the AI Assistant."
         )
 
-        st.session_state.chat_history.append(
-            {
-                "role": "assistant",
-                "content": answer
-            }
+    else:
+
+        answer = response.get(
+            "response",
+            "No response received from the AI Assistant."
         )
 
-        return
-
     # ------------------------------------------------------
-    # Get AI Response
-    # ------------------------------------------------------
-
-    answer = response.get(
-        "response",
-        "No response received from the AI Assistant."
-    )
-
-    # ------------------------------------------------------
-    # Save Assistant Response
+    # Add AI Response
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
         {
             "role": "assistant",
-            "content": answer,
-            "sources": response.get(
-                "sources",
-                []
-            )
+            "content": answer
         }
     )
 
@@ -188,24 +177,6 @@ else:
                 message["content"]
             )
 
-            # --------------------------------------------------
-            # Sources
-            # --------------------------------------------------
-
-            if message["role"] == "assistant":
-
-                sources = message.get(
-                    "sources",
-                    []
-                )
-
-                if sources:
-
-                    st.caption(
-                        "Sources: "
-                        + ", ".join(sources)
-                    )
-
 
 # ==========================================================
 # User Input
@@ -228,7 +199,7 @@ if question:
 
 
 # ==========================================================
-# Clear Chat
+# Clear Conversation
 # ==========================================================
 
 st.divider()
