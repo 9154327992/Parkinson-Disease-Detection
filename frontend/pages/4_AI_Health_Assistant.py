@@ -1,5 +1,7 @@
 import streamlit as st
+
 from utils.api_client import ask_ai_assistant
+
 
 # ==========================================================
 # Page Configuration
@@ -11,12 +13,14 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # ==========================================================
 # Session State
 # ==========================================================
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+
 
 # ==========================================================
 # Header
@@ -27,11 +31,89 @@ st.title("🤖 AI Health Assistant")
 st.write(
     """
 Ask questions about Parkinson's Disease, symptoms, diagnosis,
-exercise, medication, and healthy lifestyle recommendations.
+exercise, medication, nutrition, and healthy lifestyle
+recommendations.
 """
 )
 
 st.divider()
+
+
+# ==========================================================
+# Function: Ask AI
+# ==========================================================
+
+def ask_question(question: str):
+
+    question = question.strip()
+
+    if not question:
+        return
+
+    # ------------------------------------------------------
+    # Add user question to conversation
+    # ------------------------------------------------------
+
+    st.session_state.chat_history.append(
+        {
+            "role": "user",
+            "content": question
+        }
+    )
+
+    # ------------------------------------------------------
+    # Ask Backend
+    # ------------------------------------------------------
+
+    with st.spinner("AI is thinking..."):
+
+        response = ask_ai_assistant(
+            question
+        )
+
+    # ------------------------------------------------------
+    # Handle Backend Error
+    # ------------------------------------------------------
+
+    if response is None:
+
+        answer = (
+            "Unable to connect to the AI Assistant."
+        )
+
+        st.session_state.chat_history.append(
+            {
+                "role": "assistant",
+                "content": answer
+            }
+        )
+
+        return
+
+    # ------------------------------------------------------
+    # Get AI Response
+    # ------------------------------------------------------
+
+    answer = response.get(
+        "response",
+        "No response received from the AI Assistant."
+    )
+
+    # ------------------------------------------------------
+    # Save Assistant Response
+    # ------------------------------------------------------
+
+    st.session_state.chat_history.append(
+        {
+            "role": "assistant",
+            "content": answer,
+            "sources": response.get(
+                "sources",
+                []
+            )
+        }
+    )
+
 
 # ==========================================================
 # Suggested Questions
@@ -39,37 +121,47 @@ st.divider()
 
 st.subheader("💡 Suggested Questions")
 
+suggested_questions = [
+    "What is Parkinson's Disease?",
+    "What causes hand tremors?",
+    "What are the early symptoms?",
+    "Is Parkinson curable?",
+    "How is Parkinson diagnosed?",
+    "What foods are recommended?",
+    "Which exercises are beneficial?",
+    "How can stress be reduced?",
+    "Explain Bradykinesia.",
+    "Explain Voice Disorders."
+]
+
+
+# ==========================================================
+# Suggested Question Buttons
+# ==========================================================
+
 col1, col2 = st.columns(2)
 
-with col1:
+for index, question in enumerate(
+    suggested_questions
+):
 
-    st.markdown("""
-- What is Parkinson's Disease?
+    column = col1 if index % 2 == 0 else col2
 
-- What causes hand tremors?
+    with column:
 
-- What are the early symptoms?
+        if st.button(
+            question,
+            key=f"suggested_question_{index}",
+            use_container_width=True
+        ):
 
-- Is Parkinson curable?
+            ask_question(question)
 
-- How is Parkinson diagnosed?
-""")
+            st.rerun()
 
-with col2:
-
-    st.markdown("""
-- What foods are recommended?
-
-- Which exercises are beneficial?
-
-- How can stress be reduced?
-
-- Explain Bradykinesia.
-
-- Explain Voice Disorders.
-""")
 
 st.divider()
+
 
 # ==========================================================
 # Chat Messages
@@ -77,11 +169,43 @@ st.divider()
 
 st.subheader("💬 Conversation")
 
-for message in st.session_state.chat_history:
+if not st.session_state.chat_history:
 
-    with st.chat_message(message["role"]):
+    st.info(
+        "Select a suggested question or type your "
+        "own question below."
+    )
 
-        st.markdown(message["content"])
+else:
+
+    for message in st.session_state.chat_history:
+
+        with st.chat_message(
+            message["role"]
+        ):
+
+            st.markdown(
+                message["content"]
+            )
+
+            # --------------------------------------------------
+            # Sources
+            # --------------------------------------------------
+
+            if message["role"] == "assistant":
+
+                sources = message.get(
+                    "sources",
+                    []
+                )
+
+                if sources:
+
+                    st.caption(
+                        "Sources: "
+                        + ", ".join(sources)
+                    )
+
 
 # ==========================================================
 # User Input
@@ -91,45 +215,17 @@ question = st.chat_input(
     "Ask your medical question..."
 )
 
+
 # ==========================================================
-# AI Response
+# Process User Input
 # ==========================================================
 
 if question:
 
-    st.session_state.chat_history.append(
-        {
-            "role": "user",
-            "content": question
-        }
-    )
+    ask_question(question)
 
-    with st.chat_message("user"):
-        st.markdown(question)
+    st.rerun()
 
-    with st.spinner("AI is thinking..."):
-
-        response = ask_ai_assistant(question)
-
-    if response is None:
-
-        answer = (
-            "Unable to connect to the AI Assistant."
-        )
-
-    else:
-
-        answer = response["response"]
-
-    st.session_state.chat_history.append(
-        {
-            "role": "assistant",
-            "content": answer
-        }
-    )
-
-    with st.chat_message("assistant"):
-        st.markdown(answer)
 
 # ==========================================================
 # Clear Chat
