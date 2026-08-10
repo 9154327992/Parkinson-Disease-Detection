@@ -236,7 +236,7 @@ def ask_ai_assistant(question: str):
     }
 
     return post(
-        "/chatbot",
+        "/chatbot/chat",
         payload
     )
 
