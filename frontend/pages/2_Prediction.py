@@ -123,9 +123,9 @@ if st.button(
     use_container_width=True
 ):
 
-    if patient_name.strip() == "":
+    if len(patient_name.strip()) < 3:
 
-        st.warning("Please enter the patient name.")
+        st.warning("Patient name must contain at least 3 characters.")
 
         st.stop()
 
