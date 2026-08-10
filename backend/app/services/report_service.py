@@ -17,6 +17,11 @@ from app.schemas.report import (
     DeleteReportResponse,
 )
 
+from app.schemas.prediction import (
+    PredictionRequest,
+    PredictionResponse,
+)
+
 
 class ReportService:
     """
@@ -37,15 +42,20 @@ class ReportService:
         self._next_report_id = 1
 
     # ==========================================================
-    # Generate Report
+    # Generate Report From Prediction
     # ==========================================================
 
-    def generate_report(
+    def generate_from_prediction(
         self,
-        request: ReportRequest,
+        request: PredictionRequest,
+        prediction: PredictionResponse,
     ) -> ReportResponse:
         """
-        Generate a patient report.
+        Automatically generate a report from a completed
+        prediction.
+
+        This keeps the patient information and prediction
+        information together.
         """
 
         report_id = self._next_report_id
@@ -53,9 +63,84 @@ class ReportService:
         self._next_report_id += 1
 
         report = ReportResponse(
+
             metadata=ReportMetadata(
                 report_id=report_id,
-                report_name="Parkinson Disease Assessment Report",
+                report_name=(
+                    "Parkinson Disease Assessment Report"
+                ),
+                report_type="PDF",
+                generated_by="System",
+                generated_at=datetime.utcnow(),
+                version="1.0.0",
+            ),
+
+            patient=ReportPatient(
+                patient_id=prediction.patient_id,
+                full_name=request.patient_name,
+                age=request.age,
+                gender=request.gender,
+                medical_history=None,
+            ),
+
+            prediction=PredictionSummary(
+                prediction=prediction.prediction,
+                confidence=prediction.confidence,
+                risk_score=prediction.risk_score,
+                risk_level=prediction.risk_level,
+                recommendation=prediction.recommendation,
+            ),
+
+            recommendations=self._recommendations(),
+
+            exercises=self._exercises(),
+
+            medication=self._medication(),
+
+            follow_up=FollowUpPlan(
+                next_visit=(
+                    "As recommended by a healthcare professional"
+                ),
+                specialist="Neurologist",
+                notes=(
+                    "Review the prediction results with "
+                    "a qualified healthcare professional."
+                ),
+            ),
+
+            doctor_notes=None,
+        )
+
+        self._reports[report_id] = report
+
+        return report
+
+    # ==========================================================
+    # Generate Manual Report
+    # ==========================================================
+
+    def generate_report(
+        self,
+        request: ReportRequest,
+    ) -> ReportResponse:
+        """
+        Generate a report manually.
+
+        This method is retained for compatibility with the
+        Reports API.
+        """
+
+        report_id = self._next_report_id
+
+        self._next_report_id += 1
+
+        report = ReportResponse(
+
+            metadata=ReportMetadata(
+                report_id=report_id,
+                report_name=(
+                    "Parkinson Disease Assessment Report"
+                ),
                 report_type="PDF",
                 generated_by="System",
                 generated_at=datetime.utcnow(),
@@ -81,19 +166,41 @@ class ReportService:
                 ),
             ),
 
-            recommendations=self._recommendations(),
+            recommendations=(
+                self._recommendations()
+                if request.include_recommendations
+                else []
+            ),
 
-            exercises=self._exercises(),
+            exercises=(
+                self._exercises()
+                if request.include_exercises
+                else []
+            ),
 
-            medication=self._medication(),
+            medication=(
+                self._medication()
+                if request.include_medication
+                else []
+            ),
 
-            follow_up=FollowUpPlan(
-                next_visit="As recommended by healthcare professional",
-                specialist="Neurologist",
-                notes=(
-                    "Review the prediction together with "
-                    "a qualified healthcare professional."
-                ),
+            follow_up=(
+                FollowUpPlan(
+                    next_visit=(
+                        "As recommended by a healthcare professional"
+                    ),
+                    specialist="Neurologist",
+                    notes=(
+                        "Review the report with a "
+                        "qualified healthcare professional."
+                    ),
+                )
+                if request.include_follow_up
+                else FollowUpPlan(
+                    next_visit="Not included",
+                    specialist="Not specified",
+                    notes="Follow-up section was not requested.",
+                )
             ),
 
             doctor_notes=request.doctor_notes,
@@ -123,11 +230,11 @@ class ReportService:
     # Get All Reports
     # ==========================================================
 
-    def get_reports(self) -> ReportList:
+    def get_reports(
+        self,
+    ) -> ReportList:
         """
         Return all generated reports.
-
-        No fake patient records are returned.
         """
 
         reports: List[ReportSummary] = []
@@ -137,8 +244,12 @@ class ReportService:
             reports.append(
                 ReportSummary(
                     report_id=report_id,
-                    patient_id=report.patient.patient_id,
-                    patient_name=report.patient.full_name,
+                    patient_id=(
+                        report.patient.patient_id
+                    ),
+                    patient_name=(
+                        report.patient.full_name
+                    ),
                     report_name=(
                         report.metadata.report_name
                     ),
@@ -236,7 +347,9 @@ class ReportService:
 
             return None
 
-        del self._reports[report_id]
+        del self._reports[
+            report_id
+        ]
 
         return DeleteReportResponse(
             message=(
@@ -257,6 +370,7 @@ class ReportService:
         """
 
         return [
+
             RecommendationItem(
                 title="Lifestyle",
                 description=(
@@ -272,6 +386,7 @@ class ReportService:
                     "fruits, vegetables, and whole grains."
                 ),
             ),
+
         ]
 
     # ==========================================================
@@ -286,6 +401,7 @@ class ReportService:
         """
 
         return [
+
             ExerciseItem(
                 name="Walking",
                 duration="30 minutes",
@@ -305,6 +421,7 @@ class ReportService:
                     "mobility and stability."
                 ),
             ),
+
         ]
 
     # ==========================================================
@@ -321,6 +438,7 @@ class ReportService:
         """
 
         return [
+
             MedicationItem(
                 title="Medication Guidance",
                 description=(
@@ -336,4 +454,5 @@ class ReportService:
                     "without professional medical advice."
                 ),
             ),
+
         ]
