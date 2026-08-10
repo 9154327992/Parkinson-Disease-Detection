@@ -1,7 +1,3 @@
-"""
-AI Health Assistant Routes
-"""
-
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies import get_current_user
@@ -42,8 +38,7 @@ def chat(
     try:
 
         return chatbot_service.chat(
-            request=request,
-            user=current_user
+            request=request
         )
 
     except ValueError as e:
