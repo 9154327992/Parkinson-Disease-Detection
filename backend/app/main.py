@@ -67,7 +67,6 @@ app.include_router(
 
 app.include_router(
     chatbot_router,
-    prefix="/chatbot",
     tags=["AI Chatbot"],
 )
 
