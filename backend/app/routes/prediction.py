@@ -6,14 +6,27 @@ from app.schemas.prediction import (
 )
 
 from app.services.prediction_service import PredictionService
+from app.services.report_service import ReportService
 
 from app.dependencies import get_current_user
+
+
+# ==========================================================
+# Router
+# ==========================================================
 
 router = APIRouter(
     tags=["Prediction"]
 )
 
+
+# ==========================================================
+# Services
+# ==========================================================
+
 prediction_service = PredictionService()
+
+report_service = ReportService()
 
 
 # ==========================================================
@@ -26,15 +39,37 @@ prediction_service = PredictionService()
     status_code=status.HTTP_200_OK,
 )
 def predict(
-    request: PredictionRequest
+    request: PredictionRequest,
 ):
     """
-    Predict Parkinson Disease using the trained ML model.
+    Predict Parkinson Disease.
+
+    After a successful prediction, a patient report
+    is automatically generated from the same prediction.
     """
 
     try:
 
-        result = prediction_service.predict(request)
+        # --------------------------------------------------
+        # Run prediction
+        # --------------------------------------------------
+
+        result = prediction_service.predict(
+            request
+        )
+
+        # --------------------------------------------------
+        # Automatically generate report
+        # --------------------------------------------------
+
+        report_service.generate_from_prediction(
+            request=request,
+            prediction=result,
+        )
+
+        # --------------------------------------------------
+        # Return prediction result
+        # --------------------------------------------------
 
         return result
 
@@ -42,28 +77,14 @@ def predict(
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail=str(e),
         )
 
     except Exception as e:
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Prediction failed: {str(e)}"
-        )
-
-    except ValueError as e:
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-    except Exception as e:
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Prediction failed: {str(e)}"
+            detail=f"Prediction failed: {str(e)}",
         )
 
 
@@ -76,7 +97,7 @@ def predict(
     status_code=status.HTTP_200_OK,
 )
 def model_information(
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Return ML model information.
@@ -94,7 +115,7 @@ def model_information(
     status_code=status.HTTP_200_OK,
 )
 def prediction_statistics(
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Return prediction statistics.
@@ -112,7 +133,7 @@ def prediction_statistics(
     status_code=status.HTTP_200_OK,
 )
 def prediction_history(
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Return prediction history for the current user.
@@ -133,7 +154,7 @@ def prediction_history(
 )
 def prediction_by_id(
     prediction_id: int,
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Retrieve a prediction by its ID.
@@ -147,7 +168,7 @@ def prediction_by_id(
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prediction not found."
+            detail="Prediction not found.",
         )
 
     return prediction
@@ -163,7 +184,7 @@ def prediction_by_id(
 )
 def delete_prediction(
     prediction_id: int,
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     """
     Delete a prediction record.
@@ -177,7 +198,7 @@ def delete_prediction(
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prediction not found."
+            detail="Prediction not found.",
         )
 
     return {
