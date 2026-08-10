@@ -73,8 +73,8 @@ class PredictionService:
             risk_level
         )
 
-        return PredictionResponse(
-            prediction_id=1,
+        response = PredictionResponse(
+            prediction_id=len(self.history) + 1,
             patient_id=1,
             prediction=prediction,
             prediction_value=prediction_value,
@@ -86,6 +86,20 @@ class PredictionService:
             model_version="1.0.0",
             created_at=datetime.utcnow(),
         )
+
+        history_item = PredictionHistory(
+            prediction_id=response.prediction_id,
+            patient_id=response.patient_id,
+            patient_name="Patient",
+            prediction=response.prediction,
+            confidence=response.confidence,
+            risk_level=response.risk_level,
+            created_at=response.created_at,
+        )
+
+        self.history.append(history_item)
+
+        return response
 
     # =====================================================
     # Recommendation
@@ -130,23 +144,13 @@ class PredictionService:
 
     def get_history(
         self,
-        patient_id: int,
+        patient_id: int = 1,
     ) -> List[PredictionHistory]:
         """
         Return prediction history.
         """
 
-        return [
-            PredictionHistory(
-                prediction_id=1,
-                patient_id=patient_id,
-                patient_name="John Doe",
-                prediction="Parkinson Detected",
-                confidence=96.4,
-                risk_level="High Risk",
-                created_at=datetime.utcnow(),
-            )
-        ]
+        return self.history
 
     # =====================================================
     # Prediction Details
