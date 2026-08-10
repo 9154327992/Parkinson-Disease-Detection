@@ -27,9 +27,11 @@ class ReportService:
     """
     Handles patient report generation.
 
-    Current implementation uses in-memory storage.
-    Replace the in-memory storage with a database repository
-    when database integration is added.
+    Reports are currently stored in memory.
+
+    A shared service instance is created at the bottom of this
+    file so prediction.py and reports.py use the SAME report
+    storage.
     """
 
     def __init__(self):
@@ -37,7 +39,15 @@ class ReportService:
         Initialize report service.
         """
 
+        # --------------------------------------------------
+        # Report storage
+        # --------------------------------------------------
+
         self._reports: Dict[int, ReportResponse] = {}
+
+        # --------------------------------------------------
+        # Report ID counter
+        # --------------------------------------------------
 
         self._next_report_id = 1
 
@@ -54,13 +64,21 @@ class ReportService:
         Automatically generate a report from a completed
         prediction.
 
-        This keeps the patient information and prediction
-        information together.
+        Uses the actual patient information and the actual
+        prediction result.
         """
+
+        # --------------------------------------------------
+        # Generate report ID
+        # --------------------------------------------------
 
         report_id = self._next_report_id
 
         self._next_report_id += 1
+
+        # --------------------------------------------------
+        # Create report
+        # --------------------------------------------------
 
         report = ReportResponse(
 
@@ -75,6 +93,10 @@ class ReportService:
                 version="1.0.0",
             ),
 
+            # --------------------------------------------------
+            # Actual patient information
+            # --------------------------------------------------
+
             patient=ReportPatient(
                 patient_id=prediction.patient_id,
                 full_name=request.patient_name,
@@ -83,6 +105,10 @@ class ReportService:
                 medical_history=None,
             ),
 
+            # --------------------------------------------------
+            # Actual prediction information
+            # --------------------------------------------------
+
             prediction=PredictionSummary(
                 prediction=prediction.prediction,
                 confidence=prediction.confidence,
@@ -90,6 +116,10 @@ class ReportService:
                 risk_level=prediction.risk_level,
                 recommendation=prediction.recommendation,
             ),
+
+            # --------------------------------------------------
+            # Additional report sections
+            # --------------------------------------------------
 
             recommendations=self._recommendations(),
 
@@ -111,6 +141,10 @@ class ReportService:
             doctor_notes=None,
         )
 
+        # --------------------------------------------------
+        # Save report
+        # --------------------------------------------------
+
         self._reports[report_id] = report
 
         return report
@@ -126,13 +160,78 @@ class ReportService:
         """
         Generate a report manually.
 
-        This method is retained for compatibility with the
-        Reports API.
+        This method is retained for the POST /reports/
+        endpoint.
         """
+
+        # --------------------------------------------------
+        # Generate report ID
+        # --------------------------------------------------
 
         report_id = self._next_report_id
 
         self._next_report_id += 1
+
+        # --------------------------------------------------
+        # Recommendations
+        # --------------------------------------------------
+
+        recommendations = (
+            self._recommendations()
+            if request.include_recommendations
+            else []
+        )
+
+        # --------------------------------------------------
+        # Exercises
+        # --------------------------------------------------
+
+        exercises = (
+            self._exercises()
+            if request.include_exercises
+            else []
+        )
+
+        # --------------------------------------------------
+        # Medication
+        # --------------------------------------------------
+
+        medication = (
+            self._medication()
+            if request.include_medication
+            else []
+        )
+
+        # --------------------------------------------------
+        # Follow-up
+        # --------------------------------------------------
+
+        if request.include_follow_up:
+
+            follow_up = FollowUpPlan(
+                next_visit=(
+                    "As recommended by a healthcare professional"
+                ),
+                specialist="Neurologist",
+                notes=(
+                    "Review the report with a "
+                    "qualified healthcare professional."
+                ),
+            )
+
+        else:
+
+            follow_up = FollowUpPlan(
+                next_visit="Not included",
+                specialist="Not specified",
+                notes=(
+                    "Follow-up section was not requested."
+                ),
+            )
+
+        # --------------------------------------------------
+        # Create report
+        # --------------------------------------------------
 
         report = ReportResponse(
 
@@ -166,45 +265,20 @@ class ReportService:
                 ),
             ),
 
-            recommendations=(
-                self._recommendations()
-                if request.include_recommendations
-                else []
-            ),
+            recommendations=recommendations,
 
-            exercises=(
-                self._exercises()
-                if request.include_exercises
-                else []
-            ),
+            exercises=exercises,
 
-            medication=(
-                self._medication()
-                if request.include_medication
-                else []
-            ),
+            medication=medication,
 
-            follow_up=(
-                FollowUpPlan(
-                    next_visit=(
-                        "As recommended by a healthcare professional"
-                    ),
-                    specialist="Neurologist",
-                    notes=(
-                        "Review the report with a "
-                        "qualified healthcare professional."
-                    ),
-                )
-                if request.include_follow_up
-                else FollowUpPlan(
-                    next_visit="Not included",
-                    specialist="Not specified",
-                    notes="Follow-up section was not requested.",
-                )
-            ),
+            follow_up=follow_up,
 
             doctor_notes=request.doctor_notes,
         )
+
+        # --------------------------------------------------
+        # Save report
+        # --------------------------------------------------
 
         self._reports[report_id] = report
 
@@ -244,15 +318,19 @@ class ReportService:
             reports.append(
                 ReportSummary(
                     report_id=report_id,
+
                     patient_id=(
                         report.patient.patient_id
                     ),
+
                     patient_name=(
                         report.patient.full_name
                     ),
+
                     report_name=(
                         report.metadata.report_name
                     ),
+
                     generated_at=(
                         report.metadata.generated_at
                     ),
@@ -281,20 +359,25 @@ class ReportService:
         for report_id, report in self._reports.items():
 
             if report.patient.patient_id != patient_id:
+
                 continue
 
             reports.append(
                 ReportSummary(
                     report_id=report_id,
+
                     patient_id=(
                         report.patient.patient_id
                     ),
+
                     patient_name=(
                         report.patient.full_name
                     ),
+
                     report_name=(
                         report.metadata.report_name
                     ),
+
                     generated_at=(
                         report.metadata.generated_at
                     ),
@@ -397,7 +480,7 @@ class ReportService:
         self,
     ) -> List[ExerciseItem]:
         """
-        Return general exercise information.
+        Return general educational exercise information.
         """
 
         return [
@@ -456,3 +539,10 @@ class ReportService:
             ),
 
         ]
+
+
+# ==========================================================
+# Shared Report Service
+# ==========================================================
+
+report_service = ReportService()
