@@ -90,7 +90,7 @@ class PredictionService:
         history_item = PredictionHistory(
             prediction_id=response.prediction_id,
             patient_id=response.patient_id,
-            patient_name="Patient",
+            patient_name=request.patient_name,
             prediction=response.prediction,
             confidence=response.confidence,
             risk_level=response.risk_level,
