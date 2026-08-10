@@ -2,6 +2,7 @@ import requests
 from typing import Optional, Dict, List
 import streamlit as st
 
+
 # ==========================================================
 # Backend Configuration
 # ==========================================================
@@ -12,7 +13,7 @@ TIMEOUT = 30
 
 
 # ==========================================================
-# Generic Request Functions
+# Generic GET Request
 # ==========================================================
 
 def get(endpoint: str):
@@ -34,23 +35,27 @@ def get(endpoint: str):
 
         return response.json()
 
-    except Exception as e:
+    except requests.RequestException as e:
+
         st.error(f"Error: {e}")
+
         return None
 
 
-import requests
-import streamlit as st
+# ==========================================================
+# Generic POST Request
+# ==========================================================
 
 def post(endpoint: str, data: dict):
 
     url = f"{BASE_URL}{endpoint}"
 
     try:
+
         response = requests.post(
             url,
             json=data,
-            timeout=30
+            timeout=TIMEOUT
         )
 
         st.write("URL:", url)
@@ -61,10 +66,16 @@ def post(endpoint: str, data: dict):
 
         return response.json()
 
-    except Exception as e:
+    except requests.RequestException as e:
+
         st.error(f"Error: {e}")
+
         return None
 
+
+# ==========================================================
+# Generic PUT Request
+# ==========================================================
 
 def put(endpoint: str, data: Dict):
 
@@ -84,6 +95,10 @@ def put(endpoint: str, data: Dict):
 
         return None
 
+
+# ==========================================================
+# Generic DELETE Request
+# ==========================================================
 
 def delete(endpoint: str):
 
@@ -128,17 +143,32 @@ def predict_patient(
 
 
 # ==========================================================
-# Patient History
+# Prediction History
+# ==========================================================
+
+def get_prediction_history():
+
+    return get(
+        "/prediction/history"
+    )
+
+
+# ==========================================================
+# Patient History / Patients
 # ==========================================================
 
 def get_patient_history():
 
-    return get("/prediction/history")
+    return get(
+        "/prediction/history"
+    )
 
 
 def get_patients():
 
-    return get("/prediction/history")
+    return get(
+        "/patients"
+    )
 
 
 def delete_patient(patient_id: int):
@@ -154,7 +184,9 @@ def delete_patient(patient_id: int):
 
 def get_reports():
 
-    return get("/reports")
+    return get(
+        "/reports"
+    )
 
 
 def download_report(report_id):
@@ -181,7 +213,9 @@ def download_report(report_id):
 
 def get_analytics():
 
-    return get("/analytics")
+    return get(
+        "/analytics"
+    )
 
 
 # ==========================================================
@@ -206,12 +240,16 @@ def ask_ai_assistant(question: str):
 
 def get_admin_dashboard():
 
-    return get("/admin/dashboard")
+    return get(
+        "/admin/dashboard"
+    )
 
 
 def get_users():
 
-    return get("/users")
+    return get(
+        "/users"
+    )
 
 
 def delete_user(user_id):
@@ -227,7 +265,9 @@ def delete_user(user_id):
 
 def get_user_settings():
 
-    return get("/settings")
+    return get(
+        "/settings"
+    )
 
 
 def update_user_settings(data):
@@ -238,7 +278,10 @@ def update_user_settings(data):
     )
 
 
-def change_password(current_password, new_password):
+def change_password(
+    current_password,
+    new_password
+):
 
     payload = {
         "current_password": current_password,
