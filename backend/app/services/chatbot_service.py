@@ -1,12 +1,3 @@
-"""
-Chatbot Service
-
-AI Health Assistant for Parkinson Disease Detection System.
-
-This service provides educational information only.
-It does NOT diagnose diseases or prescribe treatments.
-"""
-
 from datetime import datetime
 from uuid import uuid4
 
@@ -34,6 +25,8 @@ class ChatbotService:
 
     def __init__(self):
         """
+        Initialize chatbot service.
+
         In production integrate with:
 
         - OpenAI / Local LLM
@@ -65,6 +58,7 @@ class ChatbotService:
             request.message
         )
 
+        # Store user message
         message = ChatMessage(
             role="user",
             content=request.message,
@@ -76,6 +70,7 @@ class ChatbotService:
             []
         ).append(message)
 
+        # Store assistant response
         self._history[conversation_id].append(
             ChatMessage(
                 role="assistant",
@@ -108,42 +103,372 @@ class ChatbotService:
         message: str,
     ) -> str:
         """
-        Simple rule-based chatbot.
+        Generate an educational response based on
+        the user's message.
 
-        Replace with an LLM in production.
+        This is a rule-based chatbot.
+        It does not provide diagnosis or prescribe treatment.
         """
 
-        text = message.lower()
+        text = message.lower().strip()
 
-        if "symptom" in text:
+        # =================================================
+        # Greeting
+        # =================================================
+
+        if text in {
+            "hi",
+            "hello",
+            "hey",
+            "good morning",
+            "good afternoon",
+            "good evening",
+        }:
+
             return (
-                "Common symptoms include tremor, stiffness, "
-                "slowed movement, and balance difficulties. "
-                "Consult a healthcare professional for diagnosis."
+                "Hello! 👋 I am the Parkinson Disease "
+                "AI Health Assistant.\n\n"
+                "I can provide educational information about "
+                "Parkinson disease, symptoms, causes, risk factors, "
+                "diagnosis, treatment, exercise, prediction results, "
+                "and healthy habits.\n\n"
+                "How can I help you?"
             )
 
-        if "high risk" in text:
+        # =================================================
+        # What is Parkinson Disease?
+        # =================================================
+
+        if (
+            "what is parkinson" in text
+            or "what's parkinson" in text
+            or "define parkinson" in text
+            or "about parkinson" in text
+            or "parkinson disease" in text
+            or "parkinson's disease" in text
+        ):
+
+            information = self.parkinson_information()
+
             return (
-                "A high-risk prediction means the machine learning "
-                "model found patterns associated with Parkinson disease. "
-                "It is not a diagnosis."
+                f"{information.definition}\n\n"
+                f"**Common symptoms:** "
+                f"{', '.join(information.symptoms)}.\n\n"
+                f"**Diagnosis:** "
+                f"{', '.join(information.diagnosis)}.\n\n"
+                f"{information.disclaimer}"
             )
 
-        if "prediction" in text:
+        # =================================================
+        # Symptoms
+        # =================================================
+
+        if (
+            "symptom" in text
+            or "signs" in text
+            or "early signs" in text
+            or "early symptoms" in text
+        ):
+
+            information = self.parkinson_information()
+
             return (
-                "The prediction is generated from 22 voice features "
-                "using a trained machine learning model."
+                "Common symptoms include:\n\n"
+                + "\n".join(
+                    f"• {symptom}"
+                    for symptom in information.symptoms
+                )
+                + "\n\n"
+                + information.disclaimer
             )
 
-        if "exercise" in text:
+        # =================================================
+        # Causes
+        # =================================================
+
+        if (
+            "cause" in text
+            or "causes" in text
+            or "why does parkinson" in text
+            or "what causes parkinson" in text
+        ):
+
+            information = self.parkinson_information()
+
             return (
-                "Regular walking, stretching, balance exercises, "
-                "and strength training may help maintain mobility."
+                "Factors associated with Parkinson disease "
+                "include:\n\n"
+                + "\n".join(
+                    f"• {cause}"
+                    for cause in information.causes
+                )
+                + "\n\n"
+                + information.disclaimer
             )
+
+        # =================================================
+        # Risk Factors
+        # =================================================
+
+        if (
+            "risk factor" in text
+            or "risk factors" in text
+            or "who is at risk" in text
+        ):
+
+            information = self.parkinson_information()
+
+            return (
+                "Risk factors include:\n\n"
+                + "\n".join(
+                    f"• {risk}"
+                    for risk in information.risk_factors
+                )
+                + "\n\n"
+                + information.disclaimer
+            )
+
+        # =================================================
+        # Diagnosis
+        # =================================================
+
+        if (
+            "diagnos" in text
+            or "diagnostic" in text
+            or "how is parkinson diagnosed" in text
+        ):
+
+            information = self.parkinson_information()
+
+            return (
+                "The educational information lists "
+                "the following approaches to diagnosis:\n\n"
+                + "\n".join(
+                    f"• {item}"
+                    for item in information.diagnosis
+                )
+                + "\n\n"
+                + information.disclaimer
+            )
+
+        # =================================================
+        # Treatment
+        # =================================================
+
+        if (
+            "treatment" in text
+            or "treat parkinson" in text
+            or "how is parkinson treated" in text
+        ):
+
+            information = self.parkinson_information()
+
+            return (
+                "The educational information includes:\n\n"
+                + "\n".join(
+                    f"• {item}"
+                    for item in information.treatment
+                )
+                + "\n\n"
+                + information.disclaimer
+            )
+
+        # =================================================
+        # Exercise
+        # =================================================
+
+        if (
+            "exercise" in text
+            or "physical activity" in text
+            or "workout" in text
+            or "fitness" in text
+        ):
+
+            information = self.parkinson_information()
+
+            return (
+                "Exercise and healthy physical activity "
+                "are included in the educational information.\n\n"
+                + "\n".join(
+                    f"• {item}"
+                    for item in information.prevention
+                )
+                + "\n\n"
+                + information.disclaimer
+            )
+
+        # =================================================
+        # High Risk
+        # =================================================
+
+        if (
+            "high risk" in text
+            or "high-risk" in text
+        ):
+
+            return (
+                "A high-risk prediction means the machine "
+                "learning model found patterns associated "
+                "with Parkinson disease.\n\n"
+                "It is not a diagnosis. A qualified healthcare "
+                "professional should evaluate the result "
+                "clinically."
+            )
+
+        # =================================================
+        # Medium Risk
+        # =================================================
+
+        if (
+            "medium risk" in text
+            or "moderate risk" in text
+        ):
+
+            return (
+                "A medium-risk prediction means the machine "
+                "learning model found some patterns associated "
+                "with Parkinson disease.\n\n"
+                "This result is not a diagnosis and should be "
+                "discussed with a qualified healthcare professional."
+            )
+
+        # =================================================
+        # Low Risk
+        # =================================================
+
+        if (
+            "low risk" in text
+        ):
+
+            return (
+                "A low-risk prediction means the machine "
+                "learning model found fewer patterns associated "
+                "with Parkinson disease.\n\n"
+                "A low-risk result does not rule out disease "
+                "and should not replace professional medical assessment."
+            )
+
+        # =================================================
+        # Prediction
+        # =================================================
+
+        if (
+            "prediction" in text
+            or "model result" in text
+            or "voice prediction" in text
+            or "machine learning result" in text
+        ):
+
+            return (
+                "The prediction is generated from 22 voice "
+                "features using a trained machine learning model.\n\n"
+                "The prediction is not a diagnosis and should "
+                "be interpreted together with a qualified "
+                "healthcare professional's clinical assessment."
+            )
+
+        # =================================================
+        # Confidence / Accuracy
+        # =================================================
+
+        if (
+            "confidence" in text
+            or "accuracy" in text
+            or "accurate" in text
+            or "how accurate" in text
+        ):
+
+            return (
+                "The prediction system reports a confidence "
+                "value based on the machine learning model's "
+                "output.\n\n"
+                "Model confidence should not be interpreted "
+                "as a medical diagnosis or as a guarantee that "
+                "a person has or does not have Parkinson disease."
+            )
+
+        # =================================================
+        # Healthy Habits / Prevention
+        # =================================================
+
+        if (
+            "prevention" in text
+            or "prevent parkinson" in text
+            or "healthy habits" in text
+            or "healthy lifestyle" in text
+            or "lifestyle" in text
+        ):
+
+            information = self.parkinson_information()
+
+            return (
+                "The educational information lists:\n\n"
+                + "\n".join(
+                    f"• {item}"
+                    for item in information.prevention
+                )
+                + "\n\n"
+                + information.disclaimer
+            )
+
+        # =================================================
+        # Report
+        # =================================================
+
+        if (
+            "report" in text
+            or "medical report" in text
+        ):
+
+            return (
+                "A report can summarize prediction results, "
+                "recommendations, and follow-up guidance.\n\n"
+                "If you have questions about a specific medical "
+                "report, a qualified healthcare professional should "
+                "review and interpret it."
+            )
+
+        # =================================================
+        # Help
+        # =================================================
+
+        if (
+            "help" in text
+            or "what can you do" in text
+            or "what can you answer" in text
+        ):
+
+            return (
+                "I can help with educational questions about:\n\n"
+                "• Parkinson disease\n"
+                "• Symptoms\n"
+                "• Causes\n"
+                "• Risk factors\n"
+                "• Diagnosis\n"
+                "• Treatment\n"
+                "• Exercise\n"
+                "• Prediction results\n"
+                "• Model confidence\n"
+                "• Healthy habits\n"
+                "• Reports\n\n"
+                "I cannot diagnose a disease or prescribe treatment."
+            )
+
+        # =================================================
+        # Default Response
+        # =================================================
 
         return (
-            "I can answer educational questions about Parkinson disease, "
-            "prediction results, reports, exercise, and healthy habits."
+            "I can answer educational questions about Parkinson "
+            "disease, including its symptoms, causes, risk factors, "
+            "diagnosis, treatment, exercise, prediction results, "
+            "and healthy habits.\n\n"
+            "Try asking:\n\n"
+            "• What is Parkinson's Disease?\n"
+            "• What are the early symptoms?\n"
+            "• What causes Parkinson disease?\n"
+            "• How is Parkinson disease diagnosed?\n"
+            "• How accurate is the prediction?"
         )
 
     # =====================================================
@@ -170,8 +495,8 @@ class ChatbotService:
 
         return ChatHistoryResponse(
             total_messages=sum(
-                len(m)
-                for m in self._history.values()
+                len(messages)
+                for messages in self._history.values()
             ),
             conversations=conversations,
         )
@@ -269,12 +594,16 @@ class ChatbotService:
             ),
             EducationalTopic(
                 title="Diagnosis",
-                description="Clinical evaluation and neurological examination.",
+                description=(
+                    "Clinical evaluation and neurological examination."
+                ),
                 category="Diagnosis",
             ),
             EducationalTopic(
                 title="Treatment",
-                description="Medication, exercise, and rehabilitation.",
+                description=(
+                    "Medication, exercise, and rehabilitation."
+                ),
                 category="Treatment",
             ),
         ]
@@ -340,8 +669,8 @@ class ChatbotService:
 
         return ParkinsonInformation(
             definition=(
-                "Parkinson disease is a progressive neurological disorder "
-                "that primarily affects movement."
+                "Parkinson disease is a progressive neurological "
+                "disorder that primarily affects movement."
             ),
             symptoms=[
                 "Tremor",
@@ -376,8 +705,8 @@ class ChatbotService:
                 "Routine medical care",
             ],
             disclaimer=(
-                "This information is educational and is not a substitute "
-                "for professional medical advice."
+                "This information is educational and is not a "
+                "substitute for professional medical advice."
             ),
         )
 
