@@ -1,11 +1,5 @@
-"""
-Report Service
-
-Business logic for patient report generation.
-"""
-
 from datetime import datetime
-from typing import List
+from typing import Dict, List, Optional
 
 from app.schemas.report import (
     ReportRequest,
@@ -27,24 +21,24 @@ from app.schemas.report import (
 class ReportService:
     """
     Handles patient report generation.
+
+    Current implementation uses in-memory storage.
+    Replace the in-memory storage with a database repository
+    when database integration is added.
     """
 
     def __init__(self):
         """
-        Future integrations:
-
-        - PatientService
-        - PredictionService
-        - RecommendationService
-        - ExerciseService
-        - MedicationService
-        - PDFGenerator
+        Initialize report service.
         """
-        pass
 
-    # =====================================================
+        self._reports: Dict[int, ReportResponse] = {}
+
+        self._next_report_id = 1
+
+    # ==========================================================
     # Generate Report
-    # =====================================================
+    # ==========================================================
 
     def generate_report(
         self,
@@ -54,9 +48,13 @@ class ReportService:
         Generate a patient report.
         """
 
-        return ReportResponse(
+        report_id = self._next_report_id
+
+        self._next_report_id += 1
+
+        report = ReportResponse(
             metadata=ReportMetadata(
-                report_id=101,
+                report_id=report_id,
                 report_name="Parkinson Disease Assessment Report",
                 report_type="PDF",
                 generated_by="System",
@@ -66,18 +64,21 @@ class ReportService:
 
             patient=ReportPatient(
                 patient_id=request.patient_id,
-                full_name="John Doe",
-                age=67,
-                gender="Male",
-                medical_history="Hypertension",
+                full_name="Patient",
+                age=0,
+                gender="Not Specified",
+                medical_history=None,
             ),
 
             prediction=PredictionSummary(
-                prediction="Parkinson Detected",
-                confidence=97.84,
-                risk_score=95.30,
-                risk_level="High Risk",
-                recommendation="Consult a neurologist.",
+                prediction="Prediction Pending",
+                confidence=0.0,
+                risk_score=0.0,
+                risk_level="Unknown",
+                recommendation=(
+                    "Prediction information should be "
+                    "provided from the prediction record."
+                ),
             ),
 
             recommendations=self._recommendations(),
@@ -87,162 +88,201 @@ class ReportService:
             medication=self._medication(),
 
             follow_up=FollowUpPlan(
-                next_visit="Within 7 days",
+                next_visit="As recommended by healthcare professional",
                 specialist="Neurologist",
-                notes="Bring previous laboratory reports.",
+                notes=(
+                    "Review the prediction together with "
+                    "a qualified healthcare professional."
+                ),
             ),
 
             doctor_notes=request.doctor_notes,
         )
 
-    # =====================================================
+        self._reports[report_id] = report
+
+        return report
+
+    # ==========================================================
     # Get Report
-    # =====================================================
+    # ==========================================================
 
     def get_report(
         self,
         report_id: int,
-    ) -> ReportResponse:
+    ) -> Optional[ReportResponse]:
         """
-        Retrieve one report.
-
-        Replace with database lookup.
+        Retrieve one report by ID.
         """
 
-        return self.generate_report(
-            ReportRequest(
-                patient_id=1,
-                prediction_id=1,
-            )
+        return self._reports.get(
+            report_id
         )
 
-    # =====================================================
-    # Report List
-    # =====================================================
+    # ==========================================================
+    # Get All Reports
+    # ==========================================================
 
     def get_reports(self) -> ReportList:
         """
-        Return all reports.
+        Return all generated reports.
+
+        No fake patient records are returned.
         """
 
-        reports = [
-            ReportSummary(
-                report_id=1,
-                patient_id=1,
-                patient_name="John Doe",
-                report_name="Assessment Report",
-                generated_at=datetime.utcnow(),
-            ),
-            ReportSummary(
-                report_id=2,
-                patient_id=2,
-                patient_name="Jane Smith",
-                report_name="Assessment Report",
-                generated_at=datetime.utcnow(),
-            ),
-        ]
+        reports: List[ReportSummary] = []
+
+        for report_id, report in self._reports.items():
+
+            reports.append(
+                ReportSummary(
+                    report_id=report_id,
+                    patient_id=report.patient.patient_id,
+                    patient_name=report.patient.full_name,
+                    report_name=(
+                        report.metadata.report_name
+                    ),
+                    generated_at=(
+                        report.metadata.generated_at
+                    ),
+                )
+            )
 
         return ReportList(
             total_reports=len(reports),
             reports=reports,
         )
 
-    # =====================================================
-    # Patient Reports
-    # =====================================================
+    # ==========================================================
+    # Get Patient Reports
+    # ==========================================================
 
     def get_patient_reports(
         self,
         patient_id: int,
     ) -> List[ReportSummary]:
         """
-        Return reports for one patient.
+        Return reports belonging to one patient.
         """
 
-        return [
-            ReportSummary(
-                report_id=1,
-                patient_id=patient_id,
-                patient_name="John Doe",
-                report_name="Assessment Report",
-                generated_at=datetime.utcnow(),
-            )
-        ]
+        reports: List[ReportSummary] = []
 
-    # =====================================================
-    # Download Information
-    # =====================================================
+        for report_id, report in self._reports.items():
+
+            if report.patient.patient_id != patient_id:
+                continue
+
+            reports.append(
+                ReportSummary(
+                    report_id=report_id,
+                    patient_id=(
+                        report.patient.patient_id
+                    ),
+                    patient_name=(
+                        report.patient.full_name
+                    ),
+                    report_name=(
+                        report.metadata.report_name
+                    ),
+                    generated_at=(
+                        report.metadata.generated_at
+                    ),
+                )
+            )
+
+        return reports
+
+    # ==========================================================
+    # Download Report Information
+    # ==========================================================
 
     def download_report(
         self,
         report_id: int,
-    ) -> ReportDownload:
+    ) -> Optional[ReportDownload]:
         """
-        Return download metadata.
+        Return download information for a report.
 
-        Actual file generation should be delegated
-        to a PDF generator utility.
+        Actual PDF generation is not implemented yet.
         """
+
+        if report_id not in self._reports:
+
+            return None
 
         return ReportDownload(
             report_id=report_id,
             filename=f"report_{report_id}.pdf",
-            download_url=f"/reports/{report_id}/download",
+            download_url=(
+                f"/reports/{report_id}/download"
+            ),
             file_type="pdf",
-            file_size="1.3 MB",
+            file_size="Not generated",
         )
 
-    # =====================================================
+    # ==========================================================
     # Delete Report
-    # =====================================================
+    # ==========================================================
 
     def delete_report(
         self,
         report_id: int,
-    ) -> DeleteReportResponse:
+    ) -> Optional[DeleteReportResponse]:
         """
-        Delete report.
+        Delete a report by ID.
         """
+
+        if report_id not in self._reports:
+
+            return None
+
+        del self._reports[report_id]
 
         return DeleteReportResponse(
-            message=f"Report {report_id} deleted successfully."
+            message=(
+                f"Report {report_id} "
+                "deleted successfully."
+            )
         )
 
-    # =====================================================
+    # ==========================================================
     # Recommendation Section
-    # =====================================================
+    # ==========================================================
 
     def _recommendations(
         self,
     ) -> List[RecommendationItem]:
         """
-        Report recommendations.
+        Return general educational recommendations.
         """
 
         return [
             RecommendationItem(
                 title="Lifestyle",
                 description=(
-                    "Maintain regular physical activity and healthy sleep habits."
+                    "Maintain regular physical activity "
+                    "and healthy sleep habits."
                 ),
             ),
+
             RecommendationItem(
                 title="Diet",
                 description=(
-                    "Increase fruits, vegetables, and whole grains."
+                    "Maintain a balanced diet including "
+                    "fruits, vegetables, and whole grains."
                 ),
             ),
         ]
 
-    # =====================================================
+    # ==========================================================
     # Exercise Section
-    # =====================================================
+    # ==========================================================
 
     def _exercises(
         self,
     ) -> List[ExerciseItem]:
         """
-        Report exercises.
+        Return general exercise information.
         """
 
         return [
@@ -250,38 +290,50 @@ class ReportService:
                 name="Walking",
                 duration="30 minutes",
                 frequency="5 days/week",
-                description="Moderate walking.",
+                description=(
+                    "Moderate walking as appropriate "
+                    "for the individual's condition."
+                ),
             ),
+
             ExerciseItem(
                 name="Balance Training",
                 duration="20 minutes",
                 frequency="3 days/week",
-                description="Improve stability.",
+                description=(
+                    "Balance exercises may help support "
+                    "mobility and stability."
+                ),
             ),
         ]
 
-    # =====================================================
+    # ==========================================================
     # Medication Section
-    # =====================================================
+    # ==========================================================
 
     def _medication(
         self,
     ) -> List[MedicationItem]:
         """
-        Educational medication section.
+        Return educational medication guidance.
+
+        This does not prescribe medication.
         """
 
         return [
             MedicationItem(
                 title="Medication Guidance",
                 description=(
-                    "Take medications only as prescribed by your physician."
+                    "Take medications only as prescribed "
+                    "by your healthcare professional."
                 ),
             ),
+
             MedicationItem(
-                title="Reminder",
+                title="Medication Safety",
                 description=(
-                    "Never discontinue medications without medical advice."
+                    "Never start, stop, or change medication "
+                    "without professional medical advice."
                 ),
             ),
         ]
