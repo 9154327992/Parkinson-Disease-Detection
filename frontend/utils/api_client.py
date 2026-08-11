@@ -23,6 +23,7 @@ def _get(
     """
 
     try:
+
         response = requests.get(
             f"{API_BASE_URL}{endpoint}",
             timeout=timeout,
@@ -250,7 +251,8 @@ def _get_authenticated(
     except requests.RequestException as e:
 
         print(
-            f"Authenticated GET error: {e}"
+            f"Authenticated GET "
+            f"{endpoint} error: {e}"
         )
 
         return None
@@ -287,6 +289,15 @@ def predict(
 ):
     """
     Send prediction request.
+
+    The backend expects:
+
+    {
+        "patient_name": "...",
+        "age": 30,
+        "gender": "...",
+        "features": [...]
+    }
     """
 
     return _post(
@@ -297,16 +308,192 @@ def predict(
 
 
 def predict_patient(
-    data,
+    *args,
+    **kwargs,
 ):
     """
-    Compatibility function used by the Prediction page.
+    Compatibility function for the Prediction page.
+
+    Supports:
+
+        predict_patient(values)
+
+    and:
+
+        predict_patient(
+            patient_name,
+            patient_age,
+            patient_gender,
+            values
+        )
+
+    The current Prediction page uses the first form.
     """
 
-    return predict(
-        data
+    patient_name = kwargs.get(
+        "patient_name",
+        "Patient",
     )
 
+    patient_age = kwargs.get(
+        "patient_age",
+        30,
+    )
+
+    patient_gender = kwargs.get(
+        "patient_gender",
+        "Other",
+    )
+
+    features = kwargs.get(
+        "features",
+        None,
+    )
+
+    # ------------------------------------------------------
+    # Positional arguments
+    # ------------------------------------------------------
+
+    if len(args) == 1:
+
+        # Current Prediction page:
+        #
+        # predict_patient(values)
+
+        if isinstance(
+            args[0],
+            (list, tuple),
+        ):
+
+            features = list(
+                args[0]
+            )
+
+    elif len(args) >= 4:
+
+        # Compatibility with older Prediction page:
+        #
+        # predict_patient(
+        #     patient_name,
+        #     patient_age,
+        #     patient_gender,
+        #     values
+        # )
+
+        patient_name = args[0]
+        patient_age = args[1]
+        patient_gender = args[2]
+        features = list(
+            args[3]
+        )
+
+    elif len(args) == 3:
+
+        patient_name = args[0]
+        patient_age = args[1]
+        features = list(
+            args[2]
+        )
+
+    elif len(args) == 2:
+
+        patient_name = args[0]
+        features = list(
+            args[1]
+        )
+
+    # ------------------------------------------------------
+    # Validate features
+    # ------------------------------------------------------
+
+    if features is None:
+
+        print(
+            "Prediction error: "
+            "No feature values supplied."
+        )
+
+        return None
+
+    try:
+
+        features = [
+            float(value)
+            for value in features
+        ]
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        print(
+            "Prediction error: "
+            "Invalid feature values."
+        )
+
+        return None
+
+    if len(features) != 22:
+
+        print(
+            "Prediction error: "
+            f"Expected 22 features, "
+            f"received {len(features)}."
+        )
+
+        return None
+
+    # ------------------------------------------------------
+    # Create backend request
+    # ------------------------------------------------------
+
+    payload = {
+        "patient_name":
+            str(patient_name),
+
+        "age":
+            int(patient_age),
+
+        "gender":
+            str(patient_gender),
+
+        "features":
+            features,
+    }
+
+    result = predict(
+        payload
+    )
+
+    if result is None:
+        return None
+
+    # ------------------------------------------------------
+    # Normalize response
+    #
+    # Backend returns "prediction".
+    # Current frontend expects "diagnosis".
+    # ------------------------------------------------------
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        if "diagnosis" not in result:
+
+            result["diagnosis"] = result.get(
+                "prediction",
+                "Unknown",
+            )
+
+    return result
+
+
+# ==========================================================
+# Prediction Details
+# ==========================================================
 
 def get_prediction(
     prediction_id: int,
@@ -320,23 +507,31 @@ def get_prediction(
     )
 
 
+# ==========================================================
+# Prediction History
+# ==========================================================
+
 def get_prediction_history(
     patient_id: int = 1,
 ):
     """
     Get prediction history.
 
-    Supports list or dictionary responses.
+    Supports both:
+
+        /prediction/history/{patient_id}
+
+    and:
+
+        /prediction/history
     """
 
-    # Primary endpoint
     data = _get(
         f"/prediction/history/{patient_id}"
     )
 
     if data is None:
 
-        # Compatibility fallback
         data = _get(
             "/prediction/history"
         )
@@ -369,6 +564,10 @@ def get_prediction_history(
     return []
 
 
+# ==========================================================
+# Prediction Statistics
+# ==========================================================
+
 def get_prediction_statistics():
     """
     Get prediction statistics.
@@ -379,6 +578,10 @@ def get_prediction_statistics():
     )
 
 
+# ==========================================================
+# Model Information
+# ==========================================================
+
 def get_model_info():
     """
     Get ML model information.
@@ -388,6 +591,10 @@ def get_model_info():
         "/prediction/model-info"
     )
 
+
+# ==========================================================
+# Delete Prediction
+# ==========================================================
 
 def delete_prediction(
     prediction_id: int,
@@ -595,7 +802,7 @@ def ask_ai_assistant(
     question: str,
 ):
     """
-    Ask the AI Assistant.
+    Ask AI Assistant.
     """
 
     return _post(
@@ -623,7 +830,7 @@ def get_admin_dashboard():
 
 def get_users():
     """
-    Get users through administrator endpoint.
+    Get all users for administrator.
 
     Backend:
         GET /admin/users
@@ -636,7 +843,7 @@ def get_users():
 
 def get_admin_patients():
     """
-    Get patients through administrator endpoint.
+    Get all patients through admin endpoint.
     """
 
     return _get(
@@ -648,7 +855,7 @@ def delete_user(
     user_id: int,
 ):
     """
-    Delete user through administrator endpoint.
+    Delete user through admin endpoint.
     """
 
     return _delete(
@@ -660,7 +867,7 @@ def delete_admin_patient(
     patient_id: int,
 ):
     """
-    Delete patient through administrator endpoint.
+    Delete patient through admin endpoint.
     """
 
     return _delete(
@@ -675,8 +882,6 @@ def delete_admin_patient(
 def get_user_settings():
     """
     Get current user's settings.
-
-    No Streamlit UI is created here.
     """
 
     try:
@@ -692,11 +897,6 @@ def get_user_settings():
             "",
         )
 
-        role = st.session_state.get(
-            "role",
-            "user",
-        )
-
         email = st.session_state.get(
             "email",
             "",
@@ -705,6 +905,11 @@ def get_user_settings():
         full_name = st.session_state.get(
             "full_name",
             "",
+        )
+
+        role = st.session_state.get(
+            "role",
+            "user",
         )
 
         result = None
@@ -767,15 +972,18 @@ def get_user_settings():
         return None
 
 
+# ==========================================================
+# Update User Settings
+# ==========================================================
+
 def update_user_settings(
     data,
 ):
     """
-    Update frontend session profile information.
+    Update profile information in the current
+    Streamlit session.
 
-    The current backend does not expose a dedicated
-    profile update endpoint, so this updates the current
-    Streamlit session only.
+    No appearance/theme/language handling is included.
     """
 
     try:
@@ -811,11 +1019,15 @@ def update_user_settings(
     except Exception as e:
 
         print(
-            f"Update settings error: {e}"
+            f"Update user settings error: {e}"
         )
 
         return None
 
+
+# ==========================================================
+# Change Password
+# ==========================================================
 
 def change_password(
     current_password: str,
@@ -834,7 +1046,6 @@ def change_password(
         )
 
         if not token:
-
             return False
 
         if not current_password:
@@ -843,6 +1054,7 @@ def change_password(
         if not new_password:
             return False
 
+        # bcrypt has a 72-byte password limit
         if len(
             new_password.encode(
                 "utf-8"
@@ -889,7 +1101,7 @@ def change_password(
 
 def health_check():
     """
-    Check backend health.
+    Check FastAPI backend health.
     """
 
     return _get(
