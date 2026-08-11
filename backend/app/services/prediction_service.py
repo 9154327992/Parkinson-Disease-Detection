@@ -14,40 +14,36 @@ class PredictionService:
     """
     Handles Parkinson disease predictions.
 
-    Current implementation uses in-memory storage.
-
-    The complete prediction record is stored so that:
-    - Patient History can display it
-    - Reports can use the same patient information
-    - Reports can use the same prediction information
+    Uses shared in-memory storage until database
+    persistence is implemented.
     """
+
+    # ==========================================================
+    # Shared In-Memory Storage
+    # ==========================================================
+
+    history: List[PredictionHistory] = []
+
+    predictions: Dict[int, Dict] = {}
+
+    next_prediction_id: int = 1
+
+    # ==========================================================
+    # Initialize
+    # ==========================================================
 
     def __init__(self):
         """
-        Initialize prediction service.
+        No instance-level storage is used.
+
+        All PredictionService instances share the same
+        prediction records.
         """
+        pass
 
-        # ==================================================
-        # Prediction History
-        # ==================================================
-
-        self.history: List[PredictionHistory] = []
-
-        # ==================================================
-        # Complete Prediction Records
-        # ==================================================
-
-        self.predictions: Dict[int, Dict] = {}
-
-        # ==================================================
-        # Prediction ID
-        # ==================================================
-
-        self.next_prediction_id = 1
-
-    # ======================================================
+    # ==========================================================
     # Predict
-    # ======================================================
+    # ==========================================================
 
     def predict(
         self,
@@ -57,12 +53,13 @@ class PredictionService:
         Predict Parkinson disease.
         """
 
-        # --------------------------------------------------
-        # ML prediction
+        # ------------------------------------------------------
+        # ML Prediction
+        # ------------------------------------------------------
         #
         # Replace this section with the real ML model
         # when model integration is enabled.
-        # --------------------------------------------------
+        #
 
         prediction_value = 1
 
@@ -70,9 +67,9 @@ class PredictionService:
 
         risk_score = 95.80
 
-        # --------------------------------------------------
-        # Prediction label
-        # --------------------------------------------------
+        # ------------------------------------------------------
+        # Prediction Label
+        # ------------------------------------------------------
 
         if prediction_value == 1:
 
@@ -82,9 +79,9 @@ class PredictionService:
 
             prediction = "Healthy"
 
-        # --------------------------------------------------
-        # Risk level
-        # --------------------------------------------------
+        # ------------------------------------------------------
+        # Risk Level
+        # ------------------------------------------------------
 
         if risk_score >= 80:
 
@@ -98,43 +95,48 @@ class PredictionService:
 
             risk_level = "Low Risk"
 
-        # --------------------------------------------------
+        # ------------------------------------------------------
         # Recommendation
-        # --------------------------------------------------
+        # ------------------------------------------------------
 
         recommendation = self._recommendation(
             risk_level
         )
 
-        # --------------------------------------------------
-        # Generate prediction ID
-        # --------------------------------------------------
+        # ------------------------------------------------------
+        # Generate Prediction ID
+        # ------------------------------------------------------
 
-        prediction_id = self.next_prediction_id
+        prediction_id = (
+            PredictionService.next_prediction_id
+        )
 
-        self.next_prediction_id += 1
+        PredictionService.next_prediction_id += 1
 
-        # --------------------------------------------------
-        # Current patient ID
+        # ------------------------------------------------------
+        # Patient ID
+        # ------------------------------------------------------
         #
-        # PredictionRequest currently contains patient_name,
-        # age, gender and features, but not patient_id.
+        # PredictionRequest currently contains:
+        # patient_name
+        # age
+        # gender
+        # features
         #
-        # Until patient database integration is completed,
-        # use patient_id=1.
-        # --------------------------------------------------
+        # It does not contain patient_id.
+        #
 
         patient_id = 1
 
-        # --------------------------------------------------
-        # Created time
-        # --------------------------------------------------
+        # ------------------------------------------------------
+        # Created Time
+        # ------------------------------------------------------
 
         created_at = datetime.utcnow()
 
-        # --------------------------------------------------
+        # ------------------------------------------------------
         # Prediction Response
-        # --------------------------------------------------
+        # ------------------------------------------------------
 
         response = PredictionResponse(
 
@@ -161,9 +163,9 @@ class PredictionService:
             created_at=created_at,
         )
 
-        # ==================================================
-        # Save Prediction History
-        # ==================================================
+        # ======================================================
+        # Save History
+        # ======================================================
 
         history_item = PredictionHistory(
 
@@ -182,15 +184,17 @@ class PredictionService:
             created_at=created_at,
         )
 
-        self.history.append(
+        PredictionService.history.append(
             history_item
         )
 
-        # ==================================================
+        # ======================================================
         # Save Complete Prediction
-        # ==================================================
+        # ======================================================
 
-        self.predictions[prediction_id] = {
+        PredictionService.predictions[
+            prediction_id
+        ] = {
 
             "response": response,
 
@@ -205,9 +209,9 @@ class PredictionService:
 
         return response
 
-    # ======================================================
+    # ==========================================================
     # Recommendation
-    # ======================================================
+    # ==========================================================
 
     def _recommendation(
         self,
@@ -240,12 +244,12 @@ class PredictionService:
 
         return recommendations.get(
             risk_level,
-            "Consult a healthcare professional."
+            "Consult a healthcare professional.",
         )
 
-    # ======================================================
+    # ==========================================================
     # Prediction History
-    # ======================================================
+    # ==========================================================
 
     def get_history(
         self,
@@ -253,36 +257,33 @@ class PredictionService:
     ) -> List[PredictionHistory]:
         """
         Return prediction history.
-
-        If patient_id is provided, return only records
-        belonging to that patient.
-
-        If no patient_id is provided, return all records.
         """
+
+        records = PredictionService.history
 
         if patient_id is None:
 
-            return self.history
+            return records
 
         return [
             item
-            for item in self.history
+            for item in records
             if item.patient_id == patient_id
         ]
 
-    # ======================================================
+    # ==========================================================
     # Prediction Details
-    # ======================================================
+    # ==========================================================
 
     def get_prediction(
         self,
         prediction_id: int,
     ) -> Optional[PredictionResponse]:
         """
-        Retrieve the actual prediction by ID.
+        Retrieve prediction by ID.
         """
 
-        record = self.predictions.get(
+        record = PredictionService.predictions.get(
             prediction_id
         )
 
@@ -292,74 +293,75 @@ class PredictionService:
 
         return record["response"]
 
-    # ======================================================
+    # ==========================================================
     # Complete Prediction Data
-    # ======================================================
+    # ==========================================================
 
     def get_prediction_data(
         self,
         prediction_id: int,
     ) -> Optional[Dict]:
         """
-        Return complete prediction data.
-
-        This is used by the report system when detailed
-        patient and prediction information is required.
+        Return complete prediction information.
         """
 
-        return self.predictions.get(
+        return PredictionService.predictions.get(
             prediction_id
         )
 
-    # ======================================================
+    # ==========================================================
     # Delete Prediction
-    # ======================================================
+    # ==========================================================
 
     def delete_prediction(
         self,
         prediction_id: int,
     ) -> bool:
         """
-        Delete a prediction record.
+        Delete prediction.
         """
 
-        if prediction_id not in self.predictions:
+        if prediction_id not in (
+            PredictionService.predictions
+        ):
 
             return False
 
-        # --------------------------------------------------
+        # ------------------------------------------------------
         # Delete complete prediction
-        # --------------------------------------------------
+        # ------------------------------------------------------
 
-        del self.predictions[
+        del PredictionService.predictions[
             prediction_id
         ]
 
-        # --------------------------------------------------
-        # Delete corresponding history
-        # --------------------------------------------------
+        # ------------------------------------------------------
+        # Delete history record
+        # ------------------------------------------------------
 
-        self.history = [
+        PredictionService.history = [
             item
-            for item in self.history
+            for item in PredictionService.history
             if item.prediction_id != prediction_id
         ]
 
         return True
 
-    # ======================================================
+    # ==========================================================
     # Statistics
-    # ======================================================
+    # ==========================================================
 
     def statistics(
         self,
     ) -> PredictionStatistics:
         """
-        Calculate statistics from stored predictions.
+        Calculate statistics from actual predictions.
         """
 
+        records = PredictionService.predictions
+
         total_predictions = len(
-            self.predictions
+            records
         )
 
         healthy_cases = 0
@@ -374,11 +376,11 @@ class PredictionService:
 
         confidence_values = []
 
-        # --------------------------------------------------
-        # Calculate statistics
-        # --------------------------------------------------
+        # ------------------------------------------------------
+        # Calculate
+        # ------------------------------------------------------
 
-        for record in self.predictions.values():
+        for record in records.values():
 
             prediction = record["response"]
 
@@ -406,9 +408,9 @@ class PredictionService:
 
                 low_risk_cases += 1
 
-        # --------------------------------------------------
-        # Average confidence
-        # --------------------------------------------------
+        # ------------------------------------------------------
+        # Average Confidence
+        # ------------------------------------------------------
 
         if confidence_values:
 
@@ -431,7 +433,7 @@ class PredictionService:
 
             average_confidence=round(
                 average_confidence,
-                2
+                2,
             ),
 
             high_risk_cases=high_risk_cases,
@@ -441,9 +443,9 @@ class PredictionService:
             low_risk_cases=low_risk_cases,
         )
 
-    # ======================================================
+    # ==========================================================
     # Model Information
-    # ======================================================
+    # ==========================================================
 
     def model_info(
         self,
