@@ -1,8 +1,3 @@
-"""
-Session management utilities for the
-Parkinson Disease Detection Agent.
-"""
-
 import streamlit as st
 
 
@@ -11,16 +6,27 @@ import streamlit as st
 # ==========================================================
 
 DEFAULT_SESSION = {
+
     "logged_in": False,
+
     "username": "Guest",
+
     "user_id": None,
+
     "email": "",
+
     "role": "User",
+
     "theme": "Light",
+
     "language": "English",
+
     "token": None,
+
     "chat_history": [],
+
     "selected_patient": None,
+
     "prediction_result": None,
 }
 
@@ -30,9 +36,6 @@ DEFAULT_SESSION = {
 # ==========================================================
 
 def initialize_session():
-    """
-    Initialize Streamlit session variables.
-    """
 
     for key, value in DEFAULT_SESSION.items():
 
@@ -45,12 +48,21 @@ def initialize_session():
 # Generic Methods
 # ==========================================================
 
-def get(key, default=None):
+def get(
+    key,
+    default=None,
+):
 
-    return st.session_state.get(key, default)
+    return st.session_state.get(
+        key,
+        default,
+    )
 
 
-def set(key, value):
+def set(
+    key,
+    value,
+):
 
     st.session_state[key] = value
 
@@ -76,24 +88,26 @@ def login(
     username,
     email,
     role,
-    token
+    token,
 ):
-    """
-    Save logged-in user information.
-    """
 
     st.session_state.logged_in = True
+
     st.session_state.user_id = user_id
+
     st.session_state.username = username
+
     st.session_state.email = email
-    st.session_state.role = role
+
+    # Normalize role
+    st.session_state.role = str(
+        role
+    ).strip()
+
     st.session_state.token = token
 
 
 def logout():
-    """
-    Logout user and reset session.
-    """
 
     clear()
 
@@ -102,12 +116,24 @@ def logout():
 
 def is_logged_in():
 
-    return st.session_state.logged_in
+    return bool(
+        st.session_state.get(
+            "logged_in",
+            False,
+        )
+    )
 
 
 def is_admin():
 
-    return st.session_state.role == "Admin"
+    role = str(
+        st.session_state.get(
+            "role",
+            "",
+        )
+    ).strip().lower()
+
+    return role == "admin"
 
 
 # ==========================================================
@@ -119,12 +145,15 @@ def get_chat():
     return st.session_state.chat_history
 
 
-def add_chat(role, message):
+def add_chat(
+    role,
+    message,
+):
 
     st.session_state.chat_history.append(
         {
             "role": role,
-            "content": message
+            "content": message,
         }
     )
 
