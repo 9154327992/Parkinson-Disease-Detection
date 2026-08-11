@@ -1,5 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.database.database import create_tables
+from app.database.seed import DatabaseSeeder
 
 from app.routes.auth import router as auth_router
 from app.routes.prediction import router as prediction_router
@@ -10,79 +15,294 @@ from app.routes.reports import router as reports_router
 from app.routes.chatbot import router as chatbot_router
 
 
+# ==========================================================
+# Database Startup
+# ==========================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Initialize database tables and default development
+    data when the FastAPI application starts.
+    """
+
+    print(
+        "=================================================="
+    )
+
+    print(
+        "Starting Parkinson Disease Detection API..."
+    )
+
+    print(
+        "=================================================="
+    )
+
+    # ------------------------------------------------------
+    # Create database tables
+    # ------------------------------------------------------
+
+    try:
+
+        print(
+            "Initializing database tables..."
+        )
+
+        create_tables()
+
+        print(
+            "Database tables initialized successfully."
+        )
+
+    except Exception as e:
+
+        print(
+            f"Database initialization failed: {e}"
+        )
+
+        raise
+
+    # ------------------------------------------------------
+    # Seed default development data
+    # ------------------------------------------------------
+
+    try:
+
+        print(
+            "Checking default database users..."
+        )
+
+        seeder = DatabaseSeeder()
+
+        try:
+
+            seeder.seed()
+
+        finally:
+
+            seeder.close()
+
+        print(
+            "Database seed completed successfully."
+        )
+
+    except Exception as e:
+
+        print(
+            f"Database seeding failed: {e}"
+        )
+
+        raise
+
+    print(
+        "=================================================="
+    )
+
+    print(
+        "Parkinson Disease Detection API is ready."
+    )
+
+    print(
+        "=================================================="
+    )
+
+    yield
+
+    # ------------------------------------------------------
+    # Shutdown
+    # ------------------------------------------------------
+
+    print(
+        "Parkinson Disease Detection API shutting down."
+    )
+
+
+# ==========================================================
+# FastAPI Application
+# ==========================================================
+
 app = FastAPI(
     title="Parkinson Disease Detection API",
-    description="Backend API for Parkinson Disease Detection System",
+
+    description=(
+        "Backend API for Parkinson Disease "
+        "Detection System"
+    ),
+
     version="1.0.0",
+
     docs_url="/docs",
+
     redoc_url="/redoc",
+
+    lifespan=lifespan,
 )
 
 
+# ==========================================================
 # CORS
+# ==========================================================
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+
+    allow_origins=[
+        "*"
+    ],
+
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+
+    allow_methods=[
+        "*"
+    ],
+
+    allow_headers=[
+        "*"
+    ],
 )
 
 
-# Routers
+# ==========================================================
+# Authentication Router
+# ==========================================================
+
 app.include_router(
     auth_router,
+
     prefix="/auth",
-    tags=["Authentication"],
+
+    tags=[
+        "Authentication"
+    ],
 )
+
+
+# ==========================================================
+# Prediction Router
+# ==========================================================
 
 app.include_router(
     prediction_router,
+
     prefix="/prediction",
-    tags=["Prediction"]
+
+    tags=[
+        "Prediction"
+    ],
 )
+
+
+# ==========================================================
+# Patient Router
+# ==========================================================
 
 app.include_router(
     patient_router,
-    tags=["Patients"]
+
+    tags=[
+        "Patients"
+    ],
 )
+
+
+# ==========================================================
+# Analytics Router
+# ==========================================================
 
 app.include_router(
     analytics_router,
+
     prefix="/analytics",
-    tags=["Analytics"],
+
+    tags=[
+        "Analytics"
+    ],
 )
+
+
+# ==========================================================
+# Recommendation Router
+# ==========================================================
 
 app.include_router(
     recommendation_router,
+
     prefix="/recommendations",
-    tags=["Recommendations"],
+
+    tags=[
+        "Recommendations"
+    ],
 )
+
+
+# ==========================================================
+# Reports Router
+# ==========================================================
 
 app.include_router(
     reports_router,
+
     prefix="/reports",
-    tags=["Reports"],
+
+    tags=[
+        "Reports"
+    ],
 )
+
+
+# ==========================================================
+# AI Chatbot Router
+# ==========================================================
 
 app.include_router(
     chatbot_router,
-    tags=["AI Chatbot"],
+
+    tags=[
+        "AI Chatbot"
+    ],
 )
 
 
-@app.get("/", tags=["Root"])
+# ==========================================================
+# Root Endpoint
+# ==========================================================
+
+@app.get(
+    "/",
+    tags=[
+        "Root"
+    ],
+)
 async def root():
+
     return {
         "status": "success",
-        "message": "Parkinson Disease Detection API is running",
+
+        "message": (
+            "Parkinson Disease Detection "
+            "API is running"
+        ),
+
         "version": "1.0.0",
     }
 
 
-@app.get("/health", tags=["Health"])
+# ==========================================================
+# Health Endpoint
+# ==========================================================
+
+@app.get(
+    "/health",
+    tags=[
+        "Health"
+    ],
+)
 async def health():
+
     return {
         "status": "healthy",
-        "service": "Parkinson Disease Detection API",
+
+        "service": (
+            "Parkinson Disease Detection API"
+        ),
     }
