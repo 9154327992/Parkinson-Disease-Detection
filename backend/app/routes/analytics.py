@@ -18,7 +18,6 @@ from app.services.analytics_service import (
 
 
 router = APIRouter(
-    prefix="/analytics",
     tags=["Analytics"],
 )
 
