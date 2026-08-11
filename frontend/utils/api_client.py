@@ -11,7 +11,7 @@ API_BASE_URL = (
 
 
 # ==========================================================
-# Generic GET Helper
+# Generic GET
 # ==========================================================
 
 def _get(
@@ -43,12 +43,13 @@ def _get(
 
 
 # ==========================================================
-# Generic POST Helper
+# Generic POST
 # ==========================================================
 
 def _post(
     endpoint: str,
     data=None,
+    token: str = None,
     timeout: int = 60,
 ):
     """
@@ -57,9 +58,18 @@ def _post(
 
     try:
 
+        headers = {}
+
+        if token:
+
+            headers[
+                "Authorization"
+            ] = f"Bearer {token}"
+
         response = requests.post(
             f"{API_BASE_URL}{endpoint}",
             json=data,
+            headers=headers,
             timeout=timeout,
         )
 
@@ -77,11 +87,56 @@ def _post(
 
 
 # ==========================================================
-# Generic DELETE Helper
+# Generic PUT
+# ==========================================================
+
+def _put(
+    endpoint: str,
+    data=None,
+    token: str = None,
+    timeout: int = 30,
+):
+    """
+    Perform a PUT request.
+    """
+
+    try:
+
+        headers = {}
+
+        if token:
+
+            headers[
+                "Authorization"
+            ] = f"Bearer {token}"
+
+        response = requests.put(
+            f"{API_BASE_URL}{endpoint}",
+            json=data,
+            headers=headers,
+            timeout=timeout,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException as e:
+
+        print(
+            f"PUT {endpoint} error: {e}"
+        )
+
+        return None
+
+
+# ==========================================================
+# Generic DELETE
 # ==========================================================
 
 def _delete(
     endpoint: str,
+    token: str = None,
     timeout: int = 30,
 ):
     """
@@ -90,8 +145,17 @@ def _delete(
 
     try:
 
+        headers = {}
+
+        if token:
+
+            headers[
+                "Authorization"
+            ] = f"Bearer {token}"
+
         response = requests.delete(
             f"{API_BASE_URL}{endpoint}",
+            headers=headers,
             timeout=timeout,
         )
 
@@ -134,31 +198,13 @@ def get_current_user(
     token: str,
 ):
     """
-    Get authenticated user information.
+    Get authenticated user.
     """
 
-    try:
-
-        response = requests.get(
-            f"{API_BASE_URL}/auth/me",
-            headers={
-                "Authorization":
-                    f"Bearer {token}"
-            },
-            timeout=30,
-        )
-
-        response.raise_for_status()
-
-        return response.json()
-
-    except requests.RequestException as e:
-
-        print(
-            f"Get current user error: {e}"
-        )
-
-        return None
+    return _get_authenticated(
+        "/auth/me",
+        token,
+    )
 
 
 def logout_user(
@@ -168,15 +214,37 @@ def logout_user(
     Logout user.
     """
 
+    return _post_authenticated(
+        "/auth/logout",
+        {},
+        token,
+    )
+
+
+# ==========================================================
+# Authenticated GET
+# ==========================================================
+
+def _get_authenticated(
+    endpoint: str,
+    token: str,
+    timeout: int = 30,
+):
+    """
+    Perform authenticated GET request.
+    """
+
     try:
 
-        response = requests.post(
-            f"{API_BASE_URL}/auth/logout",
-            headers={
-                "Authorization":
-                    f"Bearer {token}"
-            },
-            timeout=30,
+        headers = {
+            "Authorization":
+                f"Bearer {token}"
+        }
+
+        response = requests.get(
+            f"{API_BASE_URL}{endpoint}",
+            headers=headers,
+            timeout=timeout,
         )
 
         response.raise_for_status()
@@ -186,10 +254,33 @@ def logout_user(
     except requests.RequestException as e:
 
         print(
-            f"Logout error: {e}"
+            f"Authenticated GET "
+            f"{endpoint} error: {e}"
         )
 
         return None
+
+
+# ==========================================================
+# Authenticated POST
+# ==========================================================
+
+def _post_authenticated(
+    endpoint: str,
+    data=None,
+    token: str = None,
+    timeout: int = 30,
+):
+    """
+    Perform authenticated POST request.
+    """
+
+    return _post(
+        endpoint,
+        data,
+        token=token,
+        timeout=timeout,
+    )
 
 
 # ==========================================================
@@ -200,7 +291,7 @@ def predict(
     data,
 ):
     """
-    Send prediction request.
+    Send Parkinson disease prediction request.
     """
 
     return _post(
@@ -246,7 +337,7 @@ def get_prediction_statistics():
 
 def get_model_info():
     """
-    Get ML model information.
+    Get machine learning model information.
     """
 
     return _get(
@@ -313,25 +404,10 @@ def update_patient(
     Update patient.
     """
 
-    try:
-
-        response = requests.put(
-            f"{API_BASE_URL}/patients/{patient_id}",
-            json=data,
-            timeout=30,
-        )
-
-        response.raise_for_status()
-
-        return response.json()
-
-    except requests.RequestException as e:
-
-        print(
-            f"Update patient error: {e}"
-        )
-
-        return None
+    return _put(
+        f"/patients/{patient_id}",
+        data,
+    )
 
 
 def delete_patient(
@@ -360,14 +436,8 @@ def get_reports():
     )
 
     if data is None:
-        return None
 
-    # ReportList response:
-    #
-    # {
-    #     "total_reports": 1,
-    #     "reports": [...]
-    # }
+        return None
 
     if isinstance(
         data,
@@ -424,7 +494,7 @@ def delete_report(
 
 def get_analytics():
     """
-    Get analytics dashboard data.
+    Get analytics dashboard.
     """
 
     return _get(
@@ -460,7 +530,7 @@ def get_patient_recommendations(
     patient_id: int,
 ):
     """
-    Get recommendations for a patient.
+    Get patient recommendations.
     """
 
     return _get(
@@ -476,7 +546,7 @@ def ask_ai_assistant(
     question: str,
 ):
     """
-    Ask the Parkinson Disease AI Assistant.
+    Ask AI Assistant.
     """
 
     return _post(
@@ -494,10 +564,7 @@ def ask_ai_assistant(
 
 def get_admin_dashboard():
     """
-    Get administrator dashboard statistics.
-
-    Backend endpoint:
-        GET /admin/dashboard
+    Get administrator dashboard.
     """
 
     return _get(
@@ -507,12 +574,9 @@ def get_admin_dashboard():
 
 def get_users():
     """
-    Get all users for the administrator.
+    Get all users for administrator.
 
-    IMPORTANT:
-    The admin router is registered with the
-    /admin prefix, therefore the correct endpoint is:
-
+    Backend:
         GET /admin/users
     """
 
@@ -523,10 +587,7 @@ def get_users():
 
 def get_admin_patients():
     """
-    Get all patients through the admin endpoint.
-
-    Backend endpoint:
-        GET /admin/patients
+    Get patients through admin endpoint.
     """
 
     return _get(
@@ -534,17 +595,11 @@ def get_admin_patients():
     )
 
 
-# ==========================================================
-# Admin Delete User
-# ==========================================================
-
 def delete_user(
     user_id: int,
 ):
     """
-    Delete a user.
-
-    Uses the admin endpoint.
+    Delete user through admin endpoint.
     """
 
     return _delete(
@@ -552,15 +607,11 @@ def delete_user(
     )
 
 
-# ==========================================================
-# Admin Delete Patient
-# ==========================================================
-
 def delete_admin_patient(
     patient_id: int,
 ):
     """
-    Delete a patient through the admin endpoint.
+    Delete patient through admin endpoint.
     """
 
     return _delete(
@@ -569,215 +620,283 @@ def delete_admin_patient(
 
 
 # ==========================================================
-# Compatibility
+# User Settings
+# ==========================================================
+
+def get_user_settings():
+    """
+    Get current user's profile and settings.
+
+    Profile information is retrieved from the
+    authenticated session/backend when available.
+    """
+
+    try:
+
+        import streamlit as st
+
+        token = st.session_state.get(
+            "access_token"
+        )
+
+        username = st.session_state.get(
+            "username",
+            "",
+        )
+
+        role = st.session_state.get(
+            "role",
+            "user",
+        )
+
+        if token:
+
+            user = _get_authenticated(
+                "/auth/me",
+                token,
+            )
+
+            if user:
+
+                return {
+                    "id": user.get(
+                        "id"
+                    ),
+
+                    "username": user.get(
+                        "username",
+                        username,
+                    ),
+
+                    "email": user.get(
+                        "email",
+                        "",
+                    ),
+
+                    "full_name": user.get(
+                        "full_name",
+                        "",
+                    ),
+
+                    "role": user.get(
+                        "role",
+                        role,
+                    ),
+
+                    "theme": st.session_state.get(
+                        "user_theme",
+                        "Light",
+                    ),
+
+                    "language": st.session_state.get(
+                        "user_language",
+                        "English",
+                    ),
+
+                    "api_url":
+                        API_BASE_URL,
+                }
+
+        return {
+            "username":
+                username,
+
+            "email":
+                st.session_state.get(
+                    "email",
+                    "",
+                ),
+
+            "full_name":
+                st.session_state.get(
+                    "full_name",
+                    "",
+                ),
+
+            "role":
+                role,
+
+            "theme":
+                st.session_state.get(
+                    "user_theme",
+                    "Light",
+                ),
+
+            "language":
+                st.session_state.get(
+                    "user_language",
+                    "English",
+                ),
+
+            "api_url":
+                API_BASE_URL,
+        }
+
+    except Exception as e:
+
+        print(
+            f"Get user settings error: {e}"
+        )
+
+        return None
+
+
+# ==========================================================
+# Update User Settings
+# ==========================================================
+
+def update_user_settings(
+    data,
+):
+    """
+    Update user settings.
+
+    Appearance preferences are stored in the
+    Streamlit session. Profile changes are also
+    reflected in the current session.
+    """
+
+    try:
+
+        import streamlit as st
+
+        if "theme" in data:
+
+            st.session_state[
+                "user_theme"
+            ] = data["theme"]
+
+        if "language" in data:
+
+            st.session_state[
+                "user_language"
+            ] = data["language"]
+
+        if "username" in data:
+
+            st.session_state[
+                "username"
+            ] = data["username"]
+
+        if "email" in data:
+
+            st.session_state[
+                "email"
+            ] = data["email"]
+
+        if "full_name" in data:
+
+            st.session_state[
+                "full_name"
+            ] = data["full_name"]
+
+        return {
+            "status":
+                "success",
+
+            "message":
+                "Settings updated successfully.",
+        }
+
+    except Exception as e:
+
+        print(
+            f"Update user settings error: {e}"
+        )
+
+        return None
+
+
+# ==========================================================
+# Change Password
+# ==========================================================
+
+def change_password(
+    current_password: str,
+    new_password: str,
+):
+    """
+    Change the authenticated user's password.
+    """
+
+    try:
+
+        import streamlit as st
+
+        token = st.session_state.get(
+            "access_token"
+        )
+
+        if not token:
+
+            print(
+                "Change password failed: "
+                "No authentication token."
+            )
+
+            return False
+
+        if not current_password:
+
+            return False
+
+        if not new_password:
+
+            return False
+
+        if len(
+            new_password.encode(
+                "utf-8"
+            )
+        ) > 72:
+
+            print(
+                "New password is too long."
+            )
+
+            return False
+
+        response = requests.post(
+            f"{API_BASE_URL}/auth/change-password",
+
+            json={
+                "old_password":
+                    current_password,
+
+                "new_password":
+                    new_password,
+            },
+
+            headers={
+                "Authorization":
+                    f"Bearer {token}"
+            },
+
+            timeout=30,
+        )
+
+        response.raise_for_status()
+
+        return True
+
+    except requests.RequestException as e:
+
+        print(
+            f"Change password error: {e}"
+        )
+
+        return False
+
+
+# ==========================================================
+# Backend Health
 # ==========================================================
 
 def health_check():
     """
-    Check backend health.
+    Check FastAPI backend health.
     """
 
     return _get(
         "/health"
     )
-
-import streamlit as st
-
-# ==========================================================
-# Page Configuration
-# ==========================================================
-
-st.set_page_config(
-    page_title="Settings",
-    page_icon="⚙️",
-    layout="wide"
-)
-
-# ==========================================================
-# Header
-# ==========================================================
-
-st.title("⚙️ Settings")
-
-st.write("""
-Manage your account, application preferences, and security settings.
-""")
-
-st.divider()
-
-# ==========================================================
-# Load User Settings
-# ==========================================================
-
-settings = get_user_settings()
-
-if settings is None:
-    st.error("Unable to load user settings.")
-    st.stop()
-
-# ==========================================================
-# Profile Settings
-# ==========================================================
-
-st.subheader("👤 Profile")
-
-with st.form("profile_form"):
-
-    username = st.text_input(
-        "Username",
-        value=settings.get("username", "")
-    )
-
-    email = st.text_input(
-        "Email",
-        value=settings.get("email", "")
-    )
-
-    full_name = st.text_input(
-        "Full Name",
-        value=settings.get("full_name", "")
-    )
-
-    submitted = st.form_submit_button("💾 Save Profile")
-
-    if submitted:
-
-        response = update_user_settings({
-            "username": username,
-            "email": email,
-            "full_name": full_name
-        })
-
-        if response:
-            st.success("Profile updated successfully.")
-        else:
-            st.error("Unable to update profile.")
-
-st.divider()
-
-# ==========================================================
-# Appearance
-# ==========================================================
-
-st.subheader("🎨 Appearance")
-
-theme = st.selectbox(
-    "Theme",
-    ["Light", "Dark"],
-    index=0 if settings.get("theme", "Light") == "Light" else 1
-)
-
-language = st.selectbox(
-    "Language",
-    [
-        "English",
-        "Hindi"
-    ]
-)
-
-if st.button("Save Appearance"):
-
-    response = update_user_settings({
-        "theme": theme,
-        "language": language
-    })
-
-    if response:
-        st.success("Appearance updated.")
-    else:
-        st.error("Unable to save settings.")
-
-st.divider()
-
-# ==========================================================
-# Security
-# ==========================================================
-
-st.subheader("🔐 Change Password")
-
-with st.form("password_form"):
-
-    current_password = st.text_input(
-        "Current Password",
-        type="password"
-    )
-
-    new_password = st.text_input(
-        "New Password",
-        type="password"
-    )
-
-    confirm_password = st.text_input(
-        "Confirm Password",
-        type="password"
-    )
-
-    password_submit = st.form_submit_button(
-        "Update Password"
-    )
-
-    if password_submit:
-
-        if new_password != confirm_password:
-
-            st.error("Passwords do not match.")
-
-        else:
-
-            success = change_password(
-                current_password,
-                new_password
-            )
-
-            if success:
-                st.success("Password updated successfully.")
-            else:
-                st.error("Unable to change password.")
-
-st.divider()
-
-# ==========================================================
-# Backend Information
-# ==========================================================
-
-st.subheader("🖥️ Backend")
-
-st.info(f"API URL: {settings.get('api_url', 'http://127.0.0.1:8000')}")
-
-st.success("Backend Status: Connected")
-
-st.divider()
-
-# ==========================================================
-# About
-# ==========================================================
-
-st.subheader("ℹ️ About")
-
-st.markdown("""
-**Parkinson Disease Detection Agent**
-
-Version: **1.0.0**
-
-**Frontend**
-- Streamlit
-
-**Backend**
-- FastAPI
-
-**Machine Learning**
-- Scikit-learn
-
-**Database**
-- SQLite / PostgreSQL
-
-Developed for AI-assisted Parkinson's disease prediction, patient management, analytics, and reporting.
-""")
-
-st.divider()
-
-# ==========================================================
-# Footer
-# ==========================================================
-
-st.caption("© 2026 Parkinson Disease Detection Agent")
