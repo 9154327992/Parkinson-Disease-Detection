@@ -79,40 +79,6 @@ with st.form("profile_form"):
 st.divider()
 
 # ==========================================================
-# Appearance
-# ==========================================================
-
-st.subheader("🎨 Appearance")
-
-theme = st.selectbox(
-    "Theme",
-    ["Light", "Dark"],
-    index=0 if settings.get("theme", "Light") == "Light" else 1
-)
-
-language = st.selectbox(
-    "Language",
-    [
-        "English",
-        "Hindi"
-    ]
-)
-
-if st.button("Save Appearance"):
-
-    response = update_user_settings({
-        "theme": theme,
-        "language": language
-    })
-
-    if response:
-        st.success("Appearance updated.")
-    else:
-        st.error("Unable to save settings.")
-
-st.divider()
-
-# ==========================================================
 # Security
 # ==========================================================
 
