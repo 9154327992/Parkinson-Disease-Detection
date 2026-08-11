@@ -1,5 +1,6 @@
 import requests
 from typing import Optional, Dict, List
+
 import streamlit as st
 
 
@@ -10,6 +11,32 @@ import streamlit as st
 BASE_URL = "https://parkinson-disease-detection-wced.onrender.com"
 
 TIMEOUT = 30
+
+
+# ==========================================================
+# Authentication Headers
+# ==========================================================
+
+def _headers() -> Dict[str, str]:
+    """
+    Return Authorization headers when the user is logged in.
+    """
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    token = st.session_state.get(
+        "token"
+    )
+
+    if token:
+
+        headers["Authorization"] = (
+            f"Bearer {token}"
+        )
+
+    return headers
 
 
 # ==========================================================
@@ -24,12 +51,9 @@ def get(endpoint: str):
 
         response = requests.get(
             url,
-            timeout=TIMEOUT
+            headers=_headers(),
+            timeout=TIMEOUT,
         )
-
-        st.write("URL:", url)
-        st.write("Status Code:", response.status_code)
-        st.write("Response:", response.text)
 
         response.raise_for_status()
 
@@ -37,7 +61,9 @@ def get(endpoint: str):
 
     except requests.RequestException as e:
 
-        st.error(f"Error: {e}")
+        st.error(
+            f"API Error: {e}"
+        )
 
         return None
 
@@ -46,7 +72,10 @@ def get(endpoint: str):
 # Generic POST Request
 # ==========================================================
 
-def post(endpoint: str, data: dict):
+def post(
+    endpoint: str,
+    data: dict,
+):
 
     url = f"{BASE_URL}{endpoint}"
 
@@ -55,12 +84,9 @@ def post(endpoint: str, data: dict):
         response = requests.post(
             url,
             json=data,
-            timeout=TIMEOUT
+            headers=_headers(),
+            timeout=TIMEOUT,
         )
-
-        st.write("URL:", url)
-        st.write("Status Code:", response.status_code)
-        st.write("Response:", response.text)
 
         response.raise_for_status()
 
@@ -68,7 +94,57 @@ def post(endpoint: str, data: dict):
 
     except requests.RequestException as e:
 
-        st.error(f"Error: {e}")
+        st.error(
+            f"API Error: {e}"
+        )
+
+        return None
+
+
+# ==========================================================
+# Login
+# ==========================================================
+
+def login_user(
+    username: str,
+    password: str,
+) -> Optional[Dict]:
+
+    url = f"{BASE_URL}/auth/login"
+
+    payload = {
+        "username": username,
+        "password": password,
+    }
+
+    try:
+
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=TIMEOUT,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException as e:
+
+        try:
+
+            detail = response.json().get(
+                "detail",
+                str(e),
+            )
+
+        except Exception:
+
+            detail = str(e)
+
+        st.error(
+            f"Login failed: {detail}"
+        )
 
         return None
 
@@ -77,21 +153,29 @@ def post(endpoint: str, data: dict):
 # Generic PUT Request
 # ==========================================================
 
-def put(endpoint: str, data: Dict):
+def put(
+    endpoint: str,
+    data: Dict,
+):
 
     try:
 
         response = requests.put(
             f"{BASE_URL}{endpoint}",
             json=data,
-            timeout=TIMEOUT
+            headers=_headers(),
+            timeout=TIMEOUT,
         )
 
         response.raise_for_status()
 
         return response.json()
 
-    except requests.RequestException:
+    except requests.RequestException as e:
+
+        st.error(
+            f"API Error: {e}"
+        )
 
         return None
 
@@ -100,20 +184,27 @@ def put(endpoint: str, data: Dict):
 # Generic DELETE Request
 # ==========================================================
 
-def delete(endpoint: str):
+def delete(
+    endpoint: str,
+):
 
     try:
 
         response = requests.delete(
             f"{BASE_URL}{endpoint}",
-            timeout=TIMEOUT
+            headers=_headers(),
+            timeout=TIMEOUT,
         )
 
         response.raise_for_status()
 
         return True
 
-    except requests.RequestException:
+    except requests.RequestException as e:
+
+        st.error(
+            f"API Error: {e}"
+        )
 
         return False
 
@@ -126,19 +217,19 @@ def predict_patient(
     patient_name: str,
     age: int,
     gender: str,
-    features: List[float]
+    features: List[float],
 ) -> Optional[Dict]:
 
     payload = {
         "patient_name": patient_name,
         "age": age,
         "gender": gender,
-        "features": features
+        "features": features,
     }
 
     return post(
         "/prediction/predict",
-        payload
+        payload,
     )
 
 
@@ -153,7 +244,9 @@ def get_prediction_history():
     )
 
 
-def delete_prediction(prediction_id: int):
+def delete_prediction(
+    prediction_id: int,
+):
 
     return delete(
         f"/prediction/{prediction_id}"
@@ -161,7 +254,7 @@ def delete_prediction(prediction_id: int):
 
 
 # ==========================================================
-# Patient History / Patients
+# Patients
 # ==========================================================
 
 def get_patient_history():
@@ -178,7 +271,9 @@ def get_patients():
     )
 
 
-def delete_patient(patient_id: int):
+def delete_patient(
+    patient_id: int,
+):
 
     return delete(
         f"/patients/{patient_id}"
@@ -196,20 +291,27 @@ def get_reports():
     )
 
 
-def download_report(report_id):
+def download_report(
+    report_id,
+):
 
     try:
 
         response = requests.get(
             f"{BASE_URL}/reports/{report_id}/download",
-            timeout=TIMEOUT
+            headers=_headers(),
+            timeout=TIMEOUT,
         )
 
         response.raise_for_status()
 
         return response.content
 
-    except requests.RequestException:
+    except requests.RequestException as e:
+
+        st.error(
+            f"Download failed: {e}"
+        )
 
         return None
 
@@ -229,15 +331,17 @@ def get_analytics():
 # AI Assistant
 # ==========================================================
 
-def ask_ai_assistant(question: str):
+def ask_ai_assistant(
+    question: str,
+):
 
     payload = {
-        "message": question
+        "message": question,
     }
 
     return post(
         "/chatbot/",
-        payload
+        payload,
     )
 
 
@@ -259,7 +363,9 @@ def get_users():
     )
 
 
-def delete_user(user_id):
+def delete_user(
+    user_id,
+):
 
     return delete(
         f"/users/{user_id}"
@@ -277,27 +383,29 @@ def get_user_settings():
     )
 
 
-def update_user_settings(data):
+def update_user_settings(
+    data,
+):
 
     return put(
         "/settings",
-        data
+        data,
     )
 
 
 def change_password(
     current_password,
-    new_password
+    new_password,
 ):
 
     payload = {
         "current_password": current_password,
-        "new_password": new_password
+        "new_password": new_password,
     }
 
     return post(
         "/change-password",
-        payload
+        payload,
     )
 
 
@@ -311,7 +419,7 @@ def check_backend():
 
         response = requests.get(
             f"{BASE_URL}/health",
-            timeout=5
+            timeout=5,
         )
 
         return response.status_code == 200
