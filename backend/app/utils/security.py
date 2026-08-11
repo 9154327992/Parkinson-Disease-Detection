@@ -1,15 +1,9 @@
-"""
-Security Utilities
-
-Authentication and authorization helpers for the
-Parkinson Disease Detection System.
-"""
-
 from datetime import datetime, timedelta
 from typing import Optional
 
+import bcrypt
+
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.utils.config import settings
 
@@ -18,17 +12,35 @@ from app.utils.config import settings
 # Password Hashing
 # ==========================================================
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
-
-
-def hash_password(password: str) -> str:
+def hash_password(
+    password: str,
+) -> str:
     """
-    Hash a plain-text password.
+    Hash a plain-text password using bcrypt.
     """
-    return pwd_context.hash(password)
+
+    if not isinstance(password, str):
+        raise ValueError(
+            "Password must be a string."
+        )
+
+    password_bytes = password.encode(
+        "utf-8"
+    )
+
+    if len(password_bytes) > 72:
+        raise ValueError(
+            "Password cannot be longer than 72 bytes."
+        )
+
+    hashed = bcrypt.hashpw(
+        password_bytes,
+        bcrypt.gensalt(),
+    )
+
+    return hashed.decode(
+        "utf-8"
+    )
 
 
 def verify_password(
@@ -36,12 +48,46 @@ def verify_password(
     hashed_password: str,
 ) -> bool:
     """
-    Verify password.
+    Verify a plain-text password against
+    a bcrypt password hash.
     """
-    return pwd_context.verify(
+
+    if not isinstance(
         plain_password,
+        str,
+    ):
+        return False
+
+    if not isinstance(
         hashed_password,
+        str,
+    ):
+        return False
+
+    password_bytes = (
+        plain_password.encode(
+            "utf-8"
+        )
     )
+
+    if len(password_bytes) > 72:
+        return False
+
+    try:
+
+        return bcrypt.checkpw(
+            password_bytes,
+            hashed_password.encode(
+                "utf-8"
+            ),
+        )
+
+    except (
+        ValueError,
+        TypeError,
+    ):
+
+        return False
 
 
 # ==========================================================
@@ -50,7 +96,9 @@ def verify_password(
 
 def create_access_token(
     subject: str,
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: Optional[
+        timedelta
+    ] = None,
 ) -> str:
     """
     Create JWT access token.
@@ -61,15 +109,21 @@ def create_access_token(
         + (
             expires_delta
             or timedelta(
-                minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+                minutes=(
+                    settings
+                    .ACCESS_TOKEN_EXPIRE_MINUTES
+                )
             )
         )
     )
 
     payload = {
-        "sub": subject,
+        "sub": str(subject),
+
         "type": "access",
+
         "exp": expire,
+
         "iat": datetime.utcnow(),
     }
 
@@ -84,17 +138,26 @@ def create_refresh_token(
     subject: str,
 ) -> str:
     """
-    Create refresh token.
+    Create JWT refresh token.
     """
 
-    expire = datetime.utcnow() + timedelta(
-        days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+    expire = (
+        datetime.utcnow()
+        + timedelta(
+            days=(
+                settings
+                .REFRESH_TOKEN_EXPIRE_DAYS
+            )
+        )
     )
 
     payload = {
-        "sub": subject,
+        "sub": str(subject),
+
         "type": "refresh",
+
         "exp": expire,
+
         "iat": datetime.utcnow(),
     }
 
@@ -116,12 +179,17 @@ def decode_token(
     Decode JWT token.
     """
 
+    if not token:
+        return None
+
     try:
 
         return jwt.decode(
             token,
             settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            algorithms=[
+                settings.ALGORITHM
+            ],
         )
 
     except JWTError:
@@ -136,12 +204,21 @@ def get_token_subject(
     Return subject from token.
     """
 
-    payload = decode_token(token)
+    payload = decode_token(
+        token
+    )
 
     if payload is None:
         return None
 
-    return payload.get("sub")
+    subject = payload.get(
+        "sub"
+    )
+
+    if subject is None:
+        return None
+
+    return str(subject)
 
 
 # ==========================================================
@@ -155,22 +232,30 @@ def validate_token(
     Validate JWT token.
     """
 
-    return decode_token(token) is not None
+    return (
+        decode_token(token)
+        is not None
+    )
 
 
 def is_refresh_token(
     token: str,
 ) -> bool:
     """
-    Check refresh token.
+    Check whether token is a refresh token.
     """
 
-    payload = decode_token(token)
+    payload = decode_token(
+        token
+    )
 
     if payload is None:
         return False
 
-    return payload.get("type") == "refresh"
+    return (
+        payload.get("type")
+        == "refresh"
+    )
 
 
 # ==========================================================
@@ -180,22 +265,49 @@ def is_refresh_token(
 def is_admin(
     role: str,
 ) -> bool:
+    """
+    Check administrator role.
+    """
 
-    return role.lower() == "admin"
+    if not role:
+        return False
+
+    return (
+        role.strip().lower()
+        == "admin"
+    )
 
 
 def is_doctor(
     role: str,
 ) -> bool:
+    """
+    Check doctor role.
+    """
 
-    return role.lower() == "doctor"
+    if not role:
+        return False
+
+    return (
+        role.strip().lower()
+        == "doctor"
+    )
 
 
 def is_user(
     role: str,
 ) -> bool:
+    """
+    Check normal user role.
+    """
 
-    return role.lower() == "user"
+    if not role:
+        return False
+
+    return (
+        role.strip().lower()
+        == "user"
+    )
 
 
 def has_role(
@@ -206,9 +318,19 @@ def has_role(
     Generic role check.
     """
 
-    return role.lower() in [
-        r.lower()
-        for r in allowed_roles
+    if not role:
+        return False
+
+    normalized_role = (
+        role.strip().lower()
+    )
+
+    return normalized_role in [
+        str(allowed_role)
+        .strip()
+        .lower()
+        for allowed_role
+        in allowed_roles
     ]
 
 
@@ -220,9 +342,10 @@ def extract_bearer_token(
     authorization: str,
 ) -> Optional[str]:
     """
-    Extract Bearer token from header.
+    Extract Bearer token from Authorization header.
 
     Example:
+
         Bearer eyJhb...
     """
 
@@ -234,7 +357,10 @@ def extract_bearer_token(
     if len(parts) != 2:
         return None
 
-    if parts[0].lower() != "bearer":
+    if (
+        parts[0].lower()
+        != "bearer"
+    ):
         return None
 
     return parts[1]
@@ -251,7 +377,13 @@ def security_status():
 
     return {
         "status": "Online",
-        "jwt_algorithm": settings.ALGORITHM,
-        "password_hashing": "bcrypt",
-        "version": "1.0.0",
+
+        "jwt_algorithm":
+            settings.ALGORITHM,
+
+        "password_hashing":
+            "bcrypt",
+
+        "version":
+            "1.0.0",
     }
