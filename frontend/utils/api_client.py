@@ -583,12 +583,6 @@ def health_check():
 
 import streamlit as st
 
-from utils.api_client import (
-    get_user_settings,
-    update_user_settings,
-    change_password
-)
-
 # ==========================================================
 # Page Configuration
 # ==========================================================
