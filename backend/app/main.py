@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database.database import create_tables
 from app.database.seed import DatabaseSeeder
 
+from app.routes.admin import router as admin_router
 from app.routes.auth import router as auth_router
 from app.routes.prediction import router as prediction_router
 from app.routes.patient import router as patient_router
@@ -159,6 +160,17 @@ app.add_middleware(
     allow_headers=[
         "*"
     ],
+)
+
+
+# ==========================================================
+# Admin
+# ==========================================================
+
+app.include_router(
+    admin_router,
+    prefix="/admin",
+    tags=["Admin"],
 )
 
 
