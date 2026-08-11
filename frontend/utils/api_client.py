@@ -23,7 +23,6 @@ def _get(
     """
 
     try:
-
         response = requests.get(
             f"{API_BASE_URL}{endpoint}",
             timeout=timeout,
@@ -61,10 +60,9 @@ def _post(
         headers = {}
 
         if token:
-
-            headers[
-                "Authorization"
-            ] = f"Bearer {token}"
+            headers["Authorization"] = (
+                f"Bearer {token}"
+            )
 
         response = requests.post(
             f"{API_BASE_URL}{endpoint}",
@@ -105,10 +103,9 @@ def _put(
         headers = {}
 
         if token:
-
-            headers[
-                "Authorization"
-            ] = f"Bearer {token}"
+            headers["Authorization"] = (
+                f"Bearer {token}"
+            )
 
         response = requests.put(
             f"{API_BASE_URL}{endpoint}",
@@ -148,10 +145,9 @@ def _delete(
         headers = {}
 
         if token:
-
-            headers[
-                "Authorization"
-            ] = f"Bearer {token}"
+            headers["Authorization"] = (
+                f"Bearer {token}"
+            )
 
         response = requests.delete(
             f"{API_BASE_URL}{endpoint}",
@@ -254,8 +250,7 @@ def _get_authenticated(
     except requests.RequestException as e:
 
         print(
-            f"Authenticated GET "
-            f"{endpoint} error: {e}"
+            f"Authenticated GET error: {e}"
         )
 
         return None
@@ -291,13 +286,25 @@ def predict(
     data,
 ):
     """
-    Send Parkinson disease prediction request.
+    Send prediction request.
     """
 
     return _post(
         "/prediction/predict",
         data,
         timeout=60,
+    )
+
+
+def predict_patient(
+    data,
+):
+    """
+    Compatibility function used by the Prediction page.
+    """
+
+    return predict(
+        data
     )
 
 
@@ -318,11 +325,48 @@ def get_prediction_history(
 ):
     """
     Get prediction history.
+
+    Supports list or dictionary responses.
     """
 
-    return _get(
+    # Primary endpoint
+    data = _get(
         f"/prediction/history/{patient_id}"
     )
+
+    if data is None:
+
+        # Compatibility fallback
+        data = _get(
+            "/prediction/history"
+        )
+
+    if data is None:
+        return None
+
+    if isinstance(
+        data,
+        list,
+    ):
+        return data
+
+    if isinstance(
+        data,
+        dict,
+    ):
+
+        if "history" in data:
+            return data["history"]
+
+        if "predictions" in data:
+            return data["predictions"]
+
+        if "records" in data:
+            return data["records"]
+
+        return []
+
+    return []
 
 
 def get_prediction_statistics():
@@ -337,7 +381,7 @@ def get_prediction_statistics():
 
 def get_model_info():
     """
-    Get machine learning model information.
+    Get ML model information.
     """
 
     return _get(
@@ -428,7 +472,7 @@ def delete_patient(
 
 def get_reports():
     """
-    Get all reports.
+    Get all patient reports.
     """
 
     data = _get(
@@ -436,8 +480,13 @@ def get_reports():
     )
 
     if data is None:
-
         return None
+
+    if isinstance(
+        data,
+        list,
+    ):
+        return data
 
     if isinstance(
         data,
@@ -449,7 +498,7 @@ def get_reports():
             [],
         )
 
-    return data
+    return []
 
 
 def get_report(
@@ -530,7 +579,7 @@ def get_patient_recommendations(
     patient_id: int,
 ):
     """
-    Get patient recommendations.
+    Get recommendations for a patient.
     """
 
     return _get(
@@ -546,7 +595,7 @@ def ask_ai_assistant(
     question: str,
 ):
     """
-    Ask AI Assistant.
+    Ask the AI Assistant.
     """
 
     return _post(
@@ -574,7 +623,7 @@ def get_admin_dashboard():
 
 def get_users():
     """
-    Get all users for administrator.
+    Get users through administrator endpoint.
 
     Backend:
         GET /admin/users
@@ -587,7 +636,7 @@ def get_users():
 
 def get_admin_patients():
     """
-    Get patients through admin endpoint.
+    Get patients through administrator endpoint.
     """
 
     return _get(
@@ -599,7 +648,7 @@ def delete_user(
     user_id: int,
 ):
     """
-    Delete user through admin endpoint.
+    Delete user through administrator endpoint.
     """
 
     return _delete(
@@ -611,7 +660,7 @@ def delete_admin_patient(
     patient_id: int,
 ):
     """
-    Delete patient through admin endpoint.
+    Delete patient through administrator endpoint.
     """
 
     return _delete(
@@ -625,10 +674,9 @@ def delete_admin_patient(
 
 def get_user_settings():
     """
-    Get current user's profile and settings.
+    Get current user's settings.
 
-    Profile information is retrieved from the
-    authenticated session/backend when available.
+    No Streamlit UI is created here.
     """
 
     try:
@@ -649,84 +697,62 @@ def get_user_settings():
             "user",
         )
 
+        email = st.session_state.get(
+            "email",
+            "",
+        )
+
+        full_name = st.session_state.get(
+            "full_name",
+            "",
+        )
+
+        result = None
+
         if token:
 
-            user = _get_authenticated(
+            result = _get_authenticated(
                 "/auth/me",
                 token,
             )
 
-            if user:
+        if isinstance(
+            result,
+            dict,
+        ):
 
-                return {
-                    "id": user.get(
-                        "id"
-                    ),
+            username = result.get(
+                "username",
+                username,
+            )
 
-                    "username": user.get(
-                        "username",
-                        username,
-                    ),
+            email = result.get(
+                "email",
+                email,
+            )
 
-                    "email": user.get(
-                        "email",
-                        "",
-                    ),
+            full_name = result.get(
+                "full_name",
+                full_name,
+            )
 
-                    "full_name": user.get(
-                        "full_name",
-                        "",
-                    ),
-
-                    "role": user.get(
-                        "role",
-                        role,
-                    ),
-
-                    "theme": st.session_state.get(
-                        "user_theme",
-                        "Light",
-                    ),
-
-                    "language": st.session_state.get(
-                        "user_language",
-                        "English",
-                    ),
-
-                    "api_url":
-                        API_BASE_URL,
-                }
+            role = result.get(
+                "role",
+                role,
+            )
 
         return {
             "username":
                 username,
 
             "email":
-                st.session_state.get(
-                    "email",
-                    "",
-                ),
+                email,
 
             "full_name":
-                st.session_state.get(
-                    "full_name",
-                    "",
-                ),
+                full_name,
 
             "role":
                 role,
-
-            "theme":
-                st.session_state.get(
-                    "user_theme",
-                    "Light",
-                ),
-
-            "language":
-                st.session_state.get(
-                    "user_language",
-                    "English",
-                ),
 
             "api_url":
                 API_BASE_URL,
@@ -741,36 +767,20 @@ def get_user_settings():
         return None
 
 
-# ==========================================================
-# Update User Settings
-# ==========================================================
-
 def update_user_settings(
     data,
 ):
     """
-    Update user settings.
+    Update frontend session profile information.
 
-    Appearance preferences are stored in the
-    Streamlit session. Profile changes are also
-    reflected in the current session.
+    The current backend does not expose a dedicated
+    profile update endpoint, so this updates the current
+    Streamlit session only.
     """
 
     try:
 
         import streamlit as st
-
-        if "theme" in data:
-
-            st.session_state[
-                "user_theme"
-            ] = data["theme"]
-
-        if "language" in data:
-
-            st.session_state[
-                "user_language"
-            ] = data["language"]
 
         if "username" in data:
 
@@ -795,21 +805,17 @@ def update_user_settings(
                 "success",
 
             "message":
-                "Settings updated successfully.",
+                "Profile updated successfully.",
         }
 
     except Exception as e:
 
         print(
-            f"Update user settings error: {e}"
+            f"Update settings error: {e}"
         )
 
         return None
 
-
-# ==========================================================
-# Change Password
-# ==========================================================
 
 def change_password(
     current_password: str,
@@ -829,19 +835,12 @@ def change_password(
 
         if not token:
 
-            print(
-                "Change password failed: "
-                "No authentication token."
-            )
-
             return False
 
         if not current_password:
-
             return False
 
         if not new_password:
-
             return False
 
         if len(
@@ -849,10 +848,6 @@ def change_password(
                 "utf-8"
             )
         ) > 72:
-
-            print(
-                "New password is too long."
-            )
 
             return False
 
@@ -894,7 +889,7 @@ def change_password(
 
 def health_check():
     """
-    Check FastAPI backend health.
+    Check backend health.
     """
 
     return _get(
