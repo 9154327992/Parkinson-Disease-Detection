@@ -1,58 +1,32 @@
 import requests
-from typing import Optional, Dict, List
-
-import streamlit as st
 
 
 # ==========================================================
 # Backend Configuration
 # ==========================================================
 
-BASE_URL = "https://parkinson-disease-detection-wced.onrender.com"
-
-TIMEOUT = 30
+API_BASE_URL = (
+    "https://parkinson-disease-detection-wced.onrender.com"
+)
 
 
 # ==========================================================
-# Authentication Headers
+# Generic GET Helper
 # ==========================================================
 
-def _headers() -> Dict[str, str]:
+def _get(
+    endpoint: str,
+    timeout: int = 30,
+):
     """
-    Return Authorization headers when the user is logged in.
+    Perform a GET request.
     """
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-
-    token = st.session_state.get(
-        "token"
-    )
-
-    if token:
-
-        headers["Authorization"] = (
-            f"Bearer {token}"
-        )
-
-    return headers
-
-
-# ==========================================================
-# Generic GET Request
-# ==========================================================
-
-def get(endpoint: str):
-
-    url = f"{BASE_URL}{endpoint}"
 
     try:
 
         response = requests.get(
-            url,
-            headers=_headers(),
-            timeout=TIMEOUT,
+            f"{API_BASE_URL}{endpoint}",
+            timeout=timeout,
         )
 
         response.raise_for_status()
@@ -61,31 +35,32 @@ def get(endpoint: str):
 
     except requests.RequestException as e:
 
-        st.error(
-            f"API Error: {e}"
+        print(
+            f"GET {endpoint} error: {e}"
         )
 
         return None
 
 
 # ==========================================================
-# Generic POST Request
+# Generic POST Helper
 # ==========================================================
 
-def post(
+def _post(
     endpoint: str,
-    data: dict,
+    data=None,
+    timeout: int = 60,
 ):
-
-    url = f"{BASE_URL}{endpoint}"
+    """
+    Perform a POST request.
+    """
 
     try:
 
         response = requests.post(
-            url,
+            f"{API_BASE_URL}{endpoint}",
             json=data,
-            headers=_headers(),
-            timeout=TIMEOUT,
+            timeout=timeout,
         )
 
         response.raise_for_status()
@@ -94,35 +69,114 @@ def post(
 
     except requests.RequestException as e:
 
-        st.error(
-            f"API Error: {e}"
+        print(
+            f"POST {endpoint} error: {e}"
         )
 
         return None
 
 
 # ==========================================================
-# Login
+# Generic DELETE Helper
+# ==========================================================
+
+def _delete(
+    endpoint: str,
+    timeout: int = 30,
+):
+    """
+    Perform a DELETE request.
+    """
+
+    try:
+
+        response = requests.delete(
+            f"{API_BASE_URL}{endpoint}",
+            timeout=timeout,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException as e:
+
+        print(
+            f"DELETE {endpoint} error: {e}"
+        )
+
+        return None
+
+
+# ==========================================================
+# Authentication
 # ==========================================================
 
 def login_user(
     username: str,
     password: str,
-) -> Optional[Dict]:
+):
+    """
+    Login user.
+    """
 
-    url = f"{BASE_URL}/auth/login"
+    return _post(
+        "/auth/login",
+        {
+            "username": username,
+            "password": password,
+        },
+        timeout=30,
+    )
 
-    payload = {
-        "username": username,
-        "password": password,
-    }
+
+def get_current_user(
+    token: str,
+):
+    """
+    Get authenticated user information.
+    """
+
+    try:
+
+        response = requests.get(
+            f"{API_BASE_URL}/auth/me",
+            headers={
+                "Authorization":
+                    f"Bearer {token}"
+            },
+            timeout=30,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException as e:
+
+        print(
+            f"Get current user error: {e}"
+        )
+
+        return None
+
+
+def logout_user(
+    token: str,
+):
+    """
+    Logout user.
+    """
 
     try:
 
         response = requests.post(
-            url,
-            json=payload,
-            timeout=TIMEOUT,
+            f"{API_BASE_URL}/auth/logout",
+            headers={
+                "Authorization":
+                    f"Bearer {token}"
+            },
+            timeout=30,
         )
 
         response.raise_for_status()
@@ -131,124 +185,83 @@ def login_user(
 
     except requests.RequestException as e:
 
-        try:
-
-            detail = response.json().get(
-                "detail",
-                str(e),
-            )
-
-        except Exception:
-
-            detail = str(e)
-
-        st.error(
-            f"Login failed: {detail}"
+        print(
+            f"Logout error: {e}"
         )
 
         return None
-
-
-# ==========================================================
-# Generic PUT Request
-# ==========================================================
-
-def put(
-    endpoint: str,
-    data: Dict,
-):
-
-    try:
-
-        response = requests.put(
-            f"{BASE_URL}{endpoint}",
-            json=data,
-            headers=_headers(),
-            timeout=TIMEOUT,
-        )
-
-        response.raise_for_status()
-
-        return response.json()
-
-    except requests.RequestException as e:
-
-        st.error(
-            f"API Error: {e}"
-        )
-
-        return None
-
-
-# ==========================================================
-# Generic DELETE Request
-# ==========================================================
-
-def delete(
-    endpoint: str,
-):
-
-    try:
-
-        response = requests.delete(
-            f"{BASE_URL}{endpoint}",
-            headers=_headers(),
-            timeout=TIMEOUT,
-        )
-
-        response.raise_for_status()
-
-        return True
-
-    except requests.RequestException as e:
-
-        st.error(
-            f"API Error: {e}"
-        )
-
-        return False
 
 
 # ==========================================================
 # Prediction
 # ==========================================================
 
-def predict_patient(
-    patient_name: str,
-    age: int,
-    gender: str,
-    features: List[float],
-) -> Optional[Dict]:
+def predict(
+    data,
+):
+    """
+    Send prediction request.
+    """
 
-    payload = {
-        "patient_name": patient_name,
-        "age": age,
-        "gender": gender,
-        "features": features,
-    }
-
-    return post(
+    return _post(
         "/prediction/predict",
-        payload,
+        data,
+        timeout=60,
     )
 
 
-# ==========================================================
-# Prediction History
-# ==========================================================
+def get_prediction(
+    prediction_id: int,
+):
+    """
+    Get one prediction.
+    """
 
-def get_prediction_history():
+    return _get(
+        f"/prediction/{prediction_id}"
+    )
 
-    return get(
-        "/prediction/history"
+
+def get_prediction_history(
+    patient_id: int = 1,
+):
+    """
+    Get prediction history.
+    """
+
+    return _get(
+        f"/prediction/history/{patient_id}"
+    )
+
+
+def get_prediction_statistics():
+    """
+    Get prediction statistics.
+    """
+
+    return _get(
+        "/prediction/statistics"
+    )
+
+
+def get_model_info():
+    """
+    Get ML model information.
+    """
+
+    return _get(
+        "/prediction/model-info"
     )
 
 
 def delete_prediction(
     prediction_id: int,
 ):
+    """
+    Delete prediction.
+    """
 
-    return delete(
+    return _delete(
         f"/prediction/{prediction_id}"
     )
 
@@ -257,25 +270,78 @@ def delete_prediction(
 # Patients
 # ==========================================================
 
-def get_patient_history():
-
-    return get(
-        "/prediction/history"
-    )
-
-
 def get_patients():
+    """
+    Get all patients.
+    """
 
-    return get(
+    return _get(
         "/patients"
     )
+
+
+def get_patient(
+    patient_id: int,
+):
+    """
+    Get one patient.
+    """
+
+    return _get(
+        f"/patients/{patient_id}"
+    )
+
+
+def create_patient(
+    data,
+):
+    """
+    Create patient.
+    """
+
+    return _post(
+        "/patients",
+        data,
+    )
+
+
+def update_patient(
+    patient_id: int,
+    data,
+):
+    """
+    Update patient.
+    """
+
+    try:
+
+        response = requests.put(
+            f"{API_BASE_URL}/patients/{patient_id}",
+            json=data,
+            timeout=30,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException as e:
+
+        print(
+            f"Update patient error: {e}"
+        )
+
+        return None
 
 
 def delete_patient(
     patient_id: int,
 ):
+    """
+    Delete patient.
+    """
 
-    return delete(
+    return _delete(
         f"/patients/{patient_id}"
     )
 
@@ -285,35 +351,71 @@ def delete_patient(
 # ==========================================================
 
 def get_reports():
+    """
+    Get all reports.
+    """
 
-    return get(
+    data = _get(
         "/reports"
+    )
+
+    if data is None:
+        return None
+
+    # ReportList response:
+    #
+    # {
+    #     "total_reports": 1,
+    #     "reports": [...]
+    # }
+
+    if isinstance(
+        data,
+        dict,
+    ):
+
+        return data.get(
+            "reports",
+            [],
+        )
+
+    return data
+
+
+def get_report(
+    report_id: int,
+):
+    """
+    Get one report.
+    """
+
+    return _get(
+        f"/reports/{report_id}"
     )
 
 
 def download_report(
-    report_id,
+    report_id: int,
 ):
+    """
+    Get report download information.
+    """
 
-    try:
+    return _get(
+        f"/reports/{report_id}/download"
+    )
 
-        response = requests.get(
-            f"{BASE_URL}/reports/{report_id}/download",
-            headers=_headers(),
-            timeout=TIMEOUT,
-        )
 
-        response.raise_for_status()
+def delete_report(
+    report_id: int,
+):
+    """
+    Delete report.
+    """
 
-        return response.content
-
-    except requests.RequestException as e:
-
-        st.error(
-            f"Download failed: {e}"
-        )
-
-        return None
+    return _delete(
+        f"/reports/{report_id}"
+    )
 
 
 # ==========================================================
@@ -321,9 +423,48 @@ def download_report(
 # ==========================================================
 
 def get_analytics():
+    """
+    Get analytics dashboard data.
+    """
 
-    return get(
+    return _get(
         "/analytics"
+    )
+
+
+def get_analytics_summary():
+    """
+    Get analytics summary.
+    """
+
+    return _get(
+        "/analytics/summary"
+    )
+
+
+# ==========================================================
+# Recommendations
+# ==========================================================
+
+def get_recommendations():
+    """
+    Get recommendations.
+    """
+
+    return _get(
+        "/recommendations"
+    )
+
+
+def get_patient_recommendations(
+    patient_id: int,
+):
+    """
+    Get recommendations for a patient.
+    """
+
+    return _get(
+        f"/recommendations/patient/{patient_id}"
     )
 
 
@@ -334,96 +475,108 @@ def get_analytics():
 def ask_ai_assistant(
     question: str,
 ):
+    """
+    Ask the Parkinson Disease AI Assistant.
+    """
 
-    payload = {
-        "message": question,
-    }
-
-    return post(
+    return _post(
         "/chatbot/",
-        payload,
+        {
+            "message": question,
+        },
+        timeout=60,
     )
 
 
 # ==========================================================
-# Admin
+# Admin Dashboard
 # ==========================================================
 
 def get_admin_dashboard():
+    """
+    Get administrator dashboard statistics.
 
-    return get(
+    Backend endpoint:
+        GET /admin/dashboard
+    """
+
+    return _get(
         "/admin/dashboard"
     )
 
 
 def get_users():
+    """
+    Get all users for the administrator.
 
-    return get(
-        "/users"
+    IMPORTANT:
+    The admin router is registered with the
+    /admin prefix, therefore the correct endpoint is:
+
+        GET /admin/users
+    """
+
+    return _get(
+        "/admin/users"
     )
 
+
+def get_admin_patients():
+    """
+    Get all patients through the admin endpoint.
+
+    Backend endpoint:
+        GET /admin/patients
+    """
+
+    return _get(
+        "/admin/patients"
+    )
+
+
+# ==========================================================
+# Admin Delete User
+# ==========================================================
 
 def delete_user(
-    user_id,
+    user_id: int,
 ):
+    """
+    Delete a user.
 
-    return delete(
-        f"/users/{user_id}"
+    Uses the admin endpoint.
+    """
+
+    return _delete(
+        f"/admin/users/{user_id}"
     )
 
 
 # ==========================================================
-# Settings
+# Admin Delete Patient
 # ==========================================================
 
-def get_user_settings():
-
-    return get(
-        "/settings"
-    )
-
-
-def update_user_settings(
-    data,
+def delete_admin_patient(
+    patient_id: int,
 ):
+    """
+    Delete a patient through the admin endpoint.
+    """
 
-    return put(
-        "/settings",
-        data,
-    )
-
-
-def change_password(
-    current_password,
-    new_password,
-):
-
-    payload = {
-        "current_password": current_password,
-        "new_password": new_password,
-    }
-
-    return post(
-        "/change-password",
-        payload,
+    return _delete(
+        f"/admin/patients/{patient_id}"
     )
 
 
 # ==========================================================
-# Health Check
+# Compatibility
 # ==========================================================
 
-def check_backend():
+def health_check():
+    """
+    Check backend health.
+    """
 
-    try:
-
-        response = requests.get(
-            f"{BASE_URL}/health",
-            timeout=5,
-        )
-
-        return response.status_code == 200
-
-    except requests.RequestException:
-
-        return False
+    return _get(
+        "/health"
+    )
