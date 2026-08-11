@@ -20,6 +20,8 @@ from app.utils.security import (
     hash_password,
     verify_password,
     create_access_token,
+    create_refresh_token,
+    decode_token,
 )
 
 
@@ -36,17 +38,10 @@ class AuthService:
         pass
 
     # ======================================================
-    # Database Helper
+    # User → Response
     # ======================================================
 
-    def _get_db(self):
-        return SessionLocal()
-
-    # ======================================================
-    # Convert User Model → Response
-    # ======================================================
-
-    def _user_response(
+    def _to_response(
         self,
         user: User,
     ) -> UserResponse:
@@ -62,32 +57,33 @@ class AuthService:
         )
 
     # ======================================================
-    # Register User
+    # Register
     # ======================================================
 
     def register(
         self,
         request: RegisterRequest,
     ) -> UserResponse:
-        """
-        Register a new user.
-        """
 
-        if request.password != request.confirm_password:
+        if (
+            request.password
+            != request.confirm_password
+        ):
 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Passwords do not match.",
             )
 
-        db = self._get_db()
+        db = SessionLocal()
 
         try:
 
             existing_username = (
                 db.query(User)
                 .filter(
-                    User.username == request.username
+                    User.username
+                    == request.username
                 )
                 .first()
             )
@@ -102,7 +98,8 @@ class AuthService:
             existing_email = (
                 db.query(User)
                 .filter(
-                    User.email == str(request.email)
+                    User.email
+                    == str(request.email)
                 )
                 .first()
             )
@@ -114,28 +111,25 @@ class AuthService:
                     detail="Email already exists.",
                 )
 
-            # --------------------------------------------------
-            # Security:
-            # Never allow public registration to create admin
-            # accounts.
-            # --------------------------------------------------
+            # Never allow normal registration
+            # to create an administrator.
 
-            requested_role = (
+            role = (
                 str(request.role)
                 .strip()
                 .lower()
             )
 
-            if requested_role == "admin":
+            if role == "admin":
 
-                requested_role = "user"
+                role = "user"
 
-            if requested_role not in {
+            if role not in {
                 "user",
                 "doctor",
             }:
 
-                requested_role = "user"
+                role = "user"
 
             user = User(
 
@@ -143,13 +137,13 @@ class AuthService:
 
                 email=str(request.email),
 
+                full_name=request.full_name,
+
                 password=hash_password(
                     request.password
                 ),
 
-                full_name=request.full_name,
-
-                role=requested_role,
+                role=role,
 
                 is_active=True,
             )
@@ -160,7 +154,7 @@ class AuthService:
 
             db.refresh(user)
 
-            return self._user_response(
+            return self._to_response(
                 user
             )
 
@@ -176,25 +170,19 @@ class AuthService:
         self,
         request: LoginRequest,
     ) -> LoginResponse:
-        """
-        Authenticate user using the database.
-        """
 
-        db = self._get_db()
+        db = SessionLocal()
 
         try:
 
             user = (
                 db.query(User)
                 .filter(
-                    User.username == request.username
+                    User.username
+                    == request.username
                 )
                 .first()
             )
-
-            # ------------------------------------------------
-            # User not found
-            # ------------------------------------------------
 
             if user is None:
 
@@ -203,20 +191,12 @@ class AuthService:
                     detail="Invalid username or password.",
                 )
 
-            # ------------------------------------------------
-            # Account disabled
-            # ------------------------------------------------
-
             if not user.is_active:
 
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User account is inactive.",
                 )
-
-            # ------------------------------------------------
-            # Verify password
-            # ------------------------------------------------
 
             if not verify_password(
                 request.password,
@@ -230,15 +210,29 @@ class AuthService:
 
             # ------------------------------------------------
             # IMPORTANT:
-            # Role comes directly from database.
+            # Use the role stored in the database.
+            # ------------------------------------------------
+
+            role = (
+                str(user.role)
+                .strip()
+                .lower()
+            )
+
+            # ------------------------------------------------
+            # Access token
             # ------------------------------------------------
 
             access_token = create_access_token(
-                {
-                    "sub": str(user.id),
-                    "username": user.username,
-                    "role": user.role,
-                }
+                str(user.id)
+            )
+
+            # ------------------------------------------------
+            # Refresh token
+            # ------------------------------------------------
+
+            refresh_token = create_refresh_token(
+                str(user.id)
             )
 
             return LoginResponse(
@@ -249,7 +243,7 @@ class AuthService:
 
                 expires_in=3600,
 
-                user=self._user_response(
+                user=self._to_response(
                     user
                 ),
             )
@@ -266,12 +260,8 @@ class AuthService:
         self,
         user_id: int,
     ) -> UserResponse:
-        """
-        Return the actual authenticated user
-        from the database.
-        """
 
-        db = self._get_db()
+        db = SessionLocal()
 
         try:
 
@@ -279,6 +269,78 @@ class AuthService:
                 db.query(User)
                 .filter(
                     User.id == user_id
+                )
+                .first()
+            )
+
+            if user is None:
+
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found.",
+                )
+
+            if not user.is_active:
+
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User account is inactive.",
+                )
+
+            return self._to_response(
+                user
+            )
+
+        finally:
+
+            db.close()
+
+    # ======================================================
+    # Refresh Token
+    # ======================================================
+
+    def refresh_token(
+        self,
+        refresh_token: str,
+    ) -> dict:
+
+        payload = decode_token(
+            refresh_token
+        )
+
+        if payload is None:
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token.",
+            )
+
+        if payload.get("type") != "refresh":
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token.",
+            )
+
+        subject = payload.get(
+            "sub"
+        )
+
+        if not subject:
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token.",
+            )
+
+        db = SessionLocal()
+
+        try:
+
+            user = (
+                db.query(User)
+                .filter(
+                    User.id == int(subject)
                 )
                 .first()
             )
@@ -297,9 +359,23 @@ class AuthService:
                     detail="User account is inactive.",
                 )
 
-            return self._user_response(
-                user
+            new_access_token = (
+                create_access_token(
+                    str(user.id)
+                )
             )
+
+            return {
+
+                "access_token":
+                    new_access_token,
+
+                "token_type":
+                    "bearer",
+
+                "expires_in":
+                    3600,
+            }
 
         finally:
 
@@ -314,9 +390,6 @@ class AuthService:
         user_id: int,
         request: ChangePasswordRequest,
     ) -> MessageResponse:
-        """
-        Change current user's password.
-        """
 
         if (
             request.new_password
@@ -328,7 +401,7 @@ class AuthService:
                 detail="Passwords do not match.",
             )
 
-        db = self._get_db()
+        db = SessionLocal()
 
         try:
 
@@ -354,7 +427,7 @@ class AuthService:
 
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Old password is incorrect.",
+                    detail="Current password is incorrect.",
                 )
 
             user.password = hash_password(
@@ -372,55 +445,6 @@ class AuthService:
             db.close()
 
     # ======================================================
-    # Refresh Token
-    # ======================================================
-
-    def refresh_token(
-        self,
-        user_id: int,
-    ) -> dict:
-        """
-        Generate a new access token.
-        """
-
-        db = self._get_db()
-
-        try:
-
-            user = (
-                db.query(User)
-                .filter(
-                    User.id == user_id
-                )
-                .first()
-            )
-
-            if user is None:
-
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found.",
-                )
-
-            token = create_access_token(
-                {
-                    "sub": str(user.id),
-                    "username": user.username,
-                    "role": user.role,
-                }
-            )
-
-            return {
-                "access_token": token,
-                "token_type": "bearer",
-                "expires_in": 3600,
-            }
-
-        finally:
-
-            db.close()
-
-    # ======================================================
     # Logout
     # ======================================================
 
@@ -428,13 +452,24 @@ class AuthService:
         self,
         user_id: int,
     ) -> MessageResponse:
-        """
-        Logout user.
-
-        JWT logout is normally handled client-side
-        by removing the access token.
-        """
 
         return MessageResponse(
             message="Logged out successfully."
+        )
+
+    # ======================================================
+    # Create Access Token
+    # ======================================================
+
+    def create_access_token(
+        self,
+        user: UserResponse,
+    ) -> str:
+        """
+        Compatibility method for routes that call
+        auth_service.create_access_token().
+        """
+
+        return create_access_token(
+            str(user.id)
         )
