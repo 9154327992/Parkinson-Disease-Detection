@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.database.database import SessionLocal
 from app.database.models import (
@@ -22,9 +22,7 @@ def require_admin(
     user_id: int,
 ):
     """
-    Verify that the current user is an administrator.
-
-    The user_id is supplied by the authentication layer.
+    Verify that the supplied user is an administrator.
     """
 
     db = SessionLocal()
@@ -84,10 +82,6 @@ def admin_dashboard(
 ):
     """
     Return administrator dashboard statistics.
-
-    For the current application, the default authenticated
-    administrator is user ID 1 unless authentication
-    dependency integration is added.
     """
 
     admin = require_admin(
@@ -97,6 +91,10 @@ def admin_dashboard(
     db = SessionLocal()
 
     try:
+
+        # --------------------------------------------------
+        # Overall counts
+        # --------------------------------------------------
 
         total_users = (
             db.query(User).count()
@@ -162,11 +160,22 @@ def admin_dashboard(
             recent_users.append(
                 {
                     "id": user.id,
-                    "username": user.username,
-                    "full_name": user.full_name,
-                    "email": user.email,
-                    "role": user.role,
-                    "is_active": user.is_active,
+
+                    "username":
+                        user.username,
+
+                    "full_name":
+                        user.full_name,
+
+                    "email":
+                        user.email,
+
+                    "role":
+                        user.role,
+
+                    "is_active":
+                        user.is_active,
+
                     "created_at": (
                         user.created_at.isoformat()
                         if user.created_at
@@ -186,10 +195,12 @@ def admin_dashboard(
             recent_activity.append(
                 {
                     "type": "User",
+
                     "description": (
                         f"User '{user.username}' "
                         "registered."
                     ),
+
                     "created_at": (
                         user.created_at.isoformat()
                         if user.created_at
@@ -203,27 +214,42 @@ def admin_dashboard(
 
             "administrator": {
                 "id": admin.id,
-                "username": admin.username,
-                "role": admin.role,
+
+                "username":
+                    admin.username,
+
+                "role":
+                    admin.role,
             },
 
-            "total_users": total_users,
+            "total_users":
+                total_users,
 
-            "total_patients": total_patients,
+            "total_patients":
+                total_patients,
 
-            "total_predictions": total_predictions,
+            "total_predictions":
+                total_predictions,
 
-            "total_reports": total_reports,
+            "total_reports":
+                total_reports,
 
             "user_roles": {
-                "admins": admin_users,
-                "doctors": doctor_users,
-                "users": normal_users,
+                "admins":
+                    admin_users,
+
+                "doctors":
+                    doctor_users,
+
+                "users":
+                    normal_users,
             },
 
-            "recent_users": recent_users,
+            "recent_users":
+                recent_users,
 
-            "recent_activity": recent_activity,
+            "recent_activity":
+                recent_activity,
         }
 
     finally:
@@ -243,7 +269,7 @@ def admin_users(
     user_id: int = 1,
 ):
     """
-    Return all users for the administrator.
+    Return all users.
     """
 
     require_admin(
@@ -264,12 +290,24 @@ def admin_users(
 
         return [
             {
-                "id": user.id,
-                "username": user.username,
-                "full_name": user.full_name,
-                "email": user.email,
-                "role": user.role,
-                "is_active": user.is_active,
+                "id":
+                    user.id,
+
+                "username":
+                    user.username,
+
+                "full_name":
+                    user.full_name,
+
+                "email":
+                    user.email,
+
+                "role":
+                    user.role,
+
+                "is_active":
+                    user.is_active,
+
                 "created_at": (
                     user.created_at.isoformat()
                     if user.created_at
@@ -296,7 +334,7 @@ def admin_patients(
     user_id: int = 1,
 ):
     """
-    Return all patients for the administrator.
+    Return all patients.
     """
 
     require_admin(
@@ -321,7 +359,8 @@ def admin_patients(
 
             result.append(
                 {
-                    "id": patient.id,
+                    "id":
+                        patient.id,
 
                     "patient_name": (
                         f"{patient.first_name} "
