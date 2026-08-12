@@ -24,16 +24,16 @@ st.title(
 
 st.write(
     """
-    Enter the patient's information and voice measurements
-    to assess the likelihood of Parkinson's disease.
-    """
+Enter the patient's information and all 22 voice
+measurements to assess the likelihood of Parkinson's disease.
+"""
 )
 
 st.info(
     """
-    This prediction is an AI-assisted screening result and
-    should not be treated as a medical diagnosis.
-    """
+This prediction is an AI-assisted screening result and
+should not be treated as a medical diagnosis.
+"""
 )
 
 st.divider()
@@ -93,7 +93,8 @@ st.subheader(
 )
 
 st.caption(
-    "Enter all 22 voice measurements used by the ML model."
+    "All 22 measurements are required. "
+    "Enter the actual values from the patient's voice analysis."
 )
 
 
@@ -146,7 +147,7 @@ feature_names = [
 
 
 # ==========================================================
-# Feature Input
+# Feature Inputs
 # ==========================================================
 
 values = []
@@ -162,26 +163,37 @@ for index, feature in enumerate(
 
         value = st.number_input(
             feature,
-            value=0.0,
+            value=None,
+            placeholder="Enter measurement",
             format="%.6f",
-            key=f"feature_{index}",
+            key=f"prediction_feature_{index}",
         )
 
-        values.append(
-            value
-        )
+        values.append(value)
+
+
+# ==========================================================
+# Measurement Validation
+# ==========================================================
+
+entered_features = sum(
+    value is not None
+    for value in values
+)
+
+missing_features = [
+    index + 1
+    for index, value in enumerate(values)
+    if value is None
+]
 
 
 st.divider()
 
-
-# ==========================================================
-# Measurement Summary
-# ==========================================================
-
 st.subheader(
     "📊 Measurement Summary"
 )
+
 
 summary_col1, summary_col2, summary_col3 = (
     st.columns(3)
@@ -192,16 +204,11 @@ with summary_col1:
 
     st.metric(
         "Total Features",
-        len(values),
+        len(feature_names),
     )
 
 
 with summary_col2:
-
-    entered_features = sum(
-        value != 0
-        for value in values
-    )
 
     st.metric(
         "Entered Features",
@@ -213,35 +220,60 @@ with summary_col3:
 
     st.metric(
         "Required Features",
-        22,
+        len(feature_names),
     )
 
+
+# ==========================================================
+# Validation Status
+# ==========================================================
+
+if entered_features == 22:
+
+    st.success(
+        "✅ All 22 voice measurements have been entered."
+    )
+
+else:
+
+    st.warning(
+        f"⚠️ {22 - entered_features} "
+        "voice measurement(s) still need to be entered."
+    )
+
+
+# ==========================================================
+# Analyze Button
+# ==========================================================
 
 st.divider()
 
 
-# ==========================================================
-# Analyze Patient
-# ==========================================================
-
-if st.button(
+analyze = st.button(
     "🧠 Analyze Patient",
-    width="stretch",
+    use_container_width=True,
     type="primary",
-):
+)
+
+
+if analyze:
 
     # ------------------------------------------------------
-    # Patient Validation
+    # Patient Name
     # ------------------------------------------------------
 
     if not patient_name.strip():
 
-        st.warning(
+        st.error(
             "Please enter the patient name."
         )
 
         st.stop()
 
+
+    # ------------------------------------------------------
+    # Feature Count
+    # ------------------------------------------------------
 
     if len(values) != 22:
 
@@ -253,68 +285,80 @@ if st.button(
 
 
     # ------------------------------------------------------
-    # Measurement Validation
+    # Missing Measurements
     # ------------------------------------------------------
 
-    if all(
-        value == 0
-        for value in values
-    ):
+    if missing_features:
 
-        st.warning(
-            "Please enter valid voice measurements."
+        missing_text = ", ".join(
+            str(number)
+            for number in missing_features
+        )
+
+        st.error(
+            "Please enter all 22 voice measurements "
+            f"before analyzing the patient. "
+            f"Missing feature(s): {missing_text}"
         )
 
         st.stop()
 
 
     # ------------------------------------------------------
-    # Prediction Request
+    # Convert to float
+    # ------------------------------------------------------
+
+    try:
+
+        numeric_values = [
+            float(value)
+            for value in values
+        ]
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        st.error(
+            "All voice measurements must be valid numbers."
+        )
+
+        st.stop()
+
+
+    # ------------------------------------------------------
+    # Final Validation
+    # ------------------------------------------------------
+
+    if len(numeric_values) != 22:
+
+        st.error(
+            "The prediction requires exactly 22 measurements."
+        )
+
+        st.stop()
+
+
+    # ------------------------------------------------------
+    # Prediction
     # ------------------------------------------------------
 
     with st.spinner(
-        "Analyzing patient..."
+        "🧠 Analyzing patient..."
     ):
 
-        try:
-
-            result = predict_patient(
-                patient_name=patient_name.strip(),
-                age=int(patient_age),
-                gender=patient_gender,
-                features=values,
-            )
-
-        except TypeError as exc:
-
-            st.error(
-                "Prediction request format is incompatible "
-                "with the current api_client.py."
-            )
-
-            st.code(
-                str(exc)
-            )
-
-            st.stop()
-
-        except Exception as exc:
-
-            st.error(
-                "An unexpected error occurred while "
-                "requesting the prediction."
-            )
-
-            st.code(
-                str(exc)
-            )
-
-            st.stop()
+        result = predict_patient(
+            patient_name.strip(),
+            int(patient_age),
+            patient_gender,
+            numeric_values,
+        )
 
 
-    # ======================================================
-    # Backend Response
-    # ======================================================
+    # ------------------------------------------------------
+    # Backend Error
+    # ------------------------------------------------------
 
     if result is None:
 
@@ -326,25 +370,9 @@ if st.button(
         st.stop()
 
 
-    if not isinstance(
-        result,
-        dict,
-    ):
-
-        st.error(
-            "The backend returned an invalid prediction response."
-        )
-
-        st.write(
-            result
-        )
-
-        st.stop()
-
-
-    # ======================================================
+    # ------------------------------------------------------
     # Result
-    # ======================================================
+    # ------------------------------------------------------
 
     st.success(
         "✅ Prediction completed successfully."
@@ -358,66 +386,83 @@ if st.button(
 
 
     # ------------------------------------------------------
-    # Extract Result
+    # Diagnosis
     # ------------------------------------------------------
 
-    diagnosis = result.get(
-        "diagnosis",
-        result.get(
-            "prediction",
-            result.get(
-                "result",
-                "Unknown",
-            ),
-        ),
-    )
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        diagnosis = (
+            result.get("diagnosis")
+            or result.get("prediction")
+            or result.get("prediction_result")
+            or result.get("result")
+            or "Unknown"
+        )
 
 
-    risk_score = result.get(
-        "risk_score",
-        result.get(
-            "risk",
-            0,
-        ),
-    )
+        risk_score = (
+            result.get("risk_score")
+            if result.get("risk_score") is not None
+            else result.get("risk")
+        )
 
 
-    risk_level = result.get(
-        "risk_level",
-        "Unknown",
-    )
+        if risk_score is None:
+
+            risk_score = 0
 
 
-    recommendation = result.get(
-        "recommendation",
-        (
-            "Please consult a qualified healthcare "
-            "professional for further evaluation."
-        ),
-    )
+        risk_level = (
+            result.get("risk_level")
+            or result.get("risk_category")
+            or "Unknown"
+        )
 
 
-    prediction_id = result.get(
-        "prediction_id",
-        result.get(
-            "id",
-            "N/A",
-        ),
-    )
+        recommendation = (
+            result.get("recommendation")
+            or result.get("recommendations")
+            or "Please consult a qualified healthcare professional."
+        )
 
 
-    confidence = result.get(
-        "confidence",
-        result.get(
-            "prediction_confidence",
-            None,
-        ),
-    )
+        prediction_id = (
+            result.get("prediction_id")
+            or result.get("id")
+            or "N/A"
+        )
 
 
-    # ------------------------------------------------------
+        confidence = (
+            result.get("confidence")
+            or result.get("prediction_confidence")
+        )
+
+    else:
+
+        diagnosis = str(
+            result
+        )
+
+        risk_score = 0
+
+        risk_level = "Unknown"
+
+        recommendation = (
+            "Please consult a qualified healthcare professional."
+        )
+
+        prediction_id = "N/A"
+
+        confidence = None
+
+
+    # ======================================================
     # Result Metrics
-    # ------------------------------------------------------
+    # ======================================================
 
     result_col1, result_col2, result_col3 = (
         st.columns(3)
@@ -428,9 +473,7 @@ if st.button(
 
         st.metric(
             "Diagnosis",
-            str(
-                diagnosis
-            ),
+            str(diagnosis),
         )
 
 
@@ -454,9 +497,7 @@ if st.button(
 
             st.metric(
                 "Risk Score",
-                str(
-                    risk_score
-                ),
+                str(risk_score),
             )
 
 
@@ -464,9 +505,7 @@ if st.button(
 
         st.metric(
             "Risk Level",
-            str(
-                risk_level
-            ),
+            str(risk_level),
         )
 
 
@@ -482,18 +521,11 @@ if st.button(
                 confidence
             )
 
-            st.progress(
-                max(
-                    0.0,
-                    min(
-                        confidence_value / 100,
-                        1.0,
-                    ),
-                )
-            )
+            if confidence_value <= 1:
+                confidence_value *= 100
 
-            st.caption(
-                f"Prediction confidence: "
+            st.write(
+                f"**Prediction Confidence:** "
                 f"{confidence_value:.2f}%"
             )
 
@@ -502,7 +534,10 @@ if st.button(
             ValueError,
         ):
 
-            pass
+            st.write(
+                f"**Prediction Confidence:** "
+                f"{confidence}"
+            )
 
 
     st.divider()
@@ -517,40 +552,30 @@ if st.button(
     )
 
 
-    p1, p2, p3, p4 = (
-        st.columns(4)
+    patient_col1, patient_col2 = (
+        st.columns(2)
     )
 
 
-    with p1:
+    with patient_col1:
 
         st.write(
-            f"**Name:** "
-            f"{patient_name}"
+            f"**Name:** {patient_name}"
+        )
+
+        st.write(
+            f"**Age:** {patient_age}"
         )
 
 
-    with p2:
+    with patient_col2:
 
         st.write(
-            f"**Age:** "
-            f"{patient_age}"
+            f"**Gender:** {patient_gender}"
         )
 
-
-    with p3:
-
         st.write(
-            f"**Gender:** "
-            f"{patient_gender}"
-        )
-
-
-    with p4:
-
-        st.write(
-            f"**Prediction ID:** "
-            f"{prediction_id}"
+            f"**Prediction ID:** {prediction_id}"
         )
 
 
@@ -565,11 +590,8 @@ if st.button(
         "💡 Recommendation"
     )
 
-
     st.info(
-        str(
-            recommendation
-        )
+        str(recommendation)
     )
 
 
@@ -577,7 +599,7 @@ if st.button(
 
 
     # ======================================================
-    # Raw Response
+    # Backend Response
     # ======================================================
 
     with st.expander(
@@ -601,14 +623,16 @@ if st.button(
     )
 
 
-    next1, next2 = st.columns(2)
+    next_col1, next_col2 = (
+        st.columns(2)
+    )
 
 
-    with next1:
+    with next_col1:
 
         if st.button(
             "📋 View Patient History",
-            width="stretch",
+            use_container_width=True,
         ):
 
             st.switch_page(
@@ -616,11 +640,11 @@ if st.button(
             )
 
 
-    with next2:
+    with next_col2:
 
         if st.button(
             "📄 View Reports",
-            width="stretch",
+            use_container_width=True,
         ):
 
             st.switch_page(
@@ -638,34 +662,48 @@ with st.expander(
     "ℹ️ About the 22 Measurements"
 ):
 
-    st.write(
+    st.markdown(
         """
-        The prediction model expects 22 voice-related
-        measurements. These include fundamental frequency,
-        jitter, shimmer, noise-to-harmonics ratio,
-        recurrence measures, detrended fluctuation,
-        nonlinear measures, and pitch entropy.
+The prediction model uses 22 voice measurements:
 
-        The values should come from the same measurement
-        process and preprocessing used when the machine
-        learning model was trained.
+1. MDVP:Fo(Hz)
+2. MDVP:Fhi(Hz)
+3. MDVP:Flo(Hz)
+4. MDVP:Jitter(%)
+5. MDVP:Jitter(Abs)
+6. MDVP:RAP
+7. MDVP:PPQ
+8. Jitter:DDP
+9. MDVP:Shimmer
+10. MDVP:Shimmer(dB)
+11. Shimmer:APQ3
+12. Shimmer:APQ5
+13. MDVP:APQ
+14. Shimmer:DDA
+15. NHR
+16. HNR
+17. RPDE
+18. DFA
+19. Spread1
+20. Spread2
+21. D2
+22. PPE
         """
     )
 
 
 # ==========================================================
-# Medical Disclaimer
+# Disclaimer
 # ==========================================================
 
 st.warning(
     """
-    ⚠️ **Medical Disclaimer**
+⚠️ **Medical Disclaimer**
 
-    This tool provides AI-assisted screening information.
-    It does not diagnose Parkinson's disease and should
-    not replace evaluation by a qualified healthcare
-    professional.
-    """
+This tool provides AI-assisted screening information.
+It does not diagnose Parkinson's disease and should not
+replace evaluation by a qualified healthcare professional.
+"""
 )
 
 
