@@ -3125,109 +3125,110 @@ def extract_features(
 # Extract From File
 # ==========================================================
 
-def extract_features_from_file(
-    self,
-    audio_path: str,
-) -> dict:
-    """
-    Load an audio file and extract the complete
-    22-feature representation.
-    """
+    def extract_features_from_file(
+        self,
+        audio_path: str,
+    ) -> dict:
+        """
+        Load an audio file and extract the complete
+        22-feature representation.
+        """
 
-    audio, sample_rate = (
-        self.load_and_preprocess(
-            audio_path
+        audio, sample_rate = (
+            self.load_and_preprocess(
+                audio_path
+            )
         )
-    )
 
-    # The audio returned by
-    # load_and_preprocess() is already
-    # preprocessed, so call the individual
-    # extractors directly.
+        # The audio returned by
+        # load_and_preprocess() is already
+        # preprocessed, so call the individual
+        # extractors directly.
 
-    pitch_features = (
-        self.extract_pitch(
-            audio,
-            sample_rate,
+        pitch_features = (
+            self.extract_pitch(
+                audio,
+                sample_rate,
+            )
         )
-    )
 
-    jitter_features = (
-        self.extract_jitter(
-            audio,
-            sample_rate,
+        jitter_features = (
+            self.extract_jitter(
+                audio,
+                sample_rate,
+            )
         )
-    )
 
-    shimmer_features = (
-        self.extract_shimmer(
-            audio,
-            sample_rate,
+        shimmer_features = (
+            self.extract_shimmer(
+                audio,
+                sample_rate,
+            )
         )
-    )
 
-    hnr_features = (
-        self.extract_hnr_nhr(
-            audio,
-            sample_rate,
+        hnr_features = (
+            self.extract_hnr_nhr(
+                audio,
+                sample_rate,
+            )
         )
-    )
 
-    rpde_dfa_features = (
-        self.extract_rpde_dfa(
-            audio,
-            sample_rate,
+        rpde_dfa_features = (
+            self.extract_rpde_dfa(
+                audio,
+                sample_rate,
+            )
         )
-    )
 
-    nonlinear_features = (
-        self.extract_nonlinear_features(
-            audio,
-            sample_rate,
+        nonlinear_features = (
+            self.extract_nonlinear_features(
+                audio,
+                sample_rate,
+            )
         )
-    )
 
-    features = self.assemble_features(
-        pitch_features,
-        jitter_features,
-        shimmer_features,
-        hnr_features,
-        nonlinear_features,
-        rpde_dfa_features,
-    )
+        features = self.assemble_features(
+            pitch_features,
+            jitter_features,
+            shimmer_features,
+            hnr_features,
+            nonlinear_features,
+            rpde_dfa_features,
+        )
 
-    self.validate_feature_dictionary(
-        features
-    )
+        self.validate_feature_dictionary(
+            features
+        )
 
-    return features
+        return features
 
 
 # ==========================================================
 # Extract Model Vector From File
 # ==========================================================
 
-def extract_model_vector_from_file(
-    self,
-    audio_path: str,
-) -> np.ndarray:
-    """
-    Load an audio file, extract all 22 features, and
-    return a NumPy array with shape (1, 22).
+    def extract_model_vector_from_file(
+        self,
+        audio_path: str,
+    ) -> np.ndarray:
+        """
+        Load an audio file, extract all 22 features, and
+        return a NumPy array with shape (1, 22).
 
-    This array can be passed to the existing
-    Preprocessor.scale() method.
-    """
+        This array can be passed to the existing
+        Preprocessor.scale() method.
+        """
 
-    features = (
-        self.extract_features_from_file(
-            audio_path
+        features = (
+            self.extract_features_from_file(
+                audio_path
+            )
         )
-    )
 
-    return self.to_numpy_vector(
-        features
-    )
+        return self.to_numpy_vector(
+            features
+        )
+
 
 # ==========================================================
 # Shared Service Instance
