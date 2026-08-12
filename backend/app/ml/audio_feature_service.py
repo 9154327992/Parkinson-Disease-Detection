@@ -162,9 +162,9 @@ class AudioFeatureService:
 
         return FEATURE_NAMES.copy()
 
-    # ======================================================
-    # Audio Loading and Validation
-    # ======================================================
+# ==========================================================
+# Audio Loading and Validation
+# ==========================================================
 
     def load_audio(
         self,
