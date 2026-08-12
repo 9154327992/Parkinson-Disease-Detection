@@ -42,8 +42,8 @@ def _get_token():
         return None
 
     return (
-        session.get("access_token")
-        or session.get("token")
+        session.get("token")
+        or session.get("access_token")
     )
 
 
@@ -398,12 +398,13 @@ def login_user(
 
         response = requests.post(
             _url("/auth/login"),
-            data={
+            json={
                 "username": username,
                 "password": password,
             },
             headers={
                 "Accept": "application/json",
+                "Content-Type": "application/json",
             },
             timeout=30,
         )
