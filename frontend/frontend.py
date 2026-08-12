@@ -1,8 +1,13 @@
-from pathlib import Path
-
 import streamlit as st
 
-from utils.api_client import login_user
+from utils.api_client import (
+    login_user,
+    get_analytics,
+    get_patient_history,
+    get_reports,
+    get_api_url,
+)
+
 from utils.session import (
     initialize_session,
     login,
@@ -19,36 +24,7 @@ st.set_page_config(
     page_title="Parkinson Disease Detection Agent",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
-
-
-# ==========================================================
-# Load CSS
-# ==========================================================
-
-def load_css():
-
-    css_file = (
-        Path(__file__).parent
-        / "assets"
-        / "style.css"
-    )
-
-    if css_file.exists():
-
-        with open(
-            css_file,
-            encoding="utf-8",
-        ) as f:
-
-            st.markdown(
-                f"<style>{f.read()}</style>",
-                unsafe_allow_html=True,
-            )
-
-
-load_css()
 
 
 # ==========================================================
@@ -59,222 +35,84 @@ initialize_session()
 
 
 # ==========================================================
-# Login Screen
+# Helper Functions
 # ==========================================================
 
-if not is_logged_in():
+def safe_list(
+    value,
+):
+    """
+    Convert common API responses into a list.
+    """
 
-    st.title(
-        "🧠 Parkinson Disease Detection Agent"
-    )
+    if isinstance(
+        value,
+        list,
+    ):
+        return value
 
-    st.write(
-        """
-        Welcome to the Parkinson Disease Detection
-        and Monitoring System.
-        """
-    )
 
-    st.divider()
-
-    st.subheader(
-        "🔐 Login"
-    )
-
-    with st.form(
-        "login_form"
+    if isinstance(
+        value,
+        dict,
     ):
 
-        username = st.text_input(
-            "Username",
-            placeholder="Enter username",
+        return (
+            value.get("data")
+            or value.get("items")
+            or value.get("records")
+            or value.get("predictions")
+            or value.get("history")
+            or value.get("reports")
+            or []
         )
 
-        password = st.text_input(
-            "Password",
-            type="password",
-            placeholder="Enter password",
+
+    return []
+
+
+def get_metric(
+    data,
+    keys,
+    default=0,
+):
+    """
+    Safely retrieve a numeric metric.
+    """
+
+    if not isinstance(
+        data,
+        dict,
+    ):
+        return default
+
+
+    for key in keys:
+
+        value = data.get(
+            key
         )
 
-        submitted = st.form_submit_button(
-            "🔑 Login",
-            use_container_width=True,
-        )
+        if value is not None:
 
-    if submitted:
+            try:
+                return int(
+                    value
+                )
 
-        if not username.strip():
-
-            st.error(
-                "Please enter your username."
-            )
-
-        elif not password:
-
-            st.error(
-                "Please enter your password."
-            )
-
-        else:
-
-            with st.spinner(
-                "Authenticating..."
+            except (
+                TypeError,
+                ValueError,
             ):
 
-                response = login_user(
-                    username.strip(),
-                    password,
-                )
+                return default
 
-            if response:
 
-                user = response.get(
-                    "user",
-                    {},
-                )
-
-                token = response.get(
-                    "access_token"
-                )
-
-                if not token:
-
-                    st.error(
-                        "Login succeeded but no access token was returned."
-                    )
-
-                    st.stop()
-
-                login(
-                    user_id=user.get(
-                        "id"
-                    ),
-                    username=user.get(
-                        "username",
-                        username,
-                    ),
-                    email=user.get(
-                        "email",
-                        "",
-                    ),
-                    role=user.get(
-                        "role",
-                        "User",
-                    ),
-                    token=token,
-                )
-
-                st.success(
-                    f"Welcome, "
-                    f"{user.get('full_name', username)}!"
-                )
-
-                st.rerun()
-
-    st.stop()
+    return default
 
 
 # ==========================================================
-# Sidebar
-# ==========================================================
-
-with st.sidebar:
-
-    BASE_DIR = Path(__file__).parent
-
-    logo_path = (
-        BASE_DIR
-        / "assets"
-        / "logo.png"
-    )
-
-    if logo_path.exists():
-
-        st.image(
-            str(logo_path),
-            width=100,
-        )
-
-    st.title(
-        "🧠 Parkinson Disease Detection Agent"
-    )
-
-    st.caption(
-        "Version 1.0.0"
-    )
-
-    st.divider()
-
-    st.write(
-        "### User"
-    )
-
-    st.write(
-        f"**Name:** "
-        f"{st.session_state.username}"
-    )
-
-    st.write(
-        f"**Role:** "
-        f"{st.session_state.role}"
-    )
-
-    st.divider()
-
-    if st.button(
-        "🚪 Logout",
-        use_container_width=True,
-    ):
-
-        logout()
-
-        st.rerun()
-
-    st.divider()
-
-    st.write(
-        "### System Status"
-    )
-
-    st.success(
-        "🟢 FastAPI Connected"
-    )
-
-    st.success(
-        "🟢 ML Model Loaded"
-    )
-
-    st.success(
-        "🟢 Database Connected"
-    )
-
-    st.divider()
-
-    st.info(
-        """
-Select a module from the sidebar.
-
-🏠 Home
-
-🩺 Prediction
-
-👤 Patient History
-
-🤖 AI Assistant
-
-📄 Reports
-
-📊 Analytics
-
-🛠 Admin Dashboard
-
-⚙ Settings
-"""
-    )
-
-
-# ==========================================================
-# Main Dashboard
+# Header
 # ==========================================================
 
 st.title(
@@ -283,13 +121,9 @@ st.title(
 
 st.write(
     """
-Welcome to the **AI-powered Parkinson Disease
-Detection and Monitoring System**.
-
-This application uses machine learning to predict
-Parkinson's disease from voice measurements and
-provides patient management, analytics, reports,
-and an AI health assistant.
+AI-assisted Parkinson's disease screening,
+patient management, prediction history,
+analytics, reports, and health assistance.
 """
 )
 
@@ -297,8 +131,465 @@ st.divider()
 
 
 # ==========================================================
-# Quick Status
+# Authentication
 # ==========================================================
+
+if not is_logged_in():
+
+    st.subheader(
+        "🔐 Login"
+    )
+
+    st.write(
+        "Please login to access your dashboard."
+    )
+
+
+    with st.form(
+        "login_form"
+    ):
+
+        username = st.text_input(
+            "Username",
+            placeholder="Enter your username",
+        )
+
+
+        password = st.text_input(
+            "Password",
+            type="password",
+            placeholder="Enter your password",
+        )
+
+
+        submitted = st.form_submit_button(
+            "🔐 Login",
+            use_container_width=True,
+            type="primary",
+        )
+
+
+    if submitted:
+
+        username = username.strip()
+
+
+        if not username:
+
+            st.error(
+                "Please enter your username."
+            )
+
+            st.stop()
+
+
+        if not password:
+
+            st.error(
+                "Please enter your password."
+            )
+
+            st.stop()
+
+
+        with st.spinner(
+            "Signing in..."
+        ):
+
+            user = login_user(
+                username,
+                password,
+            )
+
+
+        if user:
+
+            # --------------------------------------------------
+            # Store login state
+            # --------------------------------------------------
+
+            try:
+
+                login(
+                    user
+                )
+
+            except TypeError:
+
+                # Compatibility with session.py versions
+                # that expect individual arguments.
+
+                st.session_state[
+                    "logged_in"
+                ] = True
+
+                st.session_state[
+                    "username"
+                ] = user.get(
+                    "username",
+                    username,
+                )
+
+                st.session_state[
+                    "role"
+                ] = user.get(
+                    "role",
+                    "User",
+                )
+
+
+            st.session_state[
+                "logged_in"
+            ] = True
+
+
+            if user.get(
+                "username"
+            ):
+
+                st.session_state[
+                    "username"
+                ] = user.get(
+                    "username"
+                )
+
+
+            if user.get(
+                "role"
+            ):
+
+                st.session_state[
+                    "role"
+                ] = user.get(
+                    "role"
+                )
+
+
+            if user.get(
+                "id"
+            ) is not None:
+
+                st.session_state[
+                    "user_id"
+                ] = user.get(
+                    "id"
+                )
+
+
+            elif user.get(
+                "user_id"
+            ) is not None:
+
+                st.session_state[
+                    "user_id"
+                ] = user.get(
+                    "user_id"
+                )
+
+
+            st.success(
+                "✅ Login successful."
+            )
+
+            st.rerun()
+
+
+        else:
+
+            st.error(
+                "❌ Login failed. "
+                "Please check your username and password."
+            )
+
+
+    st.stop()
+
+
+# ==========================================================
+# Logged-in Header
+# ==========================================================
+
+username = st.session_state.get(
+    "username",
+    "User",
+)
+
+role = st.session_state.get(
+    "role",
+    "User",
+)
+
+
+st.success(
+    f"Welcome, {username}"
+)
+
+
+# ==========================================================
+# Sidebar
+# ==========================================================
+
+with st.sidebar:
+
+    st.subheader(
+        "👤 Account"
+    )
+
+    st.write(
+        f"**User:** {username}"
+    )
+
+    st.write(
+        f"**Role:** {role}"
+    )
+
+
+    st.divider()
+
+
+    if st.button(
+        "🚪 Logout",
+        use_container_width=True,
+    ):
+
+        try:
+
+            logout()
+
+        except Exception:
+
+            pass
+
+
+        for key in [
+            "logged_in",
+            "username",
+            "role",
+            "user_id",
+            "access_token",
+            "token",
+            "jwt_token",
+        ]:
+
+            st.session_state.pop(
+                key,
+                None,
+            )
+
+
+        st.rerun()
+
+
+    st.divider()
+
+
+    st.caption(
+        f"Backend: {get_api_url()}"
+    )
+
+
+# ==========================================================
+# Load Dashboard Data
+# ==========================================================
+
+with st.spinner(
+    "Loading dashboard..."
+):
+
+    analytics = get_analytics()
+
+    history = get_patient_history()
+
+    reports = get_reports()
+
+
+# ==========================================================
+# Normalize Data
+# ==========================================================
+
+history_list = safe_list(
+    history
+)
+
+reports_list = safe_list(
+    reports
+)
+
+
+if not isinstance(
+    analytics,
+    dict,
+):
+
+    analytics = {}
+
+
+dashboard_data = analytics.get(
+    "dashboard",
+    {},
+)
+
+
+if not isinstance(
+    dashboard_data,
+    dict,
+):
+
+    dashboard_data = {}
+
+
+prediction_data = analytics.get(
+    "prediction",
+    {},
+)
+
+
+if not isinstance(
+    prediction_data,
+    dict,
+):
+
+    prediction_data = {}
+
+
+# ==========================================================
+# Calculate Real Values
+# ==========================================================
+
+# ----------------------------------------------------------
+# Predictions
+# ----------------------------------------------------------
+
+history_prediction_count = len(
+    history_list
+)
+
+
+analytics_prediction_count = get_metric(
+    prediction_data,
+    [
+        "total_predictions",
+    ],
+    0,
+)
+
+
+analytics_dashboard_predictions = get_metric(
+    dashboard_data,
+    [
+        "total_predictions",
+    ],
+    0,
+)
+
+
+total_predictions = (
+    history_prediction_count
+    or analytics_prediction_count
+    or analytics_dashboard_predictions
+)
+
+
+# ----------------------------------------------------------
+# Reports
+# ----------------------------------------------------------
+
+total_reports = len(
+    reports_list
+)
+
+
+if total_reports == 0:
+
+    total_reports = get_metric(
+        dashboard_data,
+        [
+            "total_reports",
+        ],
+        0,
+    )
+
+
+# ----------------------------------------------------------
+# Patients
+# ----------------------------------------------------------
+
+total_patients = get_metric(
+    dashboard_data,
+    [
+        "total_patients",
+    ],
+    0,
+)
+
+
+if total_patients == 0:
+
+    # Try analytics patient section.
+
+    patient_data = analytics.get(
+        "patient",
+        {},
+    )
+
+
+    if isinstance(
+        patient_data,
+        dict,
+    ):
+
+        total_patients = get_metric(
+            patient_data,
+            [
+                "total_patients",
+                "count",
+            ],
+            0,
+        )
+
+
+# ----------------------------------------------------------
+# Risk
+# ----------------------------------------------------------
+
+high_risk = get_metric(
+    dashboard_data,
+    [
+        "high_risk_cases",
+        "high_risk",
+    ],
+    0,
+)
+
+
+medium_risk = get_metric(
+    dashboard_data,
+    [
+        "medium_risk_cases",
+        "medium_risk",
+    ],
+    0,
+)
+
+
+low_risk = get_metric(
+    dashboard_data,
+    [
+        "low_risk_cases",
+        "low_risk",
+    ],
+    0,
+)
+
+
+# ==========================================================
+# Main Dashboard
+# ==========================================================
+
+st.subheader(
+    "📊 Dashboard Overview"
+)
+
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -306,32 +597,38 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
 
     st.metric(
-        "Patients",
-        "0",
+        "👤 Patients",
+        total_patients,
     )
 
 
 with col2:
 
     st.metric(
-        "Predictions",
-        "0",
+        "🧠 Predictions",
+        total_predictions,
     )
 
 
 with col3:
 
     st.metric(
-        "Reports",
-        "0",
+        "📄 Reports",
+        total_reports,
     )
 
 
 with col4:
 
+    risk_total = (
+        high_risk
+        + medium_risk
+        + low_risk
+    )
+
     st.metric(
-        "AI Status",
-        "Ready",
+        "⚠️ High Risk",
+        high_risk,
     )
 
 
@@ -339,37 +636,40 @@ st.divider()
 
 
 # ==========================================================
-# Features
+# Risk Overview
 # ==========================================================
 
 st.subheader(
-    "✨ Application Features"
+    "⚠️ Risk Overview"
 )
 
-feature1, feature2 = st.columns(2)
+
+risk_col1, risk_col2, risk_col3 = (
+    st.columns(3)
+)
 
 
-with feature1:
+with risk_col1:
 
-    st.markdown(
-        """
-        - ✅ Parkinson Disease Prediction
-        - ✅ Patient History
-        - ✅ Report Generation
-        - ✅ Analytics Dashboard
-        """
+    st.metric(
+        "🔴 High Risk",
+        high_risk,
     )
 
 
-with feature2:
+with risk_col2:
 
-    st.markdown(
-        """
-        - ✅ AI Health Assistant
-        - ✅ Exercise Recommendations
-        - ✅ Medication Guidance
-        - ✅ Admin Dashboard
-        """
+    st.metric(
+        "🟠 Medium Risk",
+        medium_risk,
+    )
+
+
+with risk_col3:
+
+    st.metric(
+        "🟢 Low Risk",
+        low_risk,
     )
 
 
@@ -377,22 +677,299 @@ st.divider()
 
 
 # ==========================================================
-# Workflow
+# Quick Actions
 # ==========================================================
 
 st.subheader(
-    "📋 Workflow"
+    "🚀 Quick Actions"
 )
+
+
+action1, action2, action3, action4 = (
+    st.columns(4)
+)
+
+
+with action1:
+
+    if st.button(
+        "🩺 New Prediction",
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            "pages/2_Prediction.py"
+        )
+
+
+with action2:
+
+    if st.button(
+        "📋 Patient History",
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            "pages/3_Patient_History.py"
+        )
+
+
+with action3:
+
+    if st.button(
+        "📄 Reports",
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            "pages/5_Reports.py"
+        )
+
+
+with action4:
+
+    if st.button(
+        "📊 Analytics",
+        use_container_width=True,
+    ):
+
+        st.switch_page(
+            "pages/6_Analytics.py"
+        )
+
+
+st.divider()
+
+
+# ==========================================================
+# Recent Predictions
+# ==========================================================
+
+st.subheader(
+    "📝 Recent Predictions"
+)
+
+
+if history_list:
+
+    recent = history_list[
+        :5
+    ]
+
+
+    rows = []
+
+
+    for item in recent:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+
+        patient_name = (
+            item.get(
+                "patient_name"
+            )
+            or item.get(
+                "name"
+            )
+            or "Unknown"
+        )
+
+
+        diagnosis = (
+            item.get(
+                "diagnosis"
+            )
+            or item.get(
+                "prediction"
+            )
+            or item.get(
+                "prediction_result"
+            )
+            or "Unknown"
+        )
+
+
+        risk_level = (
+            item.get(
+                "risk_level"
+            )
+            or item.get(
+                "risk_category"
+            )
+            or "Unknown"
+        )
+
+
+        risk_score = (
+            item.get(
+                "risk_score"
+            )
+        )
+
+
+        created_at = (
+            item.get(
+                "created_at"
+            )
+            or item.get(
+                "timestamp"
+            )
+            or item.get(
+                "date"
+            )
+            or "N/A"
+        )
+
+
+        rows.append(
+            {
+                "Patient":
+                    patient_name,
+
+                "Diagnosis":
+                    diagnosis,
+
+                "Risk Level":
+                    risk_level,
+
+                "Risk Score":
+                    (
+                        f"{float(risk_score):.2f}%"
+                        if risk_score is not None
+                        else "N/A"
+                    ),
+
+                "Date":
+                    created_at,
+            }
+        )
+
+
+    if rows:
+
+        st.dataframe(
+            rows,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No prediction records available."
+        )
+
+else:
+
+    st.info(
+        "No prediction history available yet."
+    )
+
+
+st.divider()
+
+
+# ==========================================================
+# System Status
+# ==========================================================
+
+st.subheader(
+    "💻 System Status"
+)
+
+
+status1, status2, status3, status4 = (
+    st.columns(4)
+)
+
+
+with status1:
+
+    if analytics is not None:
+
+        st.success(
+            "🟢 Analytics"
+        )
+
+    else:
+
+        st.error(
+            "🔴 Analytics"
+        )
+
+
+with status2:
+
+    if history is not None:
+
+        st.success(
+            "🟢 Predictions"
+        )
+
+    else:
+
+        st.error(
+            "🔴 Predictions"
+        )
+
+
+with status3:
+
+    if reports is not None:
+
+        st.success(
+            "🟢 Reports"
+        )
+
+    else:
+
+        st.error(
+            "🔴 Reports"
+        )
+
+
+with status4:
+
+    st.success(
+        "🟢 AI Assistant"
+    )
+
+
+st.divider()
+
+
+# ==========================================================
+# Information
+# ==========================================================
+
+st.subheader(
+    "ℹ️ About"
+)
+
 
 st.markdown(
     """
-    1. Open **Prediction**.
-    2. Enter patient information.
-    3. Enter the 22 voice measurements.
-    4. Click **Analyze Patient**.
-    5. View diagnosis and recommendations.
-    6. Review patient history and reports.
-    """
+### Parkinson Disease Detection Agent
+
+This platform provides:
+
+- 🩺 AI-assisted Parkinson's screening
+- 👤 Patient management
+- 📋 Prediction history
+- 📄 Medical report management
+- 📊 Analytics
+- 🤖 AI Health Assistant
+- 🛠️ Administrator management
+
+**Important:** Prediction results are AI-assisted
+screening information and should not be treated as
+a medical diagnosis.
+"""
 )
 
 
