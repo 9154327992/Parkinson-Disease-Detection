@@ -1,247 +1,801 @@
-"""
-Prediction Engine
+from pathlib import Path
+from typing import List, Dict, Any
 
-Runs Parkinson disease prediction using the trained model.
-"""
-
-from typing import Dict, List
-
+import joblib
 import numpy as np
 
-from app.ml.model_loader import ModelLoader
 from app.ml.preprocessing import Preprocessor
 
 
-class Predictor:
+# ==========================================================
+# Constants
+# ==========================================================
+
+TOTAL_FEATURES = 22
+
+MODEL_PATH = Path(
+    "models/model.pkl"
+)
+
+SCALER_PATH = Path(
+    "models/scaler.pkl"
+)
+
+
+# ==========================================================
+# Parkinson Predictor
+# ==========================================================
+
+class ParkinsonPredictor:
     """
-    Parkinson Disease Predictor.
+    Parkinson Disease prediction wrapper.
+
+    Pipeline:
+
+        22 features
+            ↓
+        StandardScaler
+            ↓
+        RandomForestClassifier
+            ↓
+        Prediction
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        model_path: str = str(
+            MODEL_PATH
+        ),
+        scaler_path: str = str(
+            SCALER_PATH
+        ),
+    ):
         """
         Initialize predictor.
         """
 
-        self.loader = ModelLoader()
-        self.preprocessor = Preprocessor()
+        self.model_path = Path(
+            model_path
+        )
 
-        self.model = self.loader.model
-        self.scaler = self.loader.scaler
+        self.scaler_path = Path(
+            scaler_path
+        )
 
-    # =====================================================
-    # Predict
-    # =====================================================
+        self.model = None
 
-    def predict(
+        self.preprocessor = None
+
+        self._load()
+
+
+    # ======================================================
+    # Load Model + Scaler
+    # ======================================================
+
+    def _load(self):
+        """
+        Load trained Random Forest model
+        and StandardScaler.
+        """
+
+        if not self.model_path.exists():
+
+            raise FileNotFoundError(
+                "Model not found: "
+                f"{self.model_path}"
+            )
+
+
+        if not self.scaler_path.exists():
+
+            raise FileNotFoundError(
+                "Scaler not found: "
+                f"{self.scaler_path}"
+            )
+
+
+        self.model = joblib.load(
+            self.model_path
+        )
+
+
+        self.preprocessor = (
+            Preprocessor(
+                scaler_path=self.scaler_path
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Validate feature count
+        # --------------------------------------------------
+
+        model_features = getattr(
+            self.model,
+            "n_features_in_",
+            None,
+        )
+
+
+        if (
+            model_features is not None
+            and model_features
+            != TOTAL_FEATURES
+        ):
+
+            raise ValueError(
+                "Model expects "
+                f"{model_features} features, "
+                f"but this application "
+                f"requires {TOTAL_FEATURES}."
+            )
+
+
+        scaler_features = getattr(
+            self.preprocessor.scaler,
+            "n_features_in_",
+            None,
+        )
+
+
+        if (
+            scaler_features is not None
+            and scaler_features
+            != TOTAL_FEATURES
+        ):
+
+            raise ValueError(
+                "Scaler expects "
+                f"{scaler_features} features, "
+                f"but this application "
+                f"requires {TOTAL_FEATURES}."
+            )
+
+
+    # ======================================================
+    # Validate Input
+    # ======================================================
+
+    def _validate_features(
         self,
         features: List[float],
-    ) -> Dict:
-        """
-        Predict Parkinson disease.
-        """
-
-        scaled = self.preprocessor.scale(features)
-
-        prediction = int(
-            self.model.predict(scaled)[0]
-        )
-
-        probability = self._probability(
-            scaled,
-            prediction,
-        )
-
-        return {
-            "prediction": prediction,
-            "label": self._label(prediction),
-            "probability": round(probability, 4),
-            "confidence": round(probability * 100, 2),
-            "risk_level": self._risk_level(probability),
-        }
-
-    # =====================================================
-    # Predict Batch
-    # =====================================================
-
-    def predict_batch(
-        self,
-        dataset: np.ndarray,
-    ) -> List[Dict]:
-        """
-        Predict multiple samples.
-        """
-
-        scaled = self.scaler.transform(dataset)
-
-        predictions = self.model.predict(scaled)
-
-        probabilities = self._batch_probability(
-            scaled,
-            predictions,
-        )
-
-        results = []
-
-        for pred, prob in zip(
-            predictions,
-            probabilities,
-        ):
-
-            results.append(
-                {
-                    "prediction": int(pred),
-                    "label": self._label(int(pred)),
-                    "confidence": round(prob * 100, 2),
-                    "risk_level": self._risk_level(prob),
-                }
-            )
-
-        return results
-
-    # =====================================================
-    # Probability
-    # =====================================================
-
-    def _probability(
-        self,
-        sample,
-        prediction: int,
-    ) -> float:
-        """
-        Return prediction probability.
-        """
-
-        if hasattr(
-            self.model,
-            "predict_proba",
-        ):
-
-            return float(
-                self.model.predict_proba(sample)[0][prediction]
-            )
-
-        return 1.0
-
-    # =====================================================
-    # Batch Probability
-    # =====================================================
-
-    def _batch_probability(
-        self,
-        samples,
-        predictions,
     ) -> List[float]:
         """
-        Batch probabilities.
+        Validate the 22 feature values.
         """
 
-        if hasattr(
+        if features is None:
+
+            raise ValueError(
+                "Features are required."
+            )
+
+
+        if len(features) != TOTAL_FEATURES:
+
+            raise ValueError(
+                "Exactly "
+                f"{TOTAL_FEATURES} "
+                "features are required. "
+                f"Received {len(features)}."
+            )
+
+
+        validated = []
+
+
+        for index, value in enumerate(
+            features
+        ):
+
+            try:
+
+                numeric_value = float(
+                    value
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                raise ValueError(
+                    f"Feature {index + 1} "
+                    "must be numeric."
+                )
+
+
+            if not np.isfinite(
+                numeric_value
+            ):
+
+                raise ValueError(
+                    f"Feature {index + 1} "
+                    "must be finite."
+                )
+
+
+            validated.append(
+                numeric_value
+            )
+
+
+        return validated
+
+
+    # ======================================================
+    # Scale Features
+    # ======================================================
+
+    def _scale(
+        self,
+        features: List[float],
+    ) -> np.ndarray:
+        """
+        Scale the 22 features using
+        the trained StandardScaler.
+        """
+
+        return self.preprocessor.scale(
+            features
+        )
+
+
+    # ======================================================
+    # Predict Class
+    # ======================================================
+
+    def _predict_class(
+        self,
+        scaled_features: np.ndarray,
+    ) -> int:
+        """
+        Return predicted class.
+
+        Dataset convention:
+
+            0 = Healthy
+            1 = Parkinson
+        """
+
+        prediction = self.model.predict(
+            scaled_features
+        )[0]
+
+
+        try:
+
+            return int(
+                prediction
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+
+            return (
+                1
+                if str(
+                    prediction
+                ).lower()
+                in {
+                    "1",
+                    "parkinson",
+                    "parkinson's",
+                    "parkinson detected",
+                }
+                else 0
+            )
+
+
+    # ======================================================
+    # Parkinson Probability
+    # ======================================================
+
+    def _parkinson_probability(
+        self,
+        scaled_features: np.ndarray,
+    ) -> float:
+        """
+        Return probability of Parkinson class.
+
+        IMPORTANT:
+        This explicitly finds class 1 instead of
+        assuming that the predicted class index
+        represents the Parkinson probability.
+        """
+
+        if not hasattr(
             self.model,
             "predict_proba",
         ):
 
-            probs = self.model.predict_proba(samples)
+            prediction = (
+                self._predict_class(
+                    scaled_features
+                )
+            )
 
-            return [
-                float(probs[i][pred])
-                for i, pred in enumerate(predictions)
-            ]
 
-        return [1.0] * len(predictions)
+            return (
+                1.0
+                if prediction == 1
+                else 0.0
+            )
 
-    # =====================================================
-    # Risk Level
-    # =====================================================
 
-    def _risk_level(
-        self,
-        probability: float,
-    ) -> str:
-        """
-        Determine risk level.
-        """
-
-        if probability >= 0.90:
-            return "High Risk"
-
-        if probability >= 0.70:
-            return "Moderate Risk"
-
-        if probability >= 0.50:
-            return "Low Risk"
-
-        return "Minimal Risk"
-
-    # =====================================================
-    # Label
-    # =====================================================
-
-    def _label(
-        self,
-        prediction: int,
-    ) -> str:
-        """
-        Human-readable label.
-        """
-
-        return (
-            "Parkinson Detected"
-            if prediction == 1
-            else "Healthy"
+        probabilities = (
+            self.model.predict_proba(
+                scaled_features
+            )[0]
         )
 
-    # =====================================================
-    # Explain Prediction
-    # =====================================================
 
-    def explain(
+        classes = getattr(
+            self.model,
+            "classes_",
+            None,
+        )
+
+
+        if classes is None:
+
+            raise ValueError(
+                "Model does not expose "
+                "class information."
+            )
+
+
+        classes_list = list(
+            classes
+        )
+
+
+        # --------------------------------------------------
+        # Find Parkinson class = 1
+        # --------------------------------------------------
+
+        if 1 in classes_list:
+
+            parkinson_index = (
+                classes_list.index(1)
+            )
+
+            return float(
+                probabilities[
+                    parkinson_index
+                ]
+            )
+
+
+        # --------------------------------------------------
+        # Fallback for string labels
+        # --------------------------------------------------
+
+        normalized_classes = [
+            str(value)
+            .strip()
+            .lower()
+            for value in classes_list
+        ]
+
+
+        possible_parkinson_labels = {
+            "1",
+            "parkinson",
+            "parkinson's",
+            "parkinson detected",
+            "positive",
+        }
+
+
+        for index, label in enumerate(
+            normalized_classes
+        ):
+
+            if label in (
+                possible_parkinson_labels
+            ):
+
+                return float(
+                    probabilities[
+                        index
+                    ]
+                )
+
+
+        raise ValueError(
+            "Unable to identify the "
+            "Parkinson class in the model."
+        )
+
+
+    # ======================================================
+    # Confidence
+    # ======================================================
+
+    def _confidence(
         self,
-        prediction: int,
-        probability: float,
+        scaled_features: np.ndarray,
+    ) -> float:
+        """
+        Return confidence of the model's
+        predicted class.
+        """
+
+        if not hasattr(
+            self.model,
+            "predict_proba",
+        ):
+
+            return 0.0
+
+
+        probabilities = (
+            self.model.predict_proba(
+                scaled_features
+            )[0]
+        )
+
+
+        return float(
+            np.max(
+                probabilities
+            )
+        )
+
+
+    # ======================================================
+    # Risk Level
+    # ======================================================
+
+    @staticmethod
+    def _risk_level(
+        risk_score: float,
     ) -> str:
         """
-        Generate a simple explanation.
+        Convert Parkinson probability
+        into a human-readable risk level.
+        """
+
+        if risk_score >= 75:
+
+            return "High Risk"
+
+
+        if risk_score >= 40:
+
+            return "Medium Risk"
+
+
+        return "Low Risk"
+
+
+    # ======================================================
+    # Diagnosis
+    # ======================================================
+
+    @staticmethod
+    def _diagnosis(
+        prediction: int,
+    ) -> str:
+        """
+        Convert model class into diagnosis.
         """
 
         if prediction == 1:
 
             return (
-                f"The model detected voice patterns associated "
-                f"with Parkinson disease with approximately "
-                f"{probability * 100:.2f}% confidence. "
-                "This result is a screening prediction and "
-                "should be confirmed through clinical evaluation."
+                "Parkinson Detected"
             )
 
+
+        return "Healthy"
+
+
+    # ======================================================
+    # Recommendation
+    # ======================================================
+
+    @staticmethod
+    def _recommendation(
+        prediction: int,
+        risk_score: float,
+    ) -> str:
+        """
+        Generate a general recommendation.
+
+        This is an AI-assisted screening result,
+        not a medical diagnosis.
+        """
+
+        if prediction == 1:
+
+            if risk_score >= 75:
+
+                return (
+                    "The screening result indicates "
+                    "a higher likelihood of Parkinson's "
+                    "disease. Please consult a qualified "
+                    "healthcare professional or "
+                    "neurologist for clinical evaluation."
+                )
+
+
+            return (
+                "The screening result indicates "
+                "a possible Parkinson-related pattern. "
+                "Consider discussing the result with "
+                "a qualified healthcare professional."
+            )
+
+
         return (
-            f"The analyzed voice features were more consistent "
-            f"with the healthy class, with approximately "
-            f"{probability * 100:.2f}% confidence. "
-            "This prediction is not a medical diagnosis."
+            "The screening result does not indicate "
+            "a strong Parkinson-related pattern. "
+            "Continue routine healthcare and consult "
+            "a healthcare professional if symptoms "
+            "are present."
         )
 
-    # =====================================================
-    # Model Information
-    # =====================================================
 
-    def model_information(self):
+    # ======================================================
+    # Main Prediction
+    # ======================================================
+
+    def predict(
+        self,
+        features: List[float],
+    ) -> Dict[str, Any]:
         """
-        Return model metadata.
+        Run complete prediction pipeline.
+
+        Returns:
+
+            prediction
+            diagnosis
+            risk_score
+            risk_level
+            confidence
         """
 
-        return self.loader.model_info()
+        # --------------------------------------------------
+        # Validate
+        # --------------------------------------------------
 
-    # =====================================================
-    # Health Check
-    # =====================================================
+        features = (
+            self._validate_features(
+                features
+            )
+        )
 
-    def health(self):
-        """
-        Verify prediction engine.
-        """
+
+        # --------------------------------------------------
+        # Scale
+        # --------------------------------------------------
+
+        scaled_features = (
+            self._scale(
+                features
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Prediction
+        # --------------------------------------------------
+
+        prediction = (
+            self._predict_class(
+                scaled_features
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Parkinson Probability
+        # --------------------------------------------------
+
+        parkinson_probability = (
+            self._parkinson_probability(
+                scaled_features
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Confidence
+        # --------------------------------------------------
+
+        confidence = (
+            self._confidence(
+                scaled_features
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Convert to percentages
+        # --------------------------------------------------
+
+        risk_score = (
+            parkinson_probability
+            * 100.0
+        )
+
+
+        confidence_score = (
+            confidence
+            * 100.0
+        )
+
+
+        # --------------------------------------------------
+        # Diagnosis
+        # --------------------------------------------------
+
+        diagnosis = (
+            self._diagnosis(
+                prediction
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Risk Level
+        # --------------------------------------------------
+
+        risk_level = (
+            self._risk_level(
+                risk_score
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Recommendation
+        # --------------------------------------------------
+
+        recommendation = (
+            self._recommendation(
+                prediction,
+                risk_score,
+            )
+        )
+
+
+        # --------------------------------------------------
+        # Return
+        # --------------------------------------------------
 
         return {
-            "model_loaded": self.model is not None,
-            "scaler_loaded": self.scaler is not None,
-            "status": "Ready",
+            "prediction":
+                diagnosis,
+
+            "prediction_value":
+                prediction,
+
+            "diagnosis":
+                diagnosis,
+
+            "risk_score":
+                round(
+                    risk_score,
+                    2,
+                ),
+
+            "risk_level":
+                risk_level,
+
+            "confidence":
+                round(
+                    confidence_score,
+                    2,
+                ),
+
+            "parkinson_probability":
+                round(
+                    risk_score,
+                    2,
+                ),
+
+            "recommendation":
+                recommendation,
+
+            "model":
+                self.model.__class__.__name__,
+
+            "features_used":
+                TOTAL_FEATURES,
         }
+
+
+    # ======================================================
+    # Batch Prediction
+    # ======================================================
+
+    def predict_batch(
+        self,
+        features: List[List[float]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Run predictions for multiple
+        22-feature vectors.
+        """
+
+        if not features:
+
+            return []
+
+
+        results = []
+
+
+        for row in features:
+
+            results.append(
+                self.predict(row)
+            )
+
+
+        return results
+
+
+    # ======================================================
+    # Model Information
+    # ======================================================
+
+    def model_information(
+        self,
+    ) -> Dict[str, Any]:
+        """
+        Return information about the
+        loaded model.
+        """
+
+        classes = getattr(
+            self.model,
+            "classes_",
+            [],
+        )
+
+
+        return {
+            "model":
+                self.model.__class__.__name__,
+
+            "model_path":
+                str(
+                    self.model_path
+                ),
+
+            "scaler_path":
+                str(
+                    self.scaler_path
+                ),
+
+            "features":
+                TOTAL_FEATURES,
+
+            "classes":
+                [
+                    str(value)
+                    for value in classes
+                ],
+
+            "model_loaded":
+                self.model is not None,
+
+            "scaler_loaded":
+                self.preprocessor
+                is not None,
+        }
+
+
+# ==========================================================
+# Shared Predictor
+# ==========================================================
+
+predictor = ParkinsonPredictor()
