@@ -136,70 +136,108 @@ class AudioFeatureService:
             max_duration
         )
 
+    # ======================================================
+    # Feature Count
+    # ======================================================
 
-# ==========================================================
-# Shared Service Instance
-# ==========================================================
+    def get_feature_count(
+        self,
+    ) -> int:
+        """
+        Return the number of model features.
+        """
 
-audio_feature_service = (
-    AudioFeatureService()
-)
+        return TOTAL_FEATURES
 
-# ==========================================================
-# Audio Loading and Validation
-# ==========================================================
+    # ======================================================
+    # Feature Names
+    # ======================================================
 
-def load_audio(
-    self,
-    audio_path: str,
-) -> Tuple[np.ndarray, int]:
-    """
-    Load an audio file as a mono floating-point waveform.
+    def get_feature_names(
+        self,
+    ) -> List[str]:
+        """
+        Return the exact model feature order.
+        """
 
-    Supported formats depend on the installed
-    soundfile/libsndfile backend.
-    """
+        return FEATURE_NAMES.copy()
 
-    if not audio_path:
+    # ======================================================
+    # Audio Loading and Validation
+    # ======================================================
 
-        raise ValueError(
-            "Audio path is required."
+    def load_audio(
+        self,
+        audio_path: str,
+    ) -> Tuple[np.ndarray, int]:
+        """
+        Load an audio file as a mono waveform.
+        """
+
+        if not audio_path:
+
+            raise ValueError(
+                "Audio path is required."
+            )
+
+        path = Path(
+            audio_path
         )
 
-    path = Path(
-        audio_path
-    )
+        if not path.exists():
 
-    if not path.exists():
+            raise FileNotFoundError(
+                f"Audio file not found: {path}"
+            )
 
-        raise FileNotFoundError(
-            f"Audio file not found: {path}"
+        if not path.is_file():
+
+            raise ValueError(
+                f"Audio path is not a file: {path}"
+            )
+
+        try:
+
+            audio, sample_rate = sf.read(
+                str(path),
+                dtype="float64",
+                always_2d=False,
+            )
+
+        except Exception as exc:
+
+            raise ValueError(
+                f"Unable to read audio file: {path}"
+            ) from exc
+
+        audio = np.asarray(
+            audio,
+            dtype=np.float64,
         )
 
-    if not path.is_file():
+        if audio.ndim == 2:
 
-        raise ValueError(
-            f"Audio path is not a file: {path}"
+            audio = np.mean(
+                audio,
+                axis=1,
+            )
+
+        elif audio.ndim != 1:
+
+            raise ValueError(
+                "Audio must contain one or two dimensions."
+            )
+
+        sample_rate = int(
+            sample_rate
         )
 
-    try:
-
-        audio, sample_rate = sf.read(
-            str(path),
-            dtype="float64",
-            always_2d=False,
+        self.validate_audio(
+            audio,
+            sample_rate,
         )
 
-    except Exception as exc:
-
-        raise ValueError(
-            f"Unable to read audio file: {path}"
-        ) from exc
-
-    audio = np.asarray(
-        audio,
-        dtype=np.float64,
-    )
+        return audio, sample_rate
 
     # ------------------------------------------------------
     # Convert stereo/multi-channel audio to mono
@@ -3219,3 +3257,11 @@ def extract_model_vector_from_file(
     return self.to_numpy_vector(
         features
     )
+
+# ==========================================================
+# Shared Service Instance
+# ==========================================================
+
+audio_feature_service = (
+    AudioFeatureService()
+)
