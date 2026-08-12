@@ -1,7 +1,9 @@
 import streamlit as st
 
-from utils.api_client import ask_ai_assistant
-
+from utils.api_client import (
+    ask_ai_assistant,
+    get_chatbot_suggestions,
+)
 
 # ==========================================================
 # Page Configuration
@@ -10,9 +12,8 @@ from utils.api_client import ask_ai_assistant
 st.set_page_config(
     page_title="AI Health Assistant",
     page_icon="🤖",
-    layout="wide"
+    layout="wide",
 )
-
 
 # ==========================================================
 # Session State
@@ -20,6 +21,9 @@ st.set_page_config(
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+
+if "ai_error" not in st.session_state:
+    st.session_state.ai_error = None
 
 
 # ==========================================================
@@ -30,76 +34,162 @@ st.title("🤖 AI Health Assistant")
 
 st.write(
     """
-Ask questions about Parkinson's Disease, symptoms, diagnosis,
-exercise, medication, nutrition, and healthy lifestyle
-recommendations.
-"""
+    Ask questions about Parkinson's Disease, symptoms,
+    diagnosis, exercise, medication, nutrition, and
+    healthy lifestyle recommendations.
+    """
 )
 
 st.divider()
 
 
 # ==========================================================
-# Function: Ask AI
+# Ask AI
 # ==========================================================
 
 def ask_question(question: str):
     """
-    Send the question to the FastAPI chatbot
-    and save the response in the conversation.
+    Send a question to the FastAPI chatbot.
+
+    Handles dictionary, string, None, and unexpected
+    API responses safely.
     """
 
-    question = question.strip()
+    question = str(
+        question
+    ).strip()
 
     if not question:
         return
 
     # ------------------------------------------------------
-    # Add User Question
+    # Add User Message
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
         {
             "role": "user",
-            "content": question
+            "content": question,
         }
     )
+
+    st.session_state.ai_error = None
 
     # ------------------------------------------------------
     # Ask Backend
     # ------------------------------------------------------
 
-    with st.spinner("AI is thinking..."):
+    with st.spinner(
+        "🤖 AI is thinking..."
+    ):
 
         response = ask_ai_assistant(
             question
         )
 
     # ------------------------------------------------------
-    # Handle Backend Error
+    # Handle No Response
     # ------------------------------------------------------
 
     if response is None:
 
         answer = (
-            "Unable to connect to the AI Assistant."
+            "Unable to connect to the AI Health "
+            "Assistant. Please try again."
         )
 
-    else:
-
-        answer = response.get(
-            "response",
-            "No response received from the AI Assistant."
+        st.session_state.ai_error = (
+            "The backend did not return a response."
         )
 
     # ------------------------------------------------------
-    # Add AI Response
+    # Dictionary Response
+    # ------------------------------------------------------
+
+    elif isinstance(
+        response,
+        dict,
+    ):
+
+        # Our api_client returns "answer".
+        # The backend itself returns "response".
+        answer = (
+            response.get("answer")
+            or response.get("response")
+            or response.get("message")
+            or ""
+        )
+
+        if not answer:
+
+            answer = (
+                "The AI Assistant returned an "
+                "empty response."
+            )
+
+            st.session_state.ai_error = (
+                "The AI Assistant returned no answer."
+            )
+
+        # Backend may explicitly report failure.
+        if response.get(
+            "success"
+        ) is False:
+
+            st.session_state.ai_error = (
+                response.get(
+                    "answer"
+                )
+                or response.get(
+                    "response"
+                )
+                or "AI Assistant request failed."
+            )
+
+    # ------------------------------------------------------
+    # Plain Text Response
+    # ------------------------------------------------------
+
+    elif isinstance(
+        response,
+        str,
+    ):
+
+        answer = response.strip()
+
+        if not answer:
+
+            answer = (
+                "The AI Assistant returned "
+                "an empty response."
+            )
+
+    # ------------------------------------------------------
+    # Unexpected Response
+    # ------------------------------------------------------
+
+    else:
+
+        answer = (
+            "The AI Assistant returned an "
+            "unexpected response."
+        )
+
+        st.session_state.ai_error = (
+            f"Unexpected response type: "
+            f"{type(response).__name__}"
+        )
+
+    # ------------------------------------------------------
+    # Save AI Response
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
         {
             "role": "assistant",
-            "content": answer
+            "content": str(
+                answer
+            ),
         }
     )
 
@@ -108,9 +198,32 @@ def ask_question(question: str):
 # Suggested Questions
 # ==========================================================
 
-st.subheader("💡 Suggested Questions")
+st.subheader(
+    "💡 Suggested Questions"
+)
 
-suggested_questions = [
+
+# Try loading suggestions from backend.
+backend_suggestions = []
+
+try:
+
+    backend_suggestions = (
+        get_chatbot_suggestions()
+    )
+
+except Exception as exc:
+
+    print(
+        f"Unable to load chatbot suggestions: {exc}"
+    )
+
+
+# ----------------------------------------------------------
+# Fallback Questions
+# ----------------------------------------------------------
+
+default_questions = [
     "What is Parkinson's Disease?",
     "What causes hand tremors?",
     "What are the early symptoms?",
@@ -120,8 +233,68 @@ suggested_questions = [
     "Which exercises are beneficial?",
     "How can stress be reduced?",
     "Explain Bradykinesia.",
-    "Explain Voice Disorders."
+    "Explain Voice Disorders.",
 ]
+
+
+if isinstance(
+    backend_suggestions,
+    list,
+) and backend_suggestions:
+
+    suggested_questions = []
+
+    for item in backend_suggestions:
+
+        if isinstance(
+            item,
+            str,
+        ):
+
+            suggested_questions.append(
+                item
+            )
+
+        elif isinstance(
+            item,
+            dict,
+        ):
+
+            question_text = (
+                item.get(
+                    "question"
+                )
+                or item.get(
+                    "text"
+                )
+                or item.get(
+                    "message"
+                )
+            )
+
+            if question_text:
+
+                suggested_questions.append(
+                    str(question_text)
+                )
+
+    if not suggested_questions:
+
+        suggested_questions = (
+            default_questions
+        )
+
+else:
+
+    suggested_questions = (
+        default_questions
+    )
+
+
+# Limit displayed questions.
+suggested_questions = (
+    suggested_questions[:10]
+)
 
 
 # ==========================================================
@@ -130,21 +303,31 @@ suggested_questions = [
 
 col1, col2 = st.columns(2)
 
+
 for index, question in enumerate(
     suggested_questions
 ):
 
-    column = col1 if index % 2 == 0 else col2
+    column = (
+        col1
+        if index % 2 == 0
+        else col2
+    )
 
     with column:
 
         if st.button(
             question,
-            key=f"suggested_question_{index}",
-            use_container_width=True
+            key=(
+                f"suggested_question_"
+                f"{index}"
+            ),
+            width="stretch",
         ):
 
-            ask_question(question)
+            ask_question(
+                question
+            )
 
             st.rerun()
 
@@ -153,28 +336,74 @@ st.divider()
 
 
 # ==========================================================
-# Chat Messages
+# Error Information
 # ==========================================================
 
-st.subheader("💬 Conversation")
+if st.session_state.ai_error:
+
+    st.warning(
+        "⚠️ "
+        + str(
+            st.session_state.ai_error
+        )
+    )
+
+
+# ==========================================================
+# Conversation
+# ==========================================================
+
+st.subheader(
+    "💬 Conversation"
+)
+
 
 if not st.session_state.chat_history:
 
     st.info(
-        "Select a suggested question or type your "
-        "own question below."
+        """
+        Select a suggested question above
+        or type your own question below.
+        """
     )
 
 else:
 
-    for message in st.session_state.chat_history:
+    for message in (
+        st.session_state.chat_history
+    ):
+
+        if not isinstance(
+            message,
+            dict,
+        ):
+            continue
+
+        role = message.get(
+            "role",
+            "assistant",
+        )
+
+        content = message.get(
+            "content",
+            "",
+        )
+
+        if role not in (
+            "user",
+            "assistant",
+        ):
+
+            role = "assistant"
 
         with st.chat_message(
-            message["role"]
+            role
         ):
 
             st.markdown(
-                message["content"]
+                str(
+                    content
+                )
             )
 
 
@@ -193,7 +422,9 @@ question = st.chat_input(
 
 if question:
 
-    ask_question(question)
+    ask_question(
+        question
+    )
 
     st.rerun()
 
@@ -204,11 +435,45 @@ if question:
 
 st.divider()
 
+
 if st.button(
     "🗑 Clear Conversation",
-    use_container_width=True
+    width="stretch",
 ):
 
     st.session_state.chat_history = []
 
+    st.session_state.ai_error = None
+
     st.rerun()
+
+
+# ==========================================================
+# Medical Disclaimer
+# ==========================================================
+
+st.divider()
+
+st.warning(
+    """
+    ⚠️ **Medical Disclaimer**
+
+    The AI Health Assistant provides general
+    educational information and is not a substitute
+    for professional medical advice, diagnosis,
+    or treatment.
+
+    Always consult a qualified healthcare professional
+    for personal medical decisions.
+    """
+)
+
+
+# ==========================================================
+# Footer
+# ==========================================================
+
+st.caption(
+    "Parkinson Disease Detection Agent "
+    "• AI Health Assistant"
+)
