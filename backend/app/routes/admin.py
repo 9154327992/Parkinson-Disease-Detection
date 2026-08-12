@@ -1,4 +1,9 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
 
 from app.database.database import SessionLocal
 from app.database.models import (
@@ -8,7 +13,10 @@ from app.database.models import (
     Report,
 )
 
-from app.utils.security import is_admin
+from app.utils.security import (
+    is_admin,
+    get_current_user,
+)
 
 
 router = APIRouter()
@@ -19,11 +27,59 @@ router = APIRouter()
 # ==========================================================
 
 def require_admin(
-    user_id: int,
+    current_user,
 ):
     """
-    Verify that the supplied user is an administrator.
+    Verify that the currently authenticated user
+    is an active administrator.
+
+    Supports both:
+        - dictionary user objects
+        - SQLAlchemy User objects
     """
+
+    if current_user is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+        )
+
+
+    # ------------------------------------------------------
+    # Extract user ID
+    # ------------------------------------------------------
+
+    if isinstance(
+        current_user,
+        dict,
+    ):
+
+        user_id = (
+            current_user.get("id")
+            or current_user.get("user_id")
+        )
+
+    else:
+
+        user_id = getattr(
+            current_user,
+            "id",
+            None,
+        )
+
+
+    if user_id is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authenticated user.",
+        )
+
+
+    # ------------------------------------------------------
+    # Load actual user from database
+    # ------------------------------------------------------
 
     db = SessionLocal()
 
@@ -37,6 +93,7 @@ def require_admin(
             .first()
         )
 
+
         if user is None:
 
             raise HTTPException(
@@ -44,12 +101,14 @@ def require_admin(
                 detail="User not found.",
             )
 
+
         if not user.is_active:
 
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User account is inactive.",
             )
+
 
         if not is_admin(
             user.role
@@ -61,6 +120,7 @@ def require_admin(
                     "Administrator privileges required."
                 ),
             )
+
 
         return user
 
@@ -78,22 +138,28 @@ def require_admin(
     tags=["Admin"],
 )
 def admin_dashboard(
-    user_id: int = 1,
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
     Return administrator dashboard statistics.
+
+    The authenticated user's JWT determines which
+    account is authorized to access this endpoint.
     """
 
     admin = require_admin(
-        user_id
+        current_user
     )
+
 
     db = SessionLocal()
 
     try:
 
         # --------------------------------------------------
-        # Overall counts
+        # Overall Counts
         # --------------------------------------------------
 
         total_users = (
@@ -112,8 +178,9 @@ def admin_dashboard(
             db.query(Report).count()
         )
 
+
         # --------------------------------------------------
-        # User roles
+        # User Roles
         # --------------------------------------------------
 
         admin_users = (
@@ -140,8 +207,9 @@ def admin_dashboard(
             .count()
         )
 
+
         # --------------------------------------------------
-        # Recent users
+        # Recent Users
         # --------------------------------------------------
 
         users = (
@@ -153,13 +221,16 @@ def admin_dashboard(
             .all()
         )
 
+
         recent_users = []
+
 
         for user in users:
 
             recent_users.append(
                 {
-                    "id": user.id,
+                    "id":
+                        user.id,
 
                     "username":
                         user.username,
@@ -184,22 +255,26 @@ def admin_dashboard(
                 }
             )
 
+
         # --------------------------------------------------
-        # Recent activity
+        # Recent Activity
         # --------------------------------------------------
 
         recent_activity = []
+
 
         for user in users:
 
             recent_activity.append(
                 {
-                    "type": "User",
+                    "type":
+                        "User",
 
-                    "description": (
-                        f"User '{user.username}' "
-                        "registered."
-                    ),
+                    "description":
+                        (
+                            f"User '{user.username}' "
+                            "registered."
+                        ),
 
                     "created_at": (
                         user.created_at.isoformat()
@@ -209,11 +284,18 @@ def admin_dashboard(
                 }
             )
 
+
+        # --------------------------------------------------
+        # Response
+        # --------------------------------------------------
+
         return {
-            "status": "success",
+            "status":
+                "success",
 
             "administrator": {
-                "id": admin.id,
+                "id":
+                    admin.id,
 
                 "username":
                     admin.username,
@@ -266,15 +348,21 @@ def admin_dashboard(
     tags=["Admin"],
 )
 def admin_users(
-    user_id: int = 1,
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
     Return all users.
+
+    Only an authenticated administrator can access
+    this endpoint.
     """
 
     require_admin(
-        user_id
+        current_user
     )
+
 
     db = SessionLocal()
 
@@ -287,6 +375,7 @@ def admin_users(
             )
             .all()
         )
+
 
         return [
             {
@@ -314,6 +403,7 @@ def admin_users(
                     else None
                 ),
             }
+
             for user in users
         ]
 
@@ -331,15 +421,21 @@ def admin_users(
     tags=["Admin"],
 )
 def admin_patients(
-    user_id: int = 1,
+    current_user=Depends(
+        get_current_user
+    ),
 ):
     """
     Return all patients.
+
+    Only an authenticated administrator can access
+    this endpoint.
     """
 
     require_admin(
-        user_id
+        current_user
     )
+
 
     db = SessionLocal()
 
@@ -353,19 +449,39 @@ def admin_patients(
             .all()
         )
 
+
         result = []
 
+
         for patient in patients:
+
+            first_name = (
+                patient.first_name
+                or ""
+            )
+
+            last_name = (
+                patient.last_name
+                or ""
+            )
+
+
+            patient_name = (
+                f"{first_name} "
+                f"{last_name}"
+            ).strip()
+
 
             result.append(
                 {
                     "id":
                         patient.id,
 
-                    "patient_name": (
-                        f"{patient.first_name} "
-                        f"{patient.last_name}"
-                    ).strip(),
+                    "patient_id":
+                        patient.id,
+
+                    "patient_name":
+                        patient_name,
 
                     "first_name":
                         patient.first_name,
@@ -386,6 +502,7 @@ def admin_patients(
                         patient.phone,
                 }
             )
+
 
         return result
 
