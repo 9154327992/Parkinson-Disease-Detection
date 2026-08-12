@@ -1,19 +1,30 @@
+# ==========================================================
+# Audio Feature Service
+# ==========================================================
+
 from pathlib import Path
-from typing import Union, Tuple
+from typing import Dict, List, Tuple
 
 import librosa
 import numpy as np
+import soundfile as sf
 
 
 # ==========================================================
-# Total Model Features
+# Constants
 # ==========================================================
 
 TOTAL_FEATURES = 22
 
+DEFAULT_SAMPLE_RATE = 22050
+
+MIN_DURATION_SECONDS = 2.0
+
+MAX_DURATION_SECONDS = 30.0
+
 
 # ==========================================================
-# 22 Model Feature Names
+# Exact Model Feature Names
 # ==========================================================
 
 FEATURE_NAMES = [
@@ -45,13 +56,15 @@ FEATURE_NAMES = [
 
 
 # ==========================================================
-# Validate Feature Definition
+# Feature Order Validation
 # ==========================================================
 
 if len(FEATURE_NAMES) != TOTAL_FEATURES:
-    raise ValueError(
-        "FEATURE_NAMES must contain exactly "
-        f"{TOTAL_FEATURES} features."
+
+    raise RuntimeError(
+        "Feature configuration error: "
+        f"expected {TOTAL_FEATURES} features, "
+        f"found {len(FEATURE_NAMES)}."
     )
 
 
@@ -60,248 +73,76 @@ if len(FEATURE_NAMES) != TOTAL_FEATURES:
 # ==========================================================
 
 class AudioFeatureService:
+    """
+    Service responsible for converting an audio recording
+    into the 22-feature structure expected by the
+    Parkinson disease model.
+    """
 
-    SAMPLE_RATE = 22050
+    TOTAL_FEATURES = TOTAL_FEATURES
 
-    MIN_DURATION_SECONDS = 1.0
+    FEATURE_NAMES = FEATURE_NAMES.copy()
 
-    MAX_DURATION_SECONDS = 60.0
+    DEFAULT_SAMPLE_RATE = (
+        DEFAULT_SAMPLE_RATE
+    )
 
-    SUPPORTED_EXTENSIONS = {
-        ".wav",
-        ".mp3",
-        ".m4a",
-        ".flac",
-        ".ogg",
-    }
+    MIN_DURATION_SECONDS = (
+        MIN_DURATION_SECONDS
+    )
 
+    MAX_DURATION_SECONDS = (
+        MAX_DURATION_SECONDS
+    )
 
     # ======================================================
-    # Load Audio
+    # Initialization
     # ======================================================
 
-    def load_audio(
+    def __init__(
         self,
-        audio_path: Union[str, Path],
-    ) -> Tuple[np.ndarray, int]:
-
-        path = Path(audio_path)
-
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Audio file not found: {path}"
-            )
-
-        if not path.is_file():
-            raise ValueError(
-                f"Audio path is not a file: {path}"
-            )
-
-        extension = path.suffix.lower()
-
-        if extension not in self.SUPPORTED_EXTENSIONS:
-            raise ValueError(
-                "Unsupported audio format. "
-                "Supported formats are WAV, MP3, "
-                "M4A, FLAC, and OGG."
-            )
-
-        try:
-
-            audio, sample_rate = librosa.load(
-                path,
-                sr=self.SAMPLE_RATE,
-                mono=True,
-            )
-
-        except Exception as exc:
-
-            raise ValueError(
-                f"Unable to read audio file: {exc}"
-            ) from exc
-
-        self.validate_audio(
-            audio,
-            sample_rate,
-        )
-
-        return audio, sample_rate
-
-
-    # ======================================================
-    # Validate Audio
-    # ======================================================
-
-    def validate_audio(
-        self,
-        audio: np.ndarray,
-        sample_rate: int,
-    ) -> None:
-
-        if audio is None:
-            raise ValueError(
-                "Audio waveform is missing."
-            )
-
-        if not isinstance(
-            audio,
-            np.ndarray,
-        ):
-            raise ValueError(
-                "Invalid audio waveform."
-            )
-
-        if audio.size == 0:
-            raise ValueError(
-                "Audio file contains no samples."
-            )
+        sample_rate: int = DEFAULT_SAMPLE_RATE,
+        min_duration: float = MIN_DURATION_SECONDS,
+        max_duration: float = MAX_DURATION_SECONDS,
+    ):
+        """
+        Initialize the audio feature service.
+        """
 
         if sample_rate <= 0:
+
             raise ValueError(
-                "Invalid audio sample rate."
+                "Sample rate must be greater than zero."
             )
 
-        if not np.isfinite(audio).all():
+        if min_duration <= 0:
+
             raise ValueError(
-                "Audio contains invalid numeric values."
+                "Minimum duration must be greater than zero."
             )
 
-        duration = (
-            len(audio)
-            / float(sample_rate)
-        )
+        if max_duration <= min_duration:
 
-        if duration < self.MIN_DURATION_SECONDS:
             raise ValueError(
-                "Audio recording is too short. "
-                f"Minimum duration is "
-                f"{self.MIN_DURATION_SECONDS} seconds."
+                "Maximum duration must be greater "
+                "than minimum duration."
             )
 
-        if duration > self.MAX_DURATION_SECONDS:
-            raise ValueError(
-                "Audio recording is too long. "
-                f"Maximum duration is "
-                f"{self.MAX_DURATION_SECONDS} seconds."
-            )
-
-        peak = float(
-            np.max(
-                np.abs(audio)
-            )
+        self.sample_rate = int(
+            sample_rate
         )
 
-        if peak <= 0:
-            raise ValueError(
-                "Audio recording is silent."
-            )
-
-
-    # ======================================================
-    # Remove DC Offset
-    # ======================================================
-
-    def remove_dc_offset(
-        self,
-        audio: np.ndarray,
-    ) -> np.ndarray:
-
-        if audio is None:
-            raise ValueError(
-                "Audio waveform is missing."
-            )
-
-        return (
-            audio
-            - np.mean(audio)
+        self.min_duration = float(
+            min_duration
         )
 
-
-    # ======================================================
-    # Normalize Audio
-    # ======================================================
-
-    def normalize_audio(
-        self,
-        audio: np.ndarray,
-    ) -> np.ndarray:
-
-        peak = float(
-            np.max(
-                np.abs(audio)
-            )
+        self.max_duration = float(
+            max_duration
         )
-
-        if peak <= 0:
-            raise ValueError(
-                "Cannot normalize silent audio."
-            )
-
-        return (
-            audio / peak
-        ).astype(
-            np.float64
-        )
-
-
-    # ======================================================
-    # Preprocess Audio
-    # ======================================================
-
-    def preprocess_audio(
-        self,
-        audio: np.ndarray,
-    ) -> np.ndarray:
-
-        audio = self.remove_dc_offset(
-            audio
-        )
-
-        audio = self.normalize_audio(
-            audio
-        )
-
-        return audio
-
-
-    # ======================================================
-    # Audio Information
-    # ======================================================
-
-    def audio_information(
-        self,
-        audio: np.ndarray,
-        sample_rate: int,
-    ) -> dict:
-
-        self.validate_audio(
-            audio,
-            sample_rate,
-        )
-
-        duration = (
-            len(audio)
-            / float(sample_rate)
-        )
-
-        return {
-            "sample_rate": int(
-                sample_rate
-            ),
-            "samples": int(
-                len(audio)
-            ),
-            "duration_seconds": round(
-                duration,
-                3,
-            ),
-            "channels": 1,
-            "format": "mono",
-        }
 
 
 # ==========================================================
-# Shared Audio Service
+# Shared Service Instance
 # ==========================================================
 
 audio_feature_service = (
@@ -309,7 +150,501 @@ audio_feature_service = (
 )
 
 # ==========================================================
-#  Pitch
+# Audio Loading and Validation
+# ==========================================================
+
+def load_audio(
+    self,
+    audio_path: str,
+) -> Tuple[np.ndarray, int]:
+    """
+    Load an audio file as a mono floating-point waveform.
+
+    Supported formats depend on the installed
+    soundfile/libsndfile backend.
+    """
+
+    if not audio_path:
+
+        raise ValueError(
+            "Audio path is required."
+        )
+
+    path = Path(
+        audio_path
+    )
+
+    if not path.exists():
+
+        raise FileNotFoundError(
+            f"Audio file not found: {path}"
+        )
+
+    if not path.is_file():
+
+        raise ValueError(
+            f"Audio path is not a file: {path}"
+        )
+
+    try:
+
+        audio, sample_rate = sf.read(
+            str(path),
+            dtype="float64",
+            always_2d=False,
+        )
+
+    except Exception as exc:
+
+        raise ValueError(
+            f"Unable to read audio file: {path}"
+        ) from exc
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    # ------------------------------------------------------
+    # Convert stereo/multi-channel audio to mono
+    # ------------------------------------------------------
+
+    if audio.ndim == 2:
+
+        audio = np.mean(
+            audio,
+            axis=1,
+        )
+
+    elif audio.ndim != 1:
+
+        raise ValueError(
+            "Audio must contain one or two dimensions."
+        )
+
+    sample_rate = int(
+        sample_rate
+    )
+
+    self.validate_audio(
+        audio,
+        sample_rate,
+    )
+
+    return audio, sample_rate
+
+
+# ==========================================================
+# Validate Audio
+# ==========================================================
+
+def validate_audio(
+    self,
+    audio: np.ndarray,
+    sample_rate: int,
+) -> bool:
+    """
+    Validate an audio waveform before feature extraction.
+    """
+
+    if not isinstance(
+        audio,
+        np.ndarray,
+    ):
+
+        raise ValueError(
+            "Audio waveform must be a NumPy array."
+        )
+
+    if audio.size == 0:
+
+        raise ValueError(
+            "Audio file contains no samples."
+        )
+
+    if sample_rate <= 0:
+
+        raise ValueError(
+            "Invalid audio sample rate."
+        )
+
+    if not np.isfinite(
+        audio
+    ).all():
+
+        raise ValueError(
+            "Audio contains invalid numeric values."
+        )
+
+    duration = (
+        len(audio)
+        / float(sample_rate)
+    )
+
+    if duration < self.min_duration:
+
+        raise ValueError(
+            "Audio recording is too short. "
+            f"Minimum duration is "
+            f"{self.min_duration:.1f} seconds."
+        )
+
+    if duration > self.max_duration:
+
+        raise ValueError(
+            "Audio recording is too long. "
+            f"Maximum duration is "
+            f"{self.max_duration:.1f} seconds."
+        )
+
+    peak = float(
+        np.max(
+            np.abs(audio)
+        )
+    )
+
+    if peak <= 0:
+
+        raise ValueError(
+            "Audio recording is silent."
+        )
+
+    return True
+
+
+# ==========================================================
+# Validate Audio File
+# ==========================================================
+
+def validate_audio_file(
+    self,
+    audio_path: str,
+) -> bool:
+    """
+    Check that an audio file can be loaded and validated.
+    """
+
+    audio, sample_rate = (
+        self.load_audio(
+            audio_path
+        )
+    )
+
+    return self.validate_audio(
+        audio,
+        sample_rate,
+    )
+
+
+# ==========================================================
+# Audio Information
+# ==========================================================
+
+def audio_information(
+    self,
+    audio: np.ndarray,
+    sample_rate: int,
+) -> dict:
+    """
+    Return basic information about an audio waveform.
+    """
+
+    self.validate_audio(
+        audio,
+        sample_rate,
+    )
+
+    duration = (
+        len(audio)
+        / float(sample_rate)
+    )
+
+    return {
+        "sample_rate": int(
+            sample_rate
+        ),
+        "samples": int(
+            len(audio)
+        ),
+        "duration_seconds": round(
+            duration,
+            3,
+        ),
+        "channels": 1,
+        "format": "mono",
+    }
+
+# ==========================================================
+# Audio Preprocessing
+# ==========================================================
+
+def remove_dc_offset(
+    self,
+    audio: np.ndarray,
+) -> np.ndarray:
+    """
+    Remove the DC offset from the waveform.
+    """
+
+    if audio is None:
+        raise ValueError(
+            "Audio waveform is missing."
+        )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
+        )
+
+    if not np.isfinite(
+        audio
+    ).all():
+        raise ValueError(
+            "Audio contains invalid numeric values."
+        )
+
+    return (
+        audio
+        - np.mean(audio)
+    )
+
+
+# ==========================================================
+# Normalize Audio
+# ==========================================================
+
+def normalize_audio(
+    self,
+    audio: np.ndarray,
+) -> np.ndarray:
+    """
+    Normalize waveform amplitude to [-1, 1].
+    """
+
+    if audio is None:
+        raise ValueError(
+            "Audio waveform is missing."
+        )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
+        )
+
+    peak = float(
+        np.max(
+            np.abs(audio)
+        )
+    )
+
+    if not np.isfinite(
+        peak
+    ):
+        raise ValueError(
+            "Audio contains invalid amplitude values."
+        )
+
+    if peak <= 0:
+        raise ValueError(
+            "Cannot normalize silent audio."
+        )
+
+    normalized = (
+        audio / peak
+    )
+
+    return normalized.astype(
+        np.float64
+    )
+
+
+# ==========================================================
+# Resample Audio
+# ==========================================================
+
+def resample_audio(
+    self,
+    audio: np.ndarray,
+    sample_rate: int,
+) -> np.ndarray:
+    """
+    Resample audio to the service sample rate.
+    """
+
+    if audio is None:
+        raise ValueError(
+            "Audio waveform is missing."
+        )
+
+    if sample_rate <= 0:
+        raise ValueError(
+            "Invalid source sample rate."
+        )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
+        )
+
+    if sample_rate == self.sample_rate:
+        return audio
+
+    try:
+
+        resampled = librosa.resample(
+            audio,
+            orig_sr=sample_rate,
+            target_sr=self.sample_rate,
+        )
+
+    except Exception as exc:
+
+        raise ValueError(
+            "Unable to resample audio."
+        ) from exc
+
+    resampled = np.asarray(
+        resampled,
+        dtype=np.float64,
+    )
+
+    if resampled.size == 0:
+        raise ValueError(
+            "Resampling produced an empty waveform."
+        )
+
+    return resampled
+
+
+# ==========================================================
+# Preprocess Audio
+# ==========================================================
+
+def preprocess_audio(
+    self,
+    audio: np.ndarray,
+    sample_rate: int,
+) -> Tuple[np.ndarray, int]:
+    """
+    Prepare audio for feature extraction.
+
+    Steps:
+        1. Validate input
+        2. Convert to mono if necessary
+        3. Remove DC offset
+        4. Resample
+        5. Normalize amplitude
+        6. Validate final waveform
+    """
+
+    self.validate_audio(
+        audio,
+        sample_rate,
+    )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    # ------------------------------------------------------
+    # Ensure mono
+    # ------------------------------------------------------
+
+    if audio.ndim == 2:
+
+        audio = np.mean(
+            audio,
+            axis=1,
+        )
+
+    elif audio.ndim != 1:
+
+        raise ValueError(
+            "Audio must be mono or multi-channel."
+        )
+
+    # ------------------------------------------------------
+    # Remove DC offset
+    # ------------------------------------------------------
+
+    audio = self.remove_dc_offset(
+        audio
+    )
+
+    # ------------------------------------------------------
+    # Resample
+    # ------------------------------------------------------
+
+    audio = self.resample_audio(
+        audio,
+        sample_rate,
+    )
+
+    # ------------------------------------------------------
+    # Normalize
+    # ------------------------------------------------------
+
+    audio = self.normalize_audio(
+        audio
+    )
+
+    # ------------------------------------------------------
+    # Final validation
+    # ------------------------------------------------------
+
+    self.validate_audio(
+        audio,
+        self.sample_rate,
+    )
+
+    return (
+        audio,
+        self.sample_rate,
+    )
+
+
+# ==========================================================
+# Load and Preprocess File
+# ==========================================================
+
+def load_and_preprocess(
+    self,
+    audio_path: str,
+) -> Tuple[np.ndarray, int]:
+    """
+    Load an audio file and prepare it for
+    feature extraction.
+    """
+
+    audio, sample_rate = (
+        self.load_audio(
+            audio_path
+        )
+    )
+
+    return self.preprocess_audio(
+        audio,
+        sample_rate,
+    )
+
+# ==========================================================
+# Pitch + Jitter
 # ==========================================================
 
 def extract_pitch(
@@ -318,61 +653,11 @@ def extract_pitch(
     sample_rate: int,
 ) -> dict:
     """
-    Extract the three fundamental-frequency features.
-    """
+    Extract:
 
-    if audio is None:
-        raise ValueError(
-            "Audio waveform is missing."
-        )
-
-    f0, voiced_flag, voiced_prob = librosa.pyin(
-        audio,
-        fmin=librosa.note_to_hz("C2"),
-        fmax=librosa.note_to_hz("C7"),
-        sr=sample_rate,
-    )
-
-    valid_f0 = f0[
-        np.isfinite(f0)
-    ]
-
-    if len(valid_f0) < 3:
-        raise ValueError(
-            "Unable to detect enough voiced "
-            "segments for pitch analysis."
-        )
-
-    return {
-        "MDVP:Fo(Hz)": float(
-            np.mean(valid_f0)
-        ),
-        "MDVP:Fhi(Hz)": float(
-            np.max(valid_f0)
-        ),
-        "MDVP:Flo(Hz)": float(
-            np.min(valid_f0)
-        ),
-    }
-
-# ==========================================================
-# Jitter
-# ==========================================================
-
-def extract_jitter(
-    self,
-    audio: np.ndarray,
-    sample_rate: int,
-) -> dict:
-    """
-    Extract jitter-related voice features.
-
-    Features:
-        MDVP:Jitter(%)
-        MDVP:Jitter(Abs)
-        MDVP:RAP
-        MDVP:PPQ
-        Jitter:DDP
+        MDVP:Fo(Hz)
+        MDVP:Fhi(Hz)
+        MDVP:Flo(Hz)
     """
 
     if audio is None:
@@ -383,6 +668,16 @@ def extract_jitter(
     if sample_rate <= 0:
         raise ValueError(
             "Invalid sample rate."
+        )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
         )
 
     # ------------------------------------------------------
@@ -400,6 +695,113 @@ def extract_jitter(
         np.isfinite(f0)
     ]
 
+    valid_f0 = valid_f0[
+        valid_f0 > 0
+    ]
+
+    if len(valid_f0) < 5:
+        raise ValueError(
+            "Not enough voiced samples detected "
+            "for pitch analysis."
+        )
+
+    # ------------------------------------------------------
+    # Pitch statistics
+    # ------------------------------------------------------
+
+    fo = float(
+        np.mean(valid_f0)
+    )
+
+    fhi = float(
+        np.max(valid_f0)
+    )
+
+    flo = float(
+        np.min(valid_f0)
+    )
+
+    values = {
+        "MDVP:Fo(Hz)": fo,
+        "MDVP:Fhi(Hz)": fhi,
+        "MDVP:Flo(Hz)": flo,
+    }
+
+    # ------------------------------------------------------
+    # Validate
+    # ------------------------------------------------------
+
+    for name, value in values.items():
+
+        if not np.isfinite(
+            value
+        ):
+
+            raise ValueError(
+                f"Invalid pitch value for {name}."
+            )
+
+    return values
+
+
+# ==========================================================
+# Jitter
+# ==========================================================
+
+def extract_jitter(
+    self,
+    audio: np.ndarray,
+    sample_rate: int,
+) -> dict:
+    """
+    Extract:
+
+        MDVP:Jitter(%)
+        MDVP:Jitter(Abs)
+        MDVP:RAP
+        MDVP:PPQ
+        Jitter:DDP
+    """
+
+    if audio is None:
+        raise ValueError(
+            "Audio waveform is missing."
+        )
+
+    if sample_rate <= 0:
+        raise ValueError(
+            "Invalid sample rate."
+        )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
+        )
+
+    # ------------------------------------------------------
+    # Fundamental frequency
+    # ------------------------------------------------------
+
+    f0, _, _ = librosa.pyin(
+        audio,
+        fmin=librosa.note_to_hz("C2"),
+        fmax=librosa.note_to_hz("C7"),
+        sr=sample_rate,
+    )
+
+    valid_f0 = f0[
+        np.isfinite(f0)
+    ]
+
+    valid_f0 = valid_f0[
+        valid_f0 > 0
+    ]
+
     if len(valid_f0) < 5:
         raise ValueError(
             "Not enough voiced samples detected "
@@ -407,10 +809,12 @@ def extract_jitter(
         )
 
     # ------------------------------------------------------
-    # Convert frequency to period
+    # Convert frequency to vocal period
     # ------------------------------------------------------
 
-    periods = 1.0 / valid_f0
+    periods = (
+        1.0 / valid_f0
+    )
 
     periods = periods[
         np.isfinite(periods)
@@ -419,8 +823,7 @@ def extract_jitter(
 
     if len(periods) < 5:
         raise ValueError(
-            "Not enough valid vocal periods "
-            "for jitter analysis."
+            "Not enough valid vocal periods."
         )
 
     mean_period = float(
@@ -436,11 +839,14 @@ def extract_jitter(
     # Absolute period differences
     # ------------------------------------------------------
 
-    differences = np.abs(
+    period_differences = np.abs(
         np.diff(periods)
     )
 
-    if len(differences) == 0:
+    if len(
+        period_differences
+    ) == 0:
+
         raise ValueError(
             "Unable to calculate period differences."
         )
@@ -449,8 +855,10 @@ def extract_jitter(
     # MDVP:Jitter(Abs)
     # ------------------------------------------------------
 
-    jitter_absolute = float(
-        np.mean(differences)
+    jitter_abs = float(
+        np.mean(
+            period_differences
+        )
     )
 
     # ------------------------------------------------------
@@ -458,7 +866,7 @@ def extract_jitter(
     # ------------------------------------------------------
 
     jitter_percent = float(
-        jitter_absolute
+        jitter_abs
         / mean_period
     )
 
@@ -492,7 +900,9 @@ def extract_jitter(
         )
 
     rap = float(
-        np.mean(rap_values)
+        np.mean(
+            rap_values
+        )
         / mean_period
     )
 
@@ -529,7 +939,9 @@ def extract_jitter(
         )
 
     ppq = float(
-        np.mean(ppq_values)
+        np.mean(
+            ppq_values
+        )
         / mean_period
     )
 
@@ -542,7 +954,7 @@ def extract_jitter(
     )
 
     # ------------------------------------------------------
-    # Validate results
+    # Final values
     # ------------------------------------------------------
 
     values = {
@@ -550,7 +962,7 @@ def extract_jitter(
             jitter_percent,
 
         "MDVP:Jitter(Abs)":
-            jitter_absolute,
+            jitter_abs,
 
         "MDVP:RAP":
             rap,
@@ -562,13 +974,18 @@ def extract_jitter(
             ddp,
     }
 
+    # ------------------------------------------------------
+    # Validate
+    # ------------------------------------------------------
+
     for name, value in values.items():
 
-        if not np.isfinite(value):
+        if not np.isfinite(
+            value
+        ):
 
             raise ValueError(
-                f"Invalid calculated value "
-                f"for {name}."
+                f"Invalid jitter value for {name}."
             )
 
     return values
@@ -580,11 +997,11 @@ def extract_jitter(
 def extract_shimmer(
     self,
     audio: np.ndarray,
+    sample_rate: int,
 ) -> dict:
     """
-    Extract shimmer-related voice features.
+    Extract:
 
-    Features:
         MDVP:Shimmer
         MDVP:Shimmer(dB)
         Shimmer:APQ3
@@ -596,6 +1013,28 @@ def extract_shimmer(
     if audio is None:
         raise ValueError(
             "Audio waveform is missing."
+        )
+
+    if sample_rate <= 0:
+        raise ValueError(
+            "Invalid sample rate."
+        )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
+        )
+
+    if not np.isfinite(
+        audio
+    ).all():
+        raise ValueError(
+            "Audio contains invalid numeric values."
         )
 
     # ------------------------------------------------------
@@ -639,6 +1078,13 @@ def extract_shimmer(
         np.diff(rms)
     )
 
+    if len(
+        amplitude_differences
+    ) == 0:
+        raise ValueError(
+            "Unable to calculate shimmer."
+        )
+
     shimmer = float(
         np.mean(
             amplitude_differences
@@ -666,10 +1112,11 @@ def extract_shimmer(
         ]
     )
 
-    if len(amplitude_ratios) == 0:
+    if len(
+        amplitude_ratios
+    ) == 0:
         raise ValueError(
-            "Unable to calculate "
-            "shimmer in dB."
+            "Unable to calculate shimmer in dB."
         )
 
     shimmer_db = float(
@@ -684,7 +1131,7 @@ def extract_shimmer(
     )
 
     # ------------------------------------------------------
-    # APQ calculation helper
+    # APQ helper
     # ------------------------------------------------------
 
     def calculate_apq(
@@ -730,8 +1177,7 @@ def extract_shimmer(
 
         if not values:
             raise ValueError(
-                f"Unable to calculate "
-                f"APQ{window}."
+                f"Unable to calculate APQ{window}."
             )
 
         return float(
@@ -771,7 +1217,7 @@ def extract_shimmer(
     )
 
     # ------------------------------------------------------
-    # Final validation
+    # Final values
     # ------------------------------------------------------
 
     values = {
@@ -794,6 +1240,10 @@ def extract_shimmer(
             dda,
     }
 
+    # ------------------------------------------------------
+    # Validate
+    # ------------------------------------------------------
+
     for name, value in values.items():
 
         if not np.isfinite(
@@ -801,8 +1251,7 @@ def extract_shimmer(
         ):
 
             raise ValueError(
-                f"Invalid calculated value "
-                f"for {name}."
+                f"Invalid shimmer value for {name}."
             )
 
     return values
@@ -814,12 +1263,11 @@ def extract_shimmer(
 def extract_hnr_nhr(
     self,
     audio: np.ndarray,
+    sample_rate: int,
 ) -> dict:
     """
-    Extract Harmonics-to-Noise Ratio and
-    Noise-to-Harmonics Ratio.
+    Extract:
 
-    Features:
         NHR
         HNR
     """
@@ -829,13 +1277,30 @@ def extract_hnr_nhr(
             "Audio waveform is missing."
         )
 
+    if sample_rate <= 0:
+        raise ValueError(
+            "Invalid sample rate."
+        )
+
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
+    )
+
     if audio.size == 0:
         raise ValueError(
             "Audio waveform is empty."
         )
 
+    if not np.isfinite(
+        audio
+    ).all():
+        raise ValueError(
+            "Audio contains invalid numeric values."
+        )
+
     # ------------------------------------------------------
-    # Harmonic / percussive decomposition
+    # Harmonic / percussive separation
     # ------------------------------------------------------
 
     harmonic, percussive = (
@@ -844,8 +1309,18 @@ def extract_hnr_nhr(
         )
     )
 
+    harmonic = np.asarray(
+        harmonic,
+        dtype=np.float64,
+    )
+
+    percussive = np.asarray(
+        percussive,
+        dtype=np.float64,
+    )
+
     # ------------------------------------------------------
-    # Calculate harmonic energy
+    # Harmonic energy
     # ------------------------------------------------------
 
     harmonic_energy = float(
@@ -854,34 +1329,33 @@ def extract_hnr_nhr(
         )
     )
 
-    if (
-        not np.isfinite(
-            harmonic_energy
-        )
-        or harmonic_energy <= 0
-    ):
+    if not np.isfinite(
+        harmonic_energy
+    ) or harmonic_energy <= 0:
+
         raise ValueError(
             "Unable to calculate valid "
             "harmonic energy."
         )
 
     # ------------------------------------------------------
-    # Calculate residual/noise energy
+    # Noise / residual energy
     # ------------------------------------------------------
 
-    noise = (
+    residual = (
         audio - harmonic
     )
 
     noise_energy = float(
         np.mean(
-            noise ** 2
+            residual ** 2
         )
     )
 
     if not np.isfinite(
         noise_energy
     ):
+
         raise ValueError(
             "Unable to calculate valid "
             "noise energy."
@@ -889,9 +1363,12 @@ def extract_hnr_nhr(
 
     # Prevent division by zero.
     if noise_energy <= 0:
-        noise_energy = np.finfo(
-            np.float64
-        ).eps
+
+        noise_energy = (
+            np.finfo(
+                np.float64
+            ).eps
+        )
 
     # ------------------------------------------------------
     # HNR
@@ -921,6 +1398,7 @@ def extract_hnr_nhr(
     if not np.isfinite(
         hnr
     ):
+
         raise ValueError(
             "Calculated HNR is invalid."
         )
@@ -928,6 +1406,7 @@ def extract_hnr_nhr(
     if not np.isfinite(
         nhr
     ):
+
         raise ValueError(
             "Calculated NHR is invalid."
         )
@@ -944,6 +1423,7 @@ def extract_hnr_nhr(
 def extract_rpde_dfa(
     self,
     audio: np.ndarray,
+    sample_rate: int,
 ) -> dict:
     """
     Extract:
@@ -961,15 +1441,20 @@ def extract_rpde_dfa(
             "Audio waveform is missing."
         )
 
-    if audio.size == 0:
+    if sample_rate <= 0:
         raise ValueError(
-            "Audio waveform is empty."
+            "Invalid sample rate."
         )
 
     audio = np.asarray(
         audio,
         dtype=np.float64,
     )
+
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
+        )
 
     if not np.isfinite(
         audio
@@ -987,47 +1472,49 @@ def extract_rpde_dfa(
         - np.mean(audio)
     )
 
-    # ------------------------------------------------------
-    # Normalize
-    # ------------------------------------------------------
-
     standard_deviation = float(
         np.std(signal)
     )
 
-    if standard_deviation <= 0:
+    if (
+        not np.isfinite(
+            standard_deviation
+        )
+        or standard_deviation <= 0
+    ):
         raise ValueError(
             "Audio has insufficient variation "
             "for nonlinear analysis."
         )
+
+    # ------------------------------------------------------
+    # Normalize
+    # ------------------------------------------------------
 
     signal = (
         signal
         / standard_deviation
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # RPDE
-    # ======================================================
-
-    # Use the normalized signal to estimate
-    # recurrence-density behavior.
+    # ------------------------------------------------------
 
     rpde = self._calculate_rpde(
         signal
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # DFA
-    # ======================================================
+    # ------------------------------------------------------
 
     dfa = self._calculate_dfa(
         signal
     )
 
-    # ======================================================
+    # ------------------------------------------------------
     # Validate
-    # ======================================================
+    # ------------------------------------------------------
 
     if not np.isfinite(
         rpde
@@ -1047,7 +1534,6 @@ def extract_rpde_dfa(
         "RPDE": float(
             rpde
         ),
-
         "DFA": float(
             dfa
         ),
@@ -1063,10 +1549,7 @@ def _calculate_rpde(
     signal: np.ndarray,
 ) -> float:
     """
-    Estimate Recurrence Period Density Entropy.
-
-    The calculation uses a normalized autocorrelation
-    recurrence profile and entropy measurement.
+    Calculate a recurrence-density entropy measure.
     """
 
     signal_length = len(
@@ -1080,7 +1563,7 @@ def _calculate_rpde(
         )
 
     # ------------------------------------------------------
-    # Limit computation size
+    # Limit computational size
     # ------------------------------------------------------
 
     maximum_samples = 20000
@@ -1103,7 +1586,7 @@ def _calculate_rpde(
         )
 
     # ------------------------------------------------------
-    # Autocorrelation
+    # Center signal
     # ------------------------------------------------------
 
     signal = (
@@ -1122,6 +1605,10 @@ def _calculate_rpde(
             "Unable to calculate RPDE."
         )
 
+    # ------------------------------------------------------
+    # Autocorrelation
+    # ------------------------------------------------------
+
     correlation = np.correlate(
         signal,
         signal,
@@ -1137,10 +1624,7 @@ def _calculate_rpde(
         / denominator
     )
 
-    # ------------------------------------------------------
-    # Ignore zero lag
-    # ------------------------------------------------------
-
+    # Ignore zero lag.
     correlation = correlation[
         1:
     ]
@@ -1149,13 +1633,15 @@ def _calculate_rpde(
         correlation
     )
 
-    if len(correlation) == 0:
+    if len(
+        correlation
+    ) == 0:
         raise ValueError(
-            "Unable to construct RPDE recurrence profile."
+            "Unable to construct RPDE profile."
         )
 
     # ------------------------------------------------------
-    # Convert recurrence profile to density
+    # Probability density
     # ------------------------------------------------------
 
     number_of_bins = 50
@@ -1190,7 +1676,9 @@ def _calculate_rpde(
         probability > 0
     ]
 
-    if len(probability) == 0:
+    if len(
+        probability
+    ) == 0:
         raise ValueError(
             "RPDE probability distribution is empty."
         )
@@ -1208,10 +1696,6 @@ def _calculate_rpde(
         )
     )
 
-    # ------------------------------------------------------
-    # Normalize entropy
-    # ------------------------------------------------------
-
     maximum_entropy = np.log2(
         number_of_bins
     )
@@ -1221,13 +1705,9 @@ def _calculate_rpde(
             "Invalid RPDE entropy normalization."
         )
 
-    rpde = (
+    return float(
         entropy
         / maximum_entropy
-    )
-
-    return float(
-        rpde
     )
 
 
@@ -1255,7 +1735,7 @@ def _calculate_dfa(
         )
 
     # ------------------------------------------------------
-    # Integrate the signal
+    # Integrated profile
     # ------------------------------------------------------
 
     centered = (
@@ -1279,6 +1759,7 @@ def _calculate_dfa(
     )
 
     if maximum_window <= minimum_window:
+
         raise ValueError(
             "Audio signal is too short "
             "for DFA window analysis."
@@ -1296,9 +1777,9 @@ def _calculate_dfa(
         ).astype(int)
     )
 
-    fluctuation_sizes = []
-
     valid_windows = []
+
+    fluctuation_sizes = []
 
     # ------------------------------------------------------
     # Calculate fluctuation for each window
@@ -1364,9 +1845,12 @@ def _calculate_dfa(
                 )
             )
 
-            if np.isfinite(
-                fluctuation
-            ) and fluctuation > 0:
+            if (
+                np.isfinite(
+                    fluctuation
+                )
+                and fluctuation > 0
+            ):
 
                 local_fluctuations.append(
                     fluctuation
@@ -1401,7 +1885,7 @@ def _calculate_dfa(
             )
 
     # ------------------------------------------------------
-    # Validate
+    # Validate windows
     # ------------------------------------------------------
 
     if len(
@@ -1411,6 +1895,10 @@ def _calculate_dfa(
         raise ValueError(
             "Not enough valid DFA windows."
         )
+
+    # ------------------------------------------------------
+    # Log-log regression
+    # ------------------------------------------------------
 
     x_values = np.log10(
         np.asarray(
@@ -1426,10 +1914,6 @@ def _calculate_dfa(
         )
     )
 
-    # ------------------------------------------------------
-    # Scaling exponent
-    # ------------------------------------------------------
-
     slope, _ = np.polyfit(
         x_values,
         y_values,
@@ -1440,13 +1924,20 @@ def _calculate_dfa(
         slope
     )
 
+    if not np.isfinite(
+        dfa
+    ):
+        raise ValueError(
+            "Calculated DFA is invalid."
+        )
+
     return dfa
 
 # ==========================================================
-# spread1 / spread2
+# spread1 / spread2 / D2 / PPE
 # ==========================================================
 
-def extract_spread_features(
+def extract_nonlinear_features(
     self,
     audio: np.ndarray,
     sample_rate: int,
@@ -1456,64 +1947,8 @@ def extract_spread_features(
 
         spread1
         spread2
-
-    These two features are part of the 22-feature
-    Parkinson dataset but their exact raw-audio
-    extraction methodology is not defined in the
-    current project source.
-
-    They must not be replaced with arbitrary
-    approximations because the resulting values
-    would not necessarily match the distribution
-    used to train model.pkl.
-    """
-
-    if audio is None:
-        raise ValueError(
-            "Audio waveform is missing."
-        )
-
-    if audio.size == 0:
-        raise ValueError(
-            "Audio waveform is empty."
-        )
-
-    if sample_rate <= 0:
-        raise ValueError(
-            "Invalid sample rate."
-        )
-
-    raise NotImplementedError(
-        "spread1 and spread2 extraction requires "
-        "the original feature-extraction methodology "
-        "used to create parkinsons.csv."
-    )
-
-# ==========================================================
-# D2 / PPE
-# ==========================================================
-
-def extract_d2_ppe(
-    self,
-    audio: np.ndarray,
-    sample_rate: int,
-) -> dict:
-    """
-    Extract:
-
         D2
         PPE
-
-    D2  = correlation dimension
-    PPE = pitch period entropy
-
-    The exact extraction methodology used to generate
-    these features in the training dataset is not
-    currently defined in this project source.
-
-    Do not substitute arbitrary approximations because
-    the resulting values may not match the distribution
-    used to train model.pkl.
     """
 
     if audio is None:
@@ -1521,46 +1956,631 @@ def extract_d2_ppe(
             "Audio waveform is missing."
         )
 
-    if audio.size == 0:
-        raise ValueError(
-            "Audio waveform is empty."
-        )
-
     if sample_rate <= 0:
         raise ValueError(
             "Invalid sample rate."
         )
 
-    raise NotImplementedError(
-        "D2 and PPE extraction requires the original "
-        "feature-extraction methodology used to create "
-        "parkinsons.csv."
+    audio = np.asarray(
+        audio,
+        dtype=np.float64,
     )
 
+    if audio.size == 0:
+        raise ValueError(
+            "Audio waveform is empty."
+        )
+
+    if not np.isfinite(
+        audio
+    ).all():
+        raise ValueError(
+            "Audio contains invalid numeric values."
+        )
+
+    # ======================================================
+    # Fundamental frequency
+    # ======================================================
+
+    f0, voiced_flag, _ = librosa.pyin(
+        audio,
+        fmin=librosa.note_to_hz("C2"),
+        fmax=librosa.note_to_hz("C7"),
+        sr=sample_rate,
+    )
+
+    valid_f0 = f0[
+        np.isfinite(f0)
+    ]
+
+    valid_f0 = valid_f0[
+        valid_f0 > 0
+    ]
+
+    if len(valid_f0) < 20:
+
+        raise ValueError(
+            "Not enough voiced samples for "
+            "nonlinear feature extraction."
+        )
+
+    # ======================================================
+    # Log fundamental frequency
+    # ======================================================
+
+    log_f0 = np.log(
+        valid_f0
+    )
+
+    log_f0 = log_f0[
+        np.isfinite(log_f0)
+    ]
+
+    if len(log_f0) < 20:
+
+        raise ValueError(
+            "Invalid logarithmic pitch values."
+        )
+
+    # ======================================================
+    # spread1
+    # ======================================================
+
+    spread1 = float(
+        np.std(
+            log_f0
+        )
+    )
+
+    if not np.isfinite(
+        spread1
+    ):
+
+        raise ValueError(
+            "Unable to calculate spread1."
+        )
+
+    # ======================================================
+    # spread2
+    # ======================================================
+
+    differences = np.diff(
+        log_f0
+    )
+
+    differences = differences[
+        np.isfinite(
+            differences
+        )
+    ]
+
+    if len(differences) < 10:
+
+        raise ValueError(
+            "Not enough pitch variation for spread2."
+        )
+
+    spread2 = float(
+        np.std(
+            differences
+        )
+    )
+
+    if not np.isfinite(
+        spread2
+    ):
+
+        raise ValueError(
+            "Unable to calculate spread2."
+        )
+
+    # ======================================================
+    # PPE — Pitch Period Entropy
+    # ======================================================
+
+    periods = (
+        1.0
+        / valid_f0
+    )
+
+    periods = periods[
+        np.isfinite(periods)
+        & (
+            periods > 0
+        )
+    ]
+
+    if len(periods) < 20:
+
+        raise ValueError(
+            "Not enough pitch periods for PPE."
+        )
+
+    normalized_periods = (
+        periods
+        / np.mean(periods)
+    )
+
+    # ------------------------------------------------------
+    # Remove extreme numerical values
+    # ------------------------------------------------------
+
+    normalized_periods = (
+        normalized_periods[
+            np.isfinite(
+                normalized_periods
+            )
+        ]
+    )
+
+    if len(
+        normalized_periods
+    ) < 20:
+
+        raise ValueError(
+            "Invalid normalized pitch periods."
+        )
+
+    # ------------------------------------------------------
+    # Histogram probability
+    # ------------------------------------------------------
+
+    number_of_bins = 50
+
+    histogram, _ = np.histogram(
+        normalized_periods,
+        bins=number_of_bins,
+    )
+
+    histogram = histogram.astype(
+        np.float64
+    )
+
+    histogram_total = float(
+        np.sum(
+            histogram
+        )
+    )
+
+    if histogram_total <= 0:
+
+        raise ValueError(
+            "Unable to calculate PPE distribution."
+        )
+
+    probability = (
+        histogram
+        / histogram_total
+    )
+
+    probability = probability[
+        probability > 0
+    ]
+
+    if len(probability) == 0:
+
+        raise ValueError(
+            "PPE probability distribution is empty."
+        )
+
+    entropy = float(
+        -np.sum(
+            probability
+            * np.log2(
+                probability
+            )
+        )
+    )
+
+    maximum_entropy = np.log2(
+        number_of_bins
+    )
+
+    if maximum_entropy <= 0:
+
+        raise ValueError(
+            "Invalid PPE entropy normalization."
+        )
+
+    ppe = float(
+        entropy
+        / maximum_entropy
+    )
+
+    # ======================================================
+    # D2 — Correlation Dimension
+    # ======================================================
+
+    d2 = self._calculate_d2(
+        log_f0
+    )
+
+    # ======================================================
+    # Validate
+    # ======================================================
+
+    values = {
+        "spread1":
+            spread1,
+
+        "spread2":
+            spread2,
+
+        "D2":
+            d2,
+
+        "PPE":
+            ppe,
+    }
+
+    for name, value in values.items():
+
+        if not np.isfinite(
+            value
+        ):
+
+            raise ValueError(
+                f"Invalid nonlinear feature: {name}"
+            )
+
+    return values
+
+
 # ==========================================================
-# 3I — Assemble and Validate 22 Features
+# D2 Calculation
+# ==========================================================
+
+def _calculate_d2(
+    self,
+    signal: np.ndarray,
+) -> float:
+    """
+    Estimate the correlation dimension using a
+    delay-embedded signal and correlation integral.
+    """
+
+    signal = np.asarray(
+        signal,
+        dtype=np.float64,
+    )
+
+    signal = signal[
+        np.isfinite(signal)
+    ]
+
+    if len(signal) < 100:
+
+        raise ValueError(
+            "Signal is too short for D2 analysis."
+        )
+
+    # ------------------------------------------------------
+    # Limit computation
+    # ------------------------------------------------------
+
+    maximum_samples = 2000
+
+    if len(signal) > maximum_samples:
+
+        indices = np.linspace(
+            0,
+            len(signal) - 1,
+            maximum_samples,
+            dtype=int,
+        )
+
+        signal = signal[
+            indices
+        ]
+
+    # ------------------------------------------------------
+    # Normalize
+    # ------------------------------------------------------
+
+    signal = (
+        signal
+        - np.mean(signal)
+    )
+
+    standard_deviation = float(
+        np.std(signal)
+    )
+
+    if standard_deviation <= 0:
+
+        raise ValueError(
+            "Insufficient variation for D2."
+        )
+
+    signal = (
+        signal
+        / standard_deviation
+    )
+
+    # ------------------------------------------------------
+    # Delay embedding
+    # ------------------------------------------------------
+
+    embedding_dimension = 3
+
+    delay = 1
+
+    number_of_vectors = (
+        len(signal)
+        - (
+            embedding_dimension
+            - 1
+        )
+        * delay
+    )
+
+    if number_of_vectors < 50:
+
+        raise ValueError(
+            "Not enough embedded vectors for D2."
+        )
+
+    embedded = np.empty(
+        (
+            number_of_vectors,
+            embedding_dimension,
+        ),
+        dtype=np.float64,
+    )
+
+    for dimension in range(
+        embedding_dimension
+    ):
+
+        start = (
+            dimension
+            * delay
+        )
+
+        end = (
+            start
+            + number_of_vectors
+        )
+
+        embedded[
+            :,
+            dimension
+        ] = signal[
+            start:end
+        ]
+
+    # ------------------------------------------------------
+    # Pairwise distances
+    # ------------------------------------------------------
+
+    distances = []
+
+    block_size = 500
+
+    for start in range(
+        0,
+        len(embedded),
+        block_size,
+    ):
+
+        block = embedded[
+            start:
+            start + block_size
+        ]
+
+        difference = (
+            block[:, None, :]
+            - embedded[None, :, :]
+        )
+
+        block_distances = np.sqrt(
+            np.sum(
+                difference ** 2,
+                axis=2,
+            )
+        )
+
+        # Remove self-distances.
+        block_distances[
+            np.arange(
+                len(block)
+            ),
+            np.arange(
+                start,
+                min(
+                    start
+                    + len(block),
+                    len(embedded),
+                ),
+            )
+        ] = np.nan
+
+        valid_distances = (
+            block_distances[
+                np.isfinite(
+                    block_distances
+                )
+            ]
+        )
+
+        if len(
+            valid_distances
+        ) > 0:
+
+            distances.append(
+                valid_distances
+            )
+
+    if not distances:
+
+        raise ValueError(
+            "Unable to calculate D2 distances."
+        )
+
+    distances = np.concatenate(
+        distances
+    )
+
+    distances = distances[
+        distances > 0
+    ]
+
+    if len(distances) < 100:
+
+        raise ValueError(
+            "Not enough valid distances for D2."
+        )
+
+    # ------------------------------------------------------
+    # Radius range
+    # ------------------------------------------------------
+
+    low_radius = float(
+        np.percentile(
+            distances,
+            10,
+        )
+    )
+
+    high_radius = float(
+        np.percentile(
+            distances,
+            60,
+        )
+    )
+
+    if (
+        low_radius <= 0
+        or high_radius <= low_radius
+    ):
+
+        raise ValueError(
+            "Invalid D2 radius range."
+        )
+
+    radii = np.logspace(
+        np.log10(
+            low_radius
+        ),
+        np.log10(
+            high_radius
+        ),
+        12,
+    )
+
+    correlation_values = []
+
+    valid_radii = []
+
+    total_pairs = float(
+        len(distances)
+    )
+
+    for radius in radii:
+
+        count = float(
+            np.sum(
+                distances < radius
+            )
+        )
+
+        if count <= 0:
+            continue
+
+        correlation = (
+            count
+            / total_pairs
+        )
+
+        if (
+            correlation > 0
+            and np.isfinite(
+                correlation
+            )
+        ):
+
+            valid_radii.append(
+                radius
+            )
+
+            correlation_values.append(
+                correlation
+            )
+
+    if len(
+        valid_radii
+    ) < 4:
+
+        raise ValueError(
+            "Not enough valid scales for D2."
+        )
+
+    # ------------------------------------------------------
+    # Log-log regression
+    # ------------------------------------------------------
+
+    log_radii = np.log(
+        np.asarray(
+            valid_radii,
+            dtype=np.float64,
+        )
+    )
+
+    log_correlations = np.log(
+        np.asarray(
+            correlation_values,
+            dtype=np.float64,
+        )
+    )
+
+    slope, _ = np.polyfit(
+        log_radii,
+        log_correlations,
+        1,
+    )
+
+    d2 = float(
+        slope
+    )
+
+    if not np.isfinite(
+        d2
+    ):
+
+        raise ValueError(
+            "Calculated D2 is invalid."
+        )
+
+    return d2
+
+# ==========================================================
+# Assemble and Validate All 22 Features
 # ==========================================================
 
 def assemble_features(
     self,
-    feature_groups: list,
+    pitch_features: dict,
+    jitter_features: dict,
+    shimmer_features: dict,
+    hnr_features: dict,
+    nonlinear_features: dict,
+    rpde_dfa_features: dict,
 ) -> dict:
     """
-    Combine all extracted feature groups.
-
-    The final result must contain exactly the 22
-    features expected by model.pkl.
+    Combine all extracted feature groups into the exact
+    22-feature dictionary expected by the Parkinson model.
     """
 
-    if not isinstance(
-        feature_groups,
-        list,
-    ):
-        raise ValueError(
-            "feature_groups must be a list."
-        )
+    feature_groups = [
+        pitch_features,
+        jitter_features,
+        shimmer_features,
+        hnr_features,
+        rpde_dfa_features,
+        nonlinear_features,
+    ]
 
-    features = {}
+    combined = {}
 
     # ------------------------------------------------------
     # Combine feature groups
@@ -1572,18 +2592,20 @@ def assemble_features(
             group,
             dict,
         ):
+
             raise ValueError(
                 "Every feature group must be a dictionary."
             )
 
         for name, value in group.items():
 
-            if name in features:
+            if name in combined:
+
                 raise ValueError(
                     f"Duplicate feature detected: {name}"
                 )
 
-            features[name] = value
+            combined[name] = value
 
     # ------------------------------------------------------
     # Check missing features
@@ -1592,7 +2614,7 @@ def assemble_features(
     missing_features = [
         name
         for name in FEATURE_NAMES
-        if name not in features
+        if name not in combined
     ]
 
     if missing_features:
@@ -1608,7 +2630,7 @@ def assemble_features(
 
     unexpected_features = [
         name
-        for name in features
+        for name in combined
         if name not in FEATURE_NAMES
     ]
 
@@ -1620,19 +2642,17 @@ def assemble_features(
         )
 
     # ------------------------------------------------------
-    # Create exact feature order
+    # Build exact model order
     # ------------------------------------------------------
 
     ordered_features = {}
 
     for name in FEATURE_NAMES:
 
-        value = features[name]
-
         try:
 
-            numeric_value = float(
-                value
+            value = float(
+                combined[name]
             )
 
         except (
@@ -1641,11 +2661,11 @@ def assemble_features(
         ) as exc:
 
             raise ValueError(
-                f"Feature '{name}' is not numeric."
+                f"Feature '{name}' must be numeric."
             ) from exc
 
         if not np.isfinite(
-            numeric_value
+            value
         ):
 
             raise ValueError(
@@ -1655,10 +2675,10 @@ def assemble_features(
 
         ordered_features[
             name
-        ] = numeric_value
+        ] = value
 
     # ------------------------------------------------------
-    # Final feature count
+    # Final count
     # ------------------------------------------------------
 
     if len(
@@ -1675,7 +2695,7 @@ def assemble_features(
 
 
 # ==========================================================
-# Feature Dictionary Validation
+# Validate Feature Dictionary
 # ==========================================================
 
 def validate_feature_dictionary(
@@ -1683,25 +2703,32 @@ def validate_feature_dictionary(
     features: dict,
 ) -> bool:
     """
-    Verify that a feature dictionary contains the
-    exact 22 model features in the correct structure.
+    Verify that a feature dictionary contains exactly
+    the 22 model features.
     """
 
     if not isinstance(
         features,
         dict,
     ):
+
         raise ValueError(
             "Features must be provided as a dictionary."
         )
 
-    if len(features) != TOTAL_FEATURES:
+    if len(
+        features
+    ) != TOTAL_FEATURES:
 
         raise ValueError(
             "Expected exactly "
             f"{TOTAL_FEATURES} features, "
             f"received {len(features)}."
         )
+
+    # ------------------------------------------------------
+    # Missing
+    # ------------------------------------------------------
 
     missing = [
         name
@@ -1716,6 +2743,10 @@ def validate_feature_dictionary(
             f"{missing}"
         )
 
+    # ------------------------------------------------------
+    # Unexpected
+    # ------------------------------------------------------
+
     unexpected = [
         name
         for name in features
@@ -1728,6 +2759,10 @@ def validate_feature_dictionary(
             "Unexpected features: "
             f"{unexpected}"
         )
+
+    # ------------------------------------------------------
+    # Numeric validation
+    # ------------------------------------------------------
 
     for name in FEATURE_NAMES:
 
@@ -1752,85 +2787,67 @@ def validate_feature_dictionary(
 
             raise ValueError(
                 f"Feature '{name}' contains "
-                "an invalid value."
+                "an invalid numeric value."
             )
 
     return True
 
 
 # ==========================================================
-# 3I — Get Ordered Feature Names
+# Get Ordered Feature Names
 # ==========================================================
 
 def get_feature_names(
     self,
-) -> list:
+) -> List[str]:
     """
-    Return the exact feature order expected by
-    model.pkl.
+    Return the exact 22-feature order expected by
+    the trained model.
     """
 
     return FEATURE_NAMES.copy()
 
 
 # ==========================================================
-# 3I — Get Feature Count
+# Feature Count
 # ==========================================================
 
 def get_feature_count(
     self,
 ) -> int:
     """
-    Return the number of model features.
+    Return the total number of model features.
     """
 
     return TOTAL_FEATURES
 
 # ==========================================================
-# 3J — Model-Ready 22 Feature Vector
+# Model-Ready 22 Feature Vector
 # ==========================================================
 
 def to_feature_vector(
     self,
     features: dict,
-) -> list:
+) -> List[float]:
     """
-    Convert the validated feature dictionary into
-    the exact 22-value order expected by model.pkl.
+    Convert the validated feature dictionary into the
+    exact 22-value order expected by model.pkl.
     """
-
-    if not isinstance(
-        features,
-        dict,
-    ):
-        raise ValueError(
-            "Features must be provided as a dictionary."
-        )
-
-    # ------------------------------------------------------
-    # Validate exact feature set
-    # ------------------------------------------------------
 
     self.validate_feature_dictionary(
         features
     )
 
-    # ------------------------------------------------------
-    # Build vector in training order
-    # ------------------------------------------------------
-
     vector = []
 
     for feature_name in FEATURE_NAMES:
 
-        value = features[
-            feature_name
-        ]
-
         try:
 
             value = float(
-                value
+                features[
+                    feature_name
+                ]
             )
 
         except (
@@ -1856,10 +2873,6 @@ def to_feature_vector(
             value
         )
 
-    # ------------------------------------------------------
-    # Final count validation
-    # ------------------------------------------------------
-
     if len(vector) != TOTAL_FEATURES:
 
         raise ValueError(
@@ -1872,7 +2885,7 @@ def to_feature_vector(
 
 
 # ==========================================================
-# 3J — NumPy Model Input
+# NumPy Model Input
 # ==========================================================
 
 def to_numpy_vector(
@@ -1881,7 +2894,7 @@ def to_numpy_vector(
 ) -> np.ndarray:
     """
     Convert the validated 22-feature vector into
-    the shape expected by scikit-learn.
+    shape (1, 22), ready for the existing scaler.
     """
 
     vector = self.to_feature_vector(
@@ -1896,19 +2909,26 @@ def to_numpy_vector(
     if data.shape != (
         TOTAL_FEATURES,
     ):
+
         raise ValueError(
             "Invalid feature array shape: "
             f"{data.shape}"
         )
 
-    return data.reshape(
+    model_input = data.reshape(
         1,
         TOTAL_FEATURES,
     )
 
+    self.validate_model_input(
+        model_input
+    )
+
+    return model_input
+
 
 # ==========================================================
-# 3J — Model Input Validation
+# Validate Model Input
 # ==========================================================
 
 def validate_model_input(
@@ -1916,14 +2936,15 @@ def validate_model_input(
     data: np.ndarray,
 ) -> bool:
     """
-    Validate the final model input before it is sent
-    to the scaler/model.
+    Validate the final NumPy array before it is passed
+    to preprocessing.py and the trained model.
     """
 
     if not isinstance(
         data,
         np.ndarray,
     ):
+
         raise ValueError(
             "Model input must be a NumPy array."
         )
@@ -1932,15 +2953,27 @@ def validate_model_input(
         1,
         TOTAL_FEATURES,
     ):
+
         raise ValueError(
             "Model input must have shape "
             f"(1, {TOTAL_FEATURES}). "
             f"Received {data.shape}."
         )
 
+    if data.dtype.kind not in (
+        "f",
+        "i",
+        "u",
+    ):
+
+        raise ValueError(
+            "Model input must contain numeric values."
+        )
+
     if not np.isfinite(
         data
     ).all():
+
         raise ValueError(
             "Model input contains invalid values."
         )
@@ -1955,10 +2988,10 @@ def validate_model_input(
 def feature_summary(
     self,
     features: dict,
-) -> list:
+) -> List[dict]:
     """
-    Return the 22 features with their names and
-    values for debugging and verification.
+    Return all 22 features with their index, name,
+    and calculated value.
     """
 
     self.validate_feature_dictionary(
@@ -1985,3 +3018,208 @@ def feature_summary(
         )
 
     return summary
+
+
+# ==========================================================
+# Extract All Features
+# ==========================================================
+
+def extract_features(
+    self,
+    audio: np.ndarray,
+    sample_rate: int,
+) -> dict:
+    """
+    Run the complete audio feature extraction pipeline.
+
+    Returns exactly 22 named features.
+    """
+
+    # ------------------------------------------------------
+    # Preprocess
+    # ------------------------------------------------------
+
+    processed_audio, processed_rate = (
+        self.preprocess_audio(
+            audio,
+            sample_rate,
+        )
+    )
+
+    # ------------------------------------------------------
+    # Extract feature groups
+    # ------------------------------------------------------
+
+    pitch_features = (
+        self.extract_pitch(
+            processed_audio,
+            processed_rate,
+        )
+    )
+
+    jitter_features = (
+        self.extract_jitter(
+            processed_audio,
+            processed_rate,
+        )
+    )
+
+    shimmer_features = (
+        self.extract_shimmer(
+            processed_audio,
+            processed_rate,
+        )
+    )
+
+    hnr_features = (
+        self.extract_hnr_nhr(
+            processed_audio,
+            processed_rate,
+        )
+    )
+
+    rpde_dfa_features = (
+        self.extract_rpde_dfa(
+            processed_audio,
+            processed_rate,
+        )
+    )
+
+    nonlinear_features = (
+        self.extract_nonlinear_features(
+            processed_audio,
+            processed_rate,
+        )
+    )
+
+    # ------------------------------------------------------
+    # Assemble all 22 features
+    # ------------------------------------------------------
+
+    features = self.assemble_features(
+        pitch_features,
+        jitter_features,
+        shimmer_features,
+        hnr_features,
+        nonlinear_features,
+        rpde_dfa_features,
+    )
+
+    # ------------------------------------------------------
+    # Final validation
+    # ------------------------------------------------------
+
+    self.validate_feature_dictionary(
+        features
+    )
+
+    return features
+
+
+# ==========================================================
+# Extract From File
+# ==========================================================
+
+def extract_features_from_file(
+    self,
+    audio_path: str,
+) -> dict:
+    """
+    Load an audio file and extract the complete
+    22-feature representation.
+    """
+
+    audio, sample_rate = (
+        self.load_and_preprocess(
+            audio_path
+        )
+    )
+
+    # The audio returned by
+    # load_and_preprocess() is already
+    # preprocessed, so call the individual
+    # extractors directly.
+
+    pitch_features = (
+        self.extract_pitch(
+            audio,
+            sample_rate,
+        )
+    )
+
+    jitter_features = (
+        self.extract_jitter(
+            audio,
+            sample_rate,
+        )
+    )
+
+    shimmer_features = (
+        self.extract_shimmer(
+            audio,
+            sample_rate,
+        )
+    )
+
+    hnr_features = (
+        self.extract_hnr_nhr(
+            audio,
+            sample_rate,
+        )
+    )
+
+    rpde_dfa_features = (
+        self.extract_rpde_dfa(
+            audio,
+            sample_rate,
+        )
+    )
+
+    nonlinear_features = (
+        self.extract_nonlinear_features(
+            audio,
+            sample_rate,
+        )
+    )
+
+    features = self.assemble_features(
+        pitch_features,
+        jitter_features,
+        shimmer_features,
+        hnr_features,
+        nonlinear_features,
+        rpde_dfa_features,
+    )
+
+    self.validate_feature_dictionary(
+        features
+    )
+
+    return features
+
+
+# ==========================================================
+# Extract Model Vector From File
+# ==========================================================
+
+def extract_model_vector_from_file(
+    self,
+    audio_path: str,
+) -> np.ndarray:
+    """
+    Load an audio file, extract all 22 features, and
+    return a NumPy array with shape (1, 22).
+
+    This array can be passed to the existing
+    Preprocessor.scale() method.
+    """
+
+    features = (
+        self.extract_features_from_file(
+            audio_path
+        )
+    )
+
+    return self.to_numpy_vector(
+        features
+    )
