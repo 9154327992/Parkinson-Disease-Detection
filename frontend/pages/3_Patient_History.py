@@ -3,9 +3,8 @@ import pandas as pd
 
 from utils.api_client import (
     get_patient_history,
-    delete_patient,
+    delete_prediction,
 )
-
 
 # ==========================================================
 # Page Configuration
@@ -13,142 +12,240 @@ from utils.api_client import (
 
 st.set_page_config(
     page_title="Patient History",
-    page_icon="👤",
+    page_icon="📋",
     layout="wide",
 )
-
 
 # ==========================================================
 # Header
 # ==========================================================
 
-st.title(
-    "👤 Patient History"
-)
+st.title("📋 Patient History")
 
 st.write(
     """
-    Search and review previously analyzed patient records.
+    View, search, and manage previously analyzed
+    patient prediction records.
     """
 )
 
 st.divider()
 
-
 # ==========================================================
-# Load Records
+# Load History
 # ==========================================================
 
-patients = get_patient_history()
+with st.spinner("Loading patient history..."):
 
+    history = get_patient_history()
 
-if patients is None:
+if history is None:
 
     st.error(
-        "Unable to fetch patient records."
+        "Unable to fetch patient history."
     )
-
-    st.stop()
-
-
-if not patients:
 
     st.info(
-        "No patient records found yet."
+        "Please check your login and backend connection."
     )
 
     st.stop()
 
+if not isinstance(history, list):
 
-df = pd.DataFrame(
-    patients
-)
+    history = []
 
+if len(history) == 0:
+
+    st.info(
+        "📭 No prediction history available."
+    )
+
+    st.write(
+        """
+        Create a prediction from the Prediction page
+        to see patient history here.
+        """
+    )
+
+    st.stop()
 
 # ==========================================================
-# Normalize Columns
+# DataFrame
 # ==========================================================
 
-if "patient_name" not in df.columns:
+df = pd.DataFrame(history)
+
+# ==========================================================
+# Normalize Backend Fields
+# ==========================================================
+
+field_defaults = {
+    "id": "",
+    "patient_id": "",
+    "patient_name": "Unknown",
+    "age": None,
+    "gender": "Unknown",
+    "diagnosis": "",
+    "prediction": "",
+    "prediction_result": "",
+    "risk_score": None,
+    "risk_level": "Unknown",
+    "confidence": None,
+    "recommendation": "",
+    "created_at": "",
+}
+
+for field, default in field_defaults.items():
+
+    if field not in df.columns:
+
+        df[field] = default
+
+# ==========================================================
+# Normalize Diagnosis
+# ==========================================================
+
+def get_diagnosis(row):
+
+    diagnosis = row.get(
+        "diagnosis"
+    )
 
     if (
-        "first_name" in df.columns
-        and "last_name" in df.columns
+        diagnosis is not None
+        and str(diagnosis).strip()
+        and str(diagnosis).lower()
+        != "nan"
     ):
 
-        df["patient_name"] = (
-            df["first_name"].fillna("")
-            + " "
-            + df["last_name"].fillna("")
-        ).str.strip()
+        return str(diagnosis)
 
-    else:
+    prediction = row.get(
+        "prediction"
+    )
 
-        df["patient_name"] = "Unknown Patient"
+    if (
+        prediction is not None
+        and str(prediction).strip()
+        and str(prediction).lower()
+        != "nan"
+    ):
+
+        return str(prediction)
+
+    prediction_result = row.get(
+        "prediction_result"
+    )
+
+    if (
+        prediction_result is not None
+        and str(prediction_result).strip()
+        and str(prediction_result).lower()
+        != "nan"
+    ):
+
+        return str(
+            prediction_result
+        )
+
+    return "Unknown"
 
 
-# ==========================================================
-# Filters
-# ==========================================================
-
-st.subheader(
-    "🔍 Search & Filter"
+df["display_diagnosis"] = df.apply(
+    get_diagnosis,
+    axis=1,
 )
 
-filter1, filter2, filter3 = st.columns(3)
+# ==========================================================
+# Normalize Risk Score
+# ==========================================================
 
-with filter1:
+def get_risk_score(row):
 
-    search = st.text_input(
-        "Patient Name",
-        placeholder="Search patient...",
+    value = row.get(
+        "risk_score"
     )
 
-with filter2:
+    if (
+        value is None
+        or pd.isna(value)
+    ):
 
-    diagnosis_options = ["All"]
-
-    if "diagnosis" in df.columns:
-
-        diagnosis_options += sorted(
-            df["diagnosis"]
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
+        value = row.get(
+            "risk"
         )
 
-    diagnosis_filter = st.selectbox(
-        "Diagnosis",
-        diagnosis_options,
-    )
+    if (
+        value is None
+        or pd.isna(value)
+    ):
 
-with filter3:
+        return None
 
-    risk_options = ["All"]
+    try:
 
-    if "risk_level" in df.columns:
+        return float(value)
 
-        risk_options += sorted(
-            df["risk_level"]
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
-        )
+    except (
+        TypeError,
+        ValueError,
+    ):
 
-    risk_filter = st.selectbox(
-        "Risk Level",
-        risk_options,
-    )
+        return None
 
+
+df["display_risk_score"] = df.apply(
+    get_risk_score,
+    axis=1,
+)
 
 # ==========================================================
-# Apply Filters
+# Normalize Confidence
 # ==========================================================
+
+def get_confidence(row):
+
+    value = row.get(
+        "confidence"
+    )
+
+    if (
+        value is None
+        or pd.isna(value)
+    ):
+
+        return None
+
+    try:
+
+        return float(value)
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        return None
+
+
+df["display_confidence"] = df.apply(
+    get_confidence,
+    axis=1,
+)
+
+# ==========================================================
+# Search
+# ==========================================================
+
+st.subheader("🔍 Search Patient")
+
+search = st.text_input(
+    "Search by patient name",
+    placeholder="Enter patient name...",
+)
 
 filtered_df = df.copy()
-
 
 if search:
 
@@ -164,251 +261,446 @@ if search:
         )
     ]
 
+if len(filtered_df) == 0:
 
-if (
-    diagnosis_filter != "All"
-    and "diagnosis" in filtered_df.columns
-):
+    st.warning(
+        "No patients match your search."
+    )
 
-    filtered_df = filtered_df[
-        filtered_df["diagnosis"]
-        == diagnosis_filter
-    ]
-
-
-if (
-    risk_filter != "All"
-    and "risk_level" in filtered_df.columns
-):
-
-    filtered_df = filtered_df[
-        filtered_df["risk_level"]
-        == risk_filter
-    ]
-
-
-st.divider()
-
+    st.stop()
 
 # ==========================================================
 # Summary
 # ==========================================================
 
-s1, s2, s3 = st.columns(3)
+st.subheader("📊 History Summary")
 
-with s1:
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
 
     st.metric(
         "Total Records",
-        len(df),
-    )
-
-with s2:
-
-    st.metric(
-        "Matching Records",
         len(filtered_df),
     )
 
-with s3:
+with col2:
 
-    if "risk_level" in filtered_df.columns:
+    parkinson_count = (
+        filtered_df[
+            "display_diagnosis"
+        ]
+        .astype(str)
+        .str.contains(
+            "parkinson",
+            case=False,
+            na=False,
+        )
+        .sum()
+    )
 
-        high_risk = (
-            filtered_df["risk_level"]
-            .astype(str)
-            .str.contains(
-                "high",
-                case=False,
-                na=False,
-            )
-            .sum()
+    st.metric(
+        "Parkinson Cases",
+        int(parkinson_count),
+    )
+
+with col3:
+
+    high_risk_count = (
+        filtered_df[
+            "risk_level"
+        ]
+        .astype(str)
+        .str.contains(
+            "high",
+            case=False,
+            na=False,
+        )
+        .sum()
+    )
+
+    st.metric(
+        "High Risk",
+        int(high_risk_count),
+    )
+
+with col4:
+
+    valid_scores = (
+        filtered_df[
+            "display_risk_score"
+        ]
+        .dropna()
+    )
+
+    if len(valid_scores):
+
+        average_risk = (
+            valid_scores.mean()
+        )
+
+        risk_display = (
+            f"{average_risk:.1f}%"
         )
 
     else:
 
-        high_risk = 0
+        risk_display = "N/A"
 
     st.metric(
-        "High Risk",
-        high_risk,
+        "Average Risk",
+        risk_display,
     )
-
 
 st.divider()
 
-
 # ==========================================================
-# Patient Table
+# History Table
 # ==========================================================
 
-st.subheader(
-    "📋 Patient Records"
-)
+st.subheader("📋 Prediction Records")
 
+table = filtered_df.copy()
 
-if filtered_df.empty:
-
-    st.warning(
-        "No records match your filters."
-    )
-
-    st.stop()
-
-
-display_columns = [
-    column
-    for column in [
-        "id",
-        "patient_name",
-        "age",
-        "gender",
-        "diagnosis",
-        "risk_score",
-        "risk_level",
-        "recommendation",
-    ]
-    if column in filtered_df.columns
+table["Diagnosis"] = table[
+    "display_diagnosis"
 ]
 
+table["Risk Score"] = table[
+    "display_risk_score"
+].apply(
+    lambda x:
+        f"{x:.1f}%"
+        if x is not None
+        and not pd.isna(x)
+        else "N/A"
+)
+
+table["Confidence"] = table[
+    "display_confidence"
+].apply(
+    lambda x:
+        f"{x:.1f}%"
+        if x is not None
+        and not pd.isna(x)
+        else "N/A"
+)
+
+table["Age"] = table[
+    "age"
+].apply(
+    lambda x:
+        str(int(x))
+        if pd.notna(x)
+        and str(x).replace(
+            ".",
+            "",
+            1,
+        ).isdigit()
+        else "N/A"
+)
+
+table["Gender"] = table[
+    "gender"
+].fillna(
+    "Unknown"
+)
+
+table["Risk Level"] = table[
+    "risk_level"
+].fillna(
+    "Unknown"
+)
+
+display_columns = [
+    "id",
+    "patient_name",
+    "Age",
+    "Gender",
+    "Diagnosis",
+    "Risk Score",
+    "Risk Level",
+    "Confidence",
+    "created_at",
+]
+
+available_columns = [
+    column
+    for column in display_columns
+    if column in table.columns
+]
+
+display_table = table[
+    available_columns
+].copy()
+
+display_table = display_table.rename(
+    columns={
+        "id": "ID",
+        "patient_name": "Patient",
+        "created_at": "Date",
+    }
+)
 
 st.dataframe(
-    filtered_df[
-        display_columns
-    ] if display_columns else filtered_df,
-    use_container_width=True,
+    display_table,
+    width="stretch",
     hide_index=True,
 )
 
-
 st.divider()
 
+# ==========================================================
+# Select Record
+# ==========================================================
+
+st.subheader("👤 Patient Details")
+
+record_indices = (
+    filtered_df.index.tolist()
+)
+
+selected_index = st.selectbox(
+    "Select Prediction Record",
+    record_indices,
+    format_func=lambda index: (
+        f"#{filtered_df.loc[index, 'id']} "
+        f"— "
+        f"{filtered_df.loc[index, 'patient_name']}"
+    ),
+)
+
+record = filtered_df.loc[
+    selected_index
+]
 
 # ==========================================================
-# Patient Details
+# Patient Information
 # ==========================================================
-
-st.subheader(
-    "📄 Patient Details"
-)
-
-
-patient_names = (
-    filtered_df[
-        "patient_name"
-    ]
-    .astype(str)
-    .tolist()
-)
-
-
-selected_name = st.selectbox(
-    "Select Patient",
-    patient_names,
-)
-
-
-patient = filtered_df[
-    filtered_df["patient_name"]
-    .astype(str)
-    == selected_name
-].iloc[0]
-
 
 left, right = st.columns(2)
 
-
 with left:
 
-    st.markdown(
+    st.write(
         "### 👤 Patient Information"
     )
 
     st.write(
-        f"**Name:** "
-        f"{patient.get('patient_name', 'N/A')}"
+        f"**Patient Name:** "
+        f"{record.get('patient_name', 'Unknown')}"
     )
+
+    age = record.get(
+        "age"
+    )
+
+    if (
+        age is not None
+        and not pd.isna(age)
+    ):
+
+        try:
+
+            age_display = int(
+                float(age)
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+
+            age_display = age
+
+    else:
+
+        age_display = "N/A"
 
     st.write(
-        f"**Age:** "
-        f"{patient.get('age', 'N/A')}"
+        f"**Age:** {age_display}"
     )
+
+    gender = record.get(
+        "gender"
+    )
+
+    if (
+        gender is None
+        or pd.isna(gender)
+        or str(gender).strip() == ""
+    ):
+
+        gender = "Unknown"
 
     st.write(
-        f"**Gender:** "
-        f"{patient.get('gender', 'N/A')}"
+        f"**Gender:** {gender}"
     )
 
+    patient_id = record.get(
+        "patient_id"
+    )
+
+    if (
+        patient_id is not None
+        and not pd.isna(patient_id)
+    ):
+
+        st.write(
+            f"**Patient ID:** {patient_id}"
+        )
 
 with right:
 
-    st.markdown(
-        "### 🧠 Prediction"
+    st.write(
+        "### 🧠 Prediction Result"
+    )
+
+    diagnosis = record.get(
+        "display_diagnosis",
+        "Unknown",
     )
 
     st.write(
-        f"**Diagnosis:** "
-        f"{patient.get('diagnosis', 'N/A')}"
+        f"**Diagnosis:** {diagnosis}"
     )
+
+    risk_level = record.get(
+        "risk_level"
+    )
+
+    if (
+        risk_level is None
+        or pd.isna(risk_level)
+    ):
+
+        risk_level = "Unknown"
 
     st.write(
-        f"**Risk Score:** "
-        f"{patient.get('risk_score', 'N/A')}%"
+        f"**Risk Level:** {risk_level}"
     )
 
-    st.write(
-        f"**Risk Level:** "
-        f"{patient.get('risk_level', 'N/A')}"
+    risk_score = record.get(
+        "display_risk_score"
     )
 
+    if (
+        risk_score is not None
+        and not pd.isna(risk_score)
+    ):
+
+        st.write(
+            f"**Risk Score:** "
+            f"{risk_score:.2f}%"
+        )
+
+    else:
+
+        st.write(
+            "**Risk Score:** N/A"
+        )
+
+    confidence = record.get(
+        "display_confidence"
+    )
+
+    if (
+        confidence is not None
+        and not pd.isna(confidence)
+    ):
+
+        st.write(
+            f"**Confidence:** "
+            f"{confidence:.2f}%"
+        )
+
+    else:
+
+        st.write(
+            "**Confidence:** N/A"
+        )
+
+st.divider()
 
 # ==========================================================
 # Recommendation
 # ==========================================================
 
-if "recommendation" in patient:
+st.subheader("💡 Recommendation")
 
-    st.divider()
+recommendation = record.get(
+    "recommendation"
+)
 
-    st.subheader(
-        "💡 Recommendation"
-    )
+if (
+    recommendation
+    and not pd.isna(recommendation)
+):
 
     st.info(
-        patient["recommendation"]
+        str(recommendation)
     )
 
+else:
 
-# ==========================================================
-# Delete
-# ==========================================================
-
-if "id" in patient:
-
-    st.divider()
-
-    st.subheader(
-        "🗑 Record Management"
+    st.info(
+        "No recommendation is available "
+        "for this prediction."
     )
 
-    confirm = st.checkbox(
-        "I understand this record will be deleted."
+st.divider()
+
+# ==========================================================
+# Date
+# ==========================================================
+
+st.subheader("📅 Prediction Information")
+
+created_at = record.get(
+    "created_at"
+)
+
+st.write(
+    f"**Created:** "
+    f"{created_at or 'N/A'}"
+)
+
+st.divider()
+
+# ==========================================================
+# Delete Prediction
+# ==========================================================
+
+st.subheader("🗑️ Manage Record")
+
+record_id = record.get(
+    "id"
+)
+
+if record_id:
+
+    confirm_delete = st.checkbox(
+        "I understand that deleting this record cannot be undone."
     )
 
     if st.button(
-        "Delete Patient Record",
-        disabled=not confirm,
-        use_container_width=True,
+        "🗑 Delete Prediction",
+        disabled=not confirm_delete,
+        width="stretch",
     ):
 
-        response = delete_patient(
-            int(patient["id"])
-        )
+        with st.spinner(
+            "Deleting prediction..."
+        ):
 
-        if response:
+            success = delete_prediction(
+                int(record_id)
+            )
+
+        if success:
 
             st.success(
-                "Patient record deleted successfully."
+                "Prediction deleted successfully."
             )
 
             st.rerun()
@@ -416,9 +708,8 @@ if "id" in patient:
         else:
 
             st.error(
-                "Unable to delete patient record."
+                "Unable to delete prediction."
             )
-
 
 # ==========================================================
 # Export
@@ -426,14 +717,29 @@ if "id" in patient:
 
 st.divider()
 
+st.subheader(
+    "⬇️ Export History"
+)
+
 csv_data = filtered_df.to_csv(
     index=False
 )
 
 st.download_button(
-    label="⬇ Download Filtered CSV",
+    label="📊 Export Patient History (CSV)",
     data=csv_data,
     file_name="patient_history.csv",
     mime="text/csv",
-    use_container_width=True,
+    width="stretch",
+)
+
+# ==========================================================
+# Footer
+# ==========================================================
+
+st.divider()
+
+st.caption(
+    "Parkinson Disease Detection System "
+    "• Patient History"
 )
