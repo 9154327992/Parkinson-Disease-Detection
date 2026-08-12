@@ -22,13 +22,12 @@ st.set_page_config(
 # Header
 # ==========================================================
 
-st.title(
-    "📄 Patient Reports"
-)
+st.title("📄 Patient Reports")
 
 st.write(
     """
-    View, search, and manage generated patient reports.
+    View, search, download, and manage generated
+    patient reports.
     """
 )
 
@@ -39,26 +38,53 @@ st.divider()
 # Load Reports
 # ==========================================================
 
-reports = get_reports()
+with st.spinner("Loading reports..."):
+
+    reports = get_reports()
 
 
 if reports is None:
 
     st.error(
-        "Unable to load reports from the backend."
+        "Unable to connect to the Reports API."
     )
-
-    st.stop()
-
-
-if not reports:
 
     st.info(
-        "No reports are available yet."
+        "Please make sure you are logged in "
+        "and the FastAPI backend is running."
     )
 
     st.stop()
 
+
+if not isinstance(
+    reports,
+    list,
+):
+
+    reports = []
+
+
+if len(reports) == 0:
+
+    st.info(
+        "📭 No reports are available yet."
+    )
+
+    st.write(
+        """
+        Generate a patient prediction first.
+        A report can then be generated from the
+        prediction information.
+        """
+    )
+
+    st.stop()
+
+
+# ==========================================================
+# Convert to DataFrame
+# ==========================================================
 
 df = pd.DataFrame(
     reports
@@ -66,32 +92,38 @@ df = pd.DataFrame(
 
 
 # ==========================================================
-# Normalize IDs
+# Normalize Column Names
 # ==========================================================
 
-if "report_id" in df.columns:
+# Make sure commonly used columns exist.
+default_columns = {
+    "id": "",
+    "patient_name": "Unknown",
+    "diagnosis": "Unknown",
+    "prediction": "",
+    "risk_score": 0,
+    "risk_level": "Unknown",
+    "recommendation": "",
+    "created_at": "",
+}
 
-    df["id"] = df["report_id"]
 
+for column, default in default_columns.items():
 
-if "generated_at" in df.columns:
+    if column not in df.columns:
 
-    df["created_at"] = df[
-        "generated_at"
-    ]
+        df[column] = default
 
 
 # ==========================================================
 # Search
 # ==========================================================
 
-st.subheader(
-    "🔍 Search Reports"
-)
+st.subheader("🔍 Search Reports")
 
 search = st.text_input(
-    "Search by patient name or report name",
-    placeholder="Search...",
+    "Search by Patient Name",
+    placeholder="Enter patient name...",
 )
 
 
@@ -100,7 +132,7 @@ filtered_df = df.copy()
 
 if search:
 
-    patient_match = (
+    filtered_df = filtered_df[
         filtered_df[
             "patient_name"
         ]
@@ -110,98 +142,10 @@ if search:
             case=False,
             na=False,
         )
-        if "patient_name"
-        in filtered_df.columns
-        else False
-    )
-
-    report_match = (
-        filtered_df[
-            "report_name"
-        ]
-        .astype(str)
-        .str.contains(
-            search,
-            case=False,
-            na=False,
-        )
-        if "report_name"
-        in filtered_df.columns
-        else False
-    )
-
-    filtered_df = filtered_df[
-        patient_match
-        | report_match
     ]
 
 
-st.divider()
-
-
-# ==========================================================
-# Summary
-# ==========================================================
-
-c1, c2, c3 = st.columns(3)
-
-with c1:
-
-    st.metric(
-        "Total Reports",
-        len(df),
-    )
-
-with c2:
-
-    st.metric(
-        "Matching Reports",
-        len(filtered_df),
-    )
-
-with c3:
-
-    st.metric(
-        "Report Type",
-        "PDF",
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# Report List
-# ==========================================================
-
-st.subheader(
-    "📋 Report List"
-)
-
-
-display_columns = [
-    column
-    for column in [
-        "report_id",
-        "patient_id",
-        "patient_name",
-        "report_name",
-        "generated_at",
-    ]
-    if column in filtered_df.columns
-]
-
-
-st.dataframe(
-    filtered_df[
-        display_columns
-    ] if display_columns else filtered_df,
-    use_container_width=True,
-    hide_index=True,
-)
-
-
-if filtered_df.empty:
+if len(filtered_df) == 0:
 
     st.warning(
         "No reports match your search."
@@ -214,68 +158,196 @@ st.divider()
 
 
 # ==========================================================
-# Report Selection
+# Summary
 # ==========================================================
 
-st.subheader(
-    "📄 Report Details"
-)
+st.subheader("📊 Report Summary")
+
+col1, col2, col3, col4 = st.columns(4)
 
 
-def report_label(row):
+with col1:
 
-    patient = row.get(
-        "patient_name",
-        "Unknown Patient",
-    )
-
-    name = row.get(
-        "report_name",
-        "Report",
-    )
-
-    report_id = row.get(
-        "report_id",
-        row.get(
-            "id",
-            "N/A",
-        ),
-    )
-
-    return (
-        f"{patient} - "
-        f"{name} "
-        f"(ID: {report_id})"
+    st.metric(
+        "Total Reports",
+        len(filtered_df),
     )
 
 
-report_options = [
-    report_label(
-        row
+with col2:
+
+    high_risk = len(
+        filtered_df[
+            filtered_df[
+                "risk_level"
+            ]
+            .astype(str)
+            .str.contains(
+                "high",
+                case=False,
+                na=False,
+            )
+        ]
     )
-    for _, row in filtered_df.iterrows()
+
+    st.metric(
+        "High Risk",
+        high_risk,
+    )
+
+
+with col3:
+
+    parkinson = len(
+        filtered_df[
+            filtered_df[
+                "diagnosis"
+            ]
+            .astype(str)
+            .str.contains(
+                "parkinson",
+                case=False,
+                na=False,
+            )
+            |
+            filtered_df[
+                "prediction"
+            ]
+            .astype(str)
+            .str.contains(
+                "parkinson",
+                case=False,
+                na=False,
+            )
+        ]
+    )
+
+    st.metric(
+        "Parkinson Cases",
+        parkinson,
+    )
+
+
+with col4:
+
+    healthy = len(
+        filtered_df[
+            filtered_df[
+                "diagnosis"
+            ]
+            .astype(str)
+            .str.contains(
+                "healthy",
+                case=False,
+                na=False,
+            )
+            |
+            filtered_df[
+                "prediction"
+            ]
+            .astype(str)
+            .str.contains(
+                "healthy",
+                case=False,
+                na=False,
+            )
+        ]
+    )
+
+    st.metric(
+        "Healthy Cases",
+        healthy,
+    )
+
+
+st.divider()
+
+
+# ==========================================================
+# Reports Table
+# ==========================================================
+
+st.subheader("📋 Report List")
+
+
+display_columns = [
+    "id",
+    "patient_name",
+    "diagnosis",
+    "prediction",
+    "risk_score",
+    "risk_level",
+    "created_at",
 ]
 
 
-selected_label = st.selectbox(
-    "Select Report",
-    report_options,
+available_columns = [
+    column
+    for column in display_columns
+    if column in filtered_df.columns
+]
+
+
+display_df = filtered_df[
+    available_columns
+].copy()
+
+
+# Rename columns for better display.
+display_df = display_df.rename(
+    columns={
+        "id": "Report ID",
+        "patient_name": "Patient Name",
+        "diagnosis": "Diagnosis",
+        "prediction": "Prediction",
+        "risk_score": "Risk Score",
+        "risk_level": "Risk Level",
+        "created_at": "Generated On",
+    }
 )
 
 
-selected_index = report_options.index(
-    selected_label
+st.dataframe(
+    display_df,
+    width="stretch",
+    hide_index=True,
 )
 
 
-report = (
-    filtered_df
-    .iloc[selected_index]
-)
+st.divider()
 
 
 # ==========================================================
-# Details
+# Select Report
+# ==========================================================
+
+st.subheader("📄 Report Details")
+
+
+# Use index rather than patient name so
+# duplicate patient names do not cause ambiguity.
+
+report_indices = filtered_df.index.tolist()
+
+
+selected_index = st.selectbox(
+    "Select Report",
+    report_indices,
+    format_func=lambda index: (
+        f"Report #{filtered_df.loc[index, 'id']} "
+        f"— "
+        f"{filtered_df.loc[index, 'patient_name']}"
+    ),
+)
+
+
+report = filtered_df.loc[
+    selected_index
+]
+
+
+# ==========================================================
+# Patient Information
 # ==========================================================
 
 left, right = st.columns(2)
@@ -283,40 +355,124 @@ left, right = st.columns(2)
 
 with left:
 
-    st.markdown(
+    st.write(
         "### 👤 Patient Information"
     )
 
     st.write(
         f"**Name:** "
-        f"{report.get('patient_name', 'N/A')}"
+        f"{report.get('patient_name', 'Unknown')}"
     )
 
-    st.write(
-        f"**Patient ID:** "
-        f"{report.get('patient_id', 'N/A')}"
-    )
+    if (
+        "age" in report
+        and pd.notna(report["age"])
+    ):
+
+        st.write(
+            f"**Age:** "
+            f"{report['age']}"
+        )
+
+    if (
+        "gender" in report
+        and pd.notna(report["gender"])
+    ):
+
+        st.write(
+            f"**Gender:** "
+            f"{report['gender']}"
+        )
 
 
 with right:
 
-    st.markdown(
-        "### 📄 Report Information"
+    st.write(
+        "### 🧠 Prediction"
     )
+
+    diagnosis = (
+        report.get(
+            "diagnosis"
+        )
+        or report.get(
+            "prediction"
+        )
+        or "Unknown"
+    )
+
+    st.write(
+        f"**Diagnosis:** "
+        f"{diagnosis}"
+    )
+
+    st.write(
+        f"**Risk Score:** "
+        f"{report.get('risk_score', 0)}%"
+    )
+
+    st.write(
+        f"**Risk Level:** "
+        f"{report.get('risk_level', 'Unknown')}"
+    )
+
+
+st.divider()
+
+
+# ==========================================================
+# Recommendation
+# ==========================================================
+
+st.subheader("💡 Recommendation")
+
+
+recommendation = report.get(
+    "recommendation",
+    "",
+)
+
+
+if recommendation:
+
+    st.info(
+        recommendation
+    )
+
+else:
+
+    st.info(
+        "No recommendation is available "
+        "for this report."
+    )
+
+
+st.divider()
+
+
+# ==========================================================
+# Report Metadata
+# ==========================================================
+
+st.subheader("ℹ️ Report Information")
+
+
+metadata_col1, metadata_col2 = st.columns(2)
+
+
+with metadata_col1:
 
     st.write(
         f"**Report ID:** "
-        f"{report.get('report_id', 'N/A')}"
+        f"{report.get('id', 'N/A')}"
     )
 
-    st.write(
-        f"**Report Name:** "
-        f"{report.get('report_name', 'N/A')}"
-    )
+
+with metadata_col2:
 
     st.write(
         f"**Generated On:** "
-        f"{report.get('generated_at', 'N/A')}"
+        f"{report.get('created_at', 'N/A')}"
     )
 
 
@@ -324,99 +480,149 @@ st.divider()
 
 
 # ==========================================================
-# Report Status
+# Download PDF
 # ==========================================================
 
-st.subheader(
-    "📋 Report Status"
-)
+st.subheader("⬇️ Download Report")
 
-st.info(
-    """
-    This report list currently contains report metadata.
-
-    Detailed prediction information is displayed when it is
-    available from the corresponding prediction/report record.
-
-    Actual PDF generation is intentionally left for a later phase.
-    """
-)
-
-
-st.divider()
-
-
-# ==========================================================
-# Download Information
-# ==========================================================
-
-st.subheader(
-    "⬇ Download Report"
-)
 
 report_id = report.get(
-    "report_id",
-    report.get(
-        "id"
-    ),
+    "id"
 )
 
 
-if report_id:
+if not report_id:
 
-    download_info = download_report(
-        int(report_id)
+    st.warning(
+        "This report does not have a valid ID."
     )
 
-    if isinstance(
-        download_info,
-        bytes,
+else:
+
+    if st.button(
+        "📄 Prepare PDF Report",
+        width="stretch",
     ):
 
-        st.download_button(
-            label="📄 Download PDF",
-            data=download_info,
-            file_name=(
-                f"{report.get('patient_name', 'Patient')}"
-                "_Report.pdf"
-            ),
-            mime="application/pdf",
-            use_container_width=True,
+        with st.spinner(
+            "Preparing PDF report..."
+        ):
+
+            pdf = download_report(
+                int(report_id)
+            )
+
+        if pdf:
+
+            # Store PDF in session so that
+            # Streamlit reruns don't immediately
+            # lose the generated download.
+            st.session_state[
+                "report_pdf"
+            ] = pdf
+
+            st.session_state[
+                "report_pdf_id"
+            ] = report_id
+
+            st.success(
+                "PDF report is ready."
+            )
+
+        else:
+
+            st.error(
+                "Unable to generate or download "
+                "the PDF report."
+            )
+
+
+# ----------------------------------------------------------
+# Display Download Button
+# ----------------------------------------------------------
+
+pdf = st.session_state.get(
+    "report_pdf"
+)
+
+pdf_id = st.session_state.get(
+    "report_pdf_id"
+)
+
+
+if (
+    pdf
+    and pdf_id == report_id
+):
+
+    patient_name = str(
+        report.get(
+            "patient_name",
+            "Patient",
         )
+    )
 
-    elif isinstance(
-        download_info,
-        dict,
-    ):
-
-        st.info(
-            "The backend currently provides "
-            "download metadata. Actual PDF generation "
-            "will be implemented later."
+    safe_name = (
+        patient_name
+        .replace(
+            " ",
+            "_",
         )
-
-    else:
-
-        st.warning(
-            "PDF report is not currently available."
+        .replace(
+            "/",
+            "_",
         )
+        .replace(
+            "\\",
+            "_",
+        )
+    )
+
+    st.download_button(
+        label="⬇️ Download PDF",
+        data=pdf,
+        file_name=(
+            f"{safe_name}_Report.pdf"
+        ),
+        mime="application/pdf",
+        width="stretch",
+    )
 
 
 st.divider()
 
 
 # ==========================================================
-# CSV Export
+# Export CSV
 # ==========================================================
+
+st.subheader(
+    "⬇️ Export Reports"
+)
+
 
 csv_data = filtered_df.to_csv(
     index=False
 )
 
+
 st.download_button(
-    label="⬇ Export Reports (CSV)",
+    label="📊 Export Reports (CSV)",
     data=csv_data,
     file_name="reports.csv",
     mime="text/csv",
-    use_container_width=True,
+    width="stretch",
+)
+
+
+st.divider()
+
+
+# ==========================================================
+# Footer
+# ==========================================================
+
+st.caption(
+    "Parkinson Disease Detection System "
+    "• Patient Reports"
 )
