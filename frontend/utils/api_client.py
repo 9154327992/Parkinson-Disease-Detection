@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -8,40 +9,84 @@ import streamlit as st
 # Configuration
 # ==========================================================
 
-BASE_URL = (
+DEFAULT_API_URL = (
     "https://parkinson-disease-detection-wced.onrender.com"
 )
 
-TIMEOUT = 60
+
+def _get_api_url() -> str:
+    """
+    Get backend URL from Streamlit secrets/environment.
+
+    Priority:
+        1. Streamlit secrets
+        2. Environment variable
+        3. Default Render backend
+    """
+
+    try:
+        url = st.secrets.get(
+            "API_URL",
+            None,
+        )
+    except Exception:
+        url = None
+
+    if not url:
+
+        url = os.getenv(
+            "API_URL"
+        )
+
+    if not url:
+
+        url = os.getenv(
+            "BACKEND_URL"
+        )
+
+    if not url:
+
+        url = DEFAULT_API_URL
+
+    return str(
+        url
+    ).rstrip("/")
+
+
+BASE_URL = _get_api_url()
 
 
 # ==========================================================
-# Authentication
+# Session Helpers
 # ==========================================================
 
 def _get_token() -> Optional[str]:
     """
-    Get JWT token from Streamlit session.
+    Return the JWT/access token stored in Streamlit session.
     """
 
     token = st.session_state.get(
         "access_token"
     )
 
-    if token:
-        return str(token)
+    if not token:
 
-    token = st.session_state.get(
-        "token"
-    )
+        token = st.session_state.get(
+            "token"
+        )
 
-    if token:
-        return str(token)
+    if not token:
 
-    return None
+        token = st.session_state.get(
+            "jwt_token"
+        )
+
+    return token
 
 
-def _headers() -> Dict[str, str]:
+def _headers(
+    extra_headers: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
     """
     Build request headers.
     """
@@ -54,324 +99,364 @@ def _headers() -> Dict[str, str]:
     token = _get_token()
 
     if token:
+
         headers[
             "Authorization"
         ] = f"Bearer {token}"
+
+
+    if extra_headers:
+
+        headers.update(
+            extra_headers
+        )
 
     return headers
 
 
 # ==========================================================
-# Response
+# Request Helpers
 # ==========================================================
 
-def _read_response(
+def _handle_response(
     response: requests.Response,
-):
+) -> Any:
     """
-    Safely read JSON or text response.
+    Safely convert an HTTP response into Python data.
     """
 
+    if response.status_code == 204:
+
+        return True
+
+
     try:
-        return response.json()
+
+        data = response.json()
 
     except ValueError:
 
-        if response.text:
-            return response.text
+        data = None
+
+
+    if response.ok:
+
+        if data is None:
+
+            return True
+
+        return data
+
+
+    # ------------------------------------------------------
+    # Authentication errors
+    # ------------------------------------------------------
+
+    if response.status_code == 401:
+
+        return None
+
+
+    # ------------------------------------------------------
+    # Authorization errors
+    # ------------------------------------------------------
+
+    if response.status_code == 403:
+
+        return None
+
+
+    return None
+
+
+def _request(
+    method: str,
+    endpoint: str,
+    *,
+    params: Optional[Dict[str, Any]] = None,
+    json: Optional[Dict[str, Any]] = None,
+    data: Any = None,
+    timeout: int = 30,
+    show_error: bool = False,
+) -> Any:
+    """
+    Centralized HTTP request function.
+    """
+
+    endpoint = str(
+        endpoint
+    )
+
+    if not endpoint.startswith("/"):
+        endpoint = "/" + endpoint
+
+
+    url = (
+        f"{BASE_URL}"
+        f"{endpoint}"
+    )
+
+
+    try:
+
+        response = requests.request(
+            method=method.upper(),
+            url=url,
+            headers=_headers(),
+            params=params,
+            json=json,
+            data=data,
+            timeout=timeout,
+        )
+
+
+        if (
+            response.status_code == 401
+            and st.session_state.get(
+                "logged_in",
+                False,
+            )
+        ):
+
+            # Do not force logout here.
+            # Pages can decide how to handle authentication.
+
+            pass
+
+
+        result = _handle_response(
+            response
+        )
+
+
+        if result is None and show_error:
+
+            detail = ""
+
+            try:
+
+                error_data = response.json()
+
+                if isinstance(
+                    error_data,
+                    dict,
+                ):
+
+                    detail = (
+                        error_data.get(
+                            "detail"
+                        )
+                        or ""
+                    )
+
+            except Exception:
+
+                detail = ""
+
+
+            if detail:
+
+                st.error(
+                    str(detail)
+                )
+
+            else:
+
+                st.error(
+                    f"Backend request failed "
+                    f"({response.status_code})."
+                )
+
+
+        return result
+
+
+    except requests.RequestException as exc:
+
+        if show_error:
+
+            st.error(
+                f"Unable to connect to backend: {exc}"
+            )
 
         return None
 
 
 # ==========================================================
-# Generic GET
+# Public GET / POST / PUT / DELETE
 # ==========================================================
 
 def get(
     endpoint: str,
-    params: Optional[
-        Dict[str, Any]
-    ] = None,
-):
-    """
-    Generic GET request.
-    """
+    params: Optional[Dict[str, Any]] = None,
+    timeout: int = 30,
+) -> Any:
 
-    url = (
-        f"{BASE_URL.rstrip('/')}"
-        f"/{endpoint.lstrip('/')}"
+    return _request(
+        "GET",
+        endpoint,
+        params=params,
+        timeout=timeout,
     )
 
-    try:
-
-        response = requests.get(
-            url,
-            headers=_headers(),
-            params=params,
-            timeout=TIMEOUT,
-        )
-
-        if not response.ok:
-
-            st.session_state[
-                "last_api_status"
-            ] = response.status_code
-
-            return None
-
-        return _read_response(
-            response
-        )
-
-    except requests.RequestException as exc:
-
-        st.session_state[
-            "last_api_error"
-        ] = str(exc)
-
-        return None
-
-
-# ==========================================================
-# Generic POST
-# ==========================================================
 
 def post(
     endpoint: str,
-    data: Optional[
-        Dict[str, Any]
-    ] = None,
-):
-    """
-    Generic POST request.
-    """
+    json: Optional[Dict[str, Any]] = None,
+    timeout: int = 60,
+) -> Any:
 
-    url = (
-        f"{BASE_URL.rstrip('/')}"
-        f"/{endpoint.lstrip('/')}"
+    return _request(
+        "POST",
+        endpoint,
+        json=json,
+        timeout=timeout,
     )
 
-    try:
-
-        response = requests.post(
-            url,
-            json=data or {},
-            headers=_headers(),
-            timeout=TIMEOUT,
-        )
-
-        if not response.ok:
-
-            st.session_state[
-                "last_api_status"
-            ] = response.status_code
-
-            return None
-
-        return _read_response(
-            response
-        )
-
-    except requests.RequestException as exc:
-
-        st.session_state[
-            "last_api_error"
-        ] = str(exc)
-
-        return None
-
-
-# ==========================================================
-# Generic PUT
-# ==========================================================
 
 def put(
     endpoint: str,
-    data: Optional[
-        Dict[str, Any]
-    ] = None,
-):
-    """
-    Generic PUT request.
-    """
+    json: Optional[Dict[str, Any]] = None,
+    timeout: int = 30,
+) -> Any:
 
-    url = (
-        f"{BASE_URL.rstrip('/')}"
-        f"/{endpoint.lstrip('/')}"
+    return _request(
+        "PUT",
+        endpoint,
+        json=json,
+        timeout=timeout,
     )
 
-    try:
-
-        response = requests.put(
-            url,
-            json=data or {},
-            headers=_headers(),
-            timeout=TIMEOUT,
-        )
-
-        if not response.ok:
-            return None
-
-        return _read_response(
-            response
-        )
-
-    except requests.RequestException:
-
-        return None
-
-
-# ==========================================================
-# Generic DELETE
-# ==========================================================
 
 def delete(
     endpoint: str,
-):
-    """
-    Generic DELETE request.
-    """
+    timeout: int = 30,
+) -> Any:
 
-    url = (
-        f"{BASE_URL.rstrip('/')}"
-        f"/{endpoint.lstrip('/')}"
+    return _request(
+        "DELETE",
+        endpoint,
+        timeout=timeout,
     )
-
-    try:
-
-        response = requests.delete(
-            url,
-            headers=_headers(),
-            timeout=TIMEOUT,
-        )
-
-        if not response.ok:
-            return False
-
-        # Some DELETE endpoints return no body.
-        if not response.content:
-            return True
-
-        result = _read_response(
-            response
-        )
-
-        return (
-            result
-            if isinstance(result, bool)
-            else True
-        )
-
-    except requests.RequestException:
-
-        return False
 
 
 # ==========================================================
-# LOGIN
+# Generic List Normalizer
+# ==========================================================
+
+def _extract_list(
+    result: Any,
+    keys: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Convert common API response formats into a list.
+    """
+
+    if result is None:
+
+        return []
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        search_keys = (
+            keys
+            or [
+                "data",
+                "items",
+                "records",
+                "results",
+            ]
+        )
+
+
+        for key in search_keys:
+
+            value = result.get(
+                key
+            )
+
+            if isinstance(
+                value,
+                list,
+            ):
+
+                return value
+
+
+    return []
+
+
+# ==========================================================
+# Authentication
 # ==========================================================
 
 def login_user(
     username: str,
     password: str,
-):
+) -> Optional[Dict[str, Any]]:
     """
-    Login user.
+    Login against the FastAPI authentication endpoint.
 
-    Supports JSON login and OAuth-style form login.
+    Supports common token response formats.
     """
 
     username = str(
         username
     ).strip()
 
-    if not username or not password:
-        return None
-
-
-    url = (
-        f"{BASE_URL}/auth/login"
+    password = str(
+        password
     )
 
 
-    # ------------------------------------------------------
-    # JSON request
-    # ------------------------------------------------------
+    if not username or not password:
 
-    try:
-
-        response = requests.post(
-            url,
-            json={
-                "username": username,
-                "password": password,
-            },
-            timeout=TIMEOUT,
-        )
-
-        if response.ok:
-
-            result = _read_response(
-                response
-            )
-
-            _store_login(
-                result
-            )
-
-            return result
-
-    except requests.RequestException:
-        pass
+        return None
 
 
     # ------------------------------------------------------
-    # OAuth2 form request
+    # Primary login endpoint
     # ------------------------------------------------------
 
-    try:
-
-        response = requests.post(
-            url,
-            data={
-                "username": username,
-                "password": password,
-            },
-            timeout=TIMEOUT,
-        )
-
-        if response.ok:
-
-            result = _read_response(
-                response
-            )
-
-            _store_login(
-                result
-            )
-
-            return result
-
-    except requests.RequestException:
-        pass
+    result = _request(
+        "POST",
+        "/auth/login",
+        json={
+            "username": username,
+            "password": password,
+        },
+        timeout=30,
+    )
 
 
-    return None
+    if result is None:
 
+        return None
 
-def _store_login(
-    result,
-):
-    """
-    Store authentication information.
-    """
 
     if not isinstance(
         result,
         dict,
     ):
-        return
 
+        return None
+
+
+    # ------------------------------------------------------
+    # Extract token
+    # ------------------------------------------------------
 
     token = (
         result.get(
@@ -379,6 +464,9 @@ def _store_login(
         )
         or result.get(
             "token"
+        )
+        or result.get(
+            "jwt"
         )
     )
 
@@ -394,29 +482,79 @@ def _store_login(
         ] = token
 
 
+    # ------------------------------------------------------
+    # Extract user
+    # ------------------------------------------------------
+
     user = result.get(
         "user"
     )
 
 
-    if isinstance(
+    if not isinstance(
         user,
         dict,
     ):
 
-        st.session_state[
-            "user"
-        ] = user
+        user = {}
 
 
-        if user.get("id") is not None:
+    # Some backends return user fields at top level.
+
+    if not user:
+
+        user = {
+            key: result.get(key)
+            for key in [
+                "id",
+                "user_id",
+                "username",
+                "email",
+                "full_name",
+                "role",
+                "is_active",
+            ]
+            if result.get(key) is not None
+        }
+
+
+    if token:
+
+        user[
+            "access_token"
+        ] = token
+
+
+    # ------------------------------------------------------
+    # Save session information
+    # ------------------------------------------------------
+
+    if user:
+
+        if user.get(
+            "id"
+        ) is not None:
 
             st.session_state[
                 "user_id"
-            ] = user.get("id")
+            ] = user.get(
+                "id"
+            )
+
+        elif user.get(
+            "user_id"
+        ) is not None:
+
+            st.session_state[
+                "user_id"
+            ] = user.get(
+                "user_id"
+            )
 
 
-        if user.get("username"):
+        if user.get(
+            "username"
+        ):
 
             st.session_state[
                 "username"
@@ -425,7 +563,9 @@ def _store_login(
             )
 
 
-        if user.get("role"):
+        if user.get(
+            "role"
+        ):
 
             st.session_state[
                 "role"
@@ -434,54 +574,214 @@ def _store_login(
             )
 
 
-    if result.get(
-        "username"
-    ):
-
-        st.session_state[
-            "username"
-        ] = result.get(
-            "username"
-        )
+    return user
 
 
-    if result.get(
-        "role"
-    ):
-
-        st.session_state[
-            "role"
-        ] = result.get(
-            "role"
-        )
-
-
-    st.session_state[
-        "logged_in"
-    ] = True
-
-
-def logout_user():
+def logout_user() -> None:
     """
-    Clear login state.
+    Clear local authentication state.
     """
 
     for key in [
         "access_token",
         "token",
-        "user",
+        "jwt_token",
         "user_id",
         "username",
         "role",
         "logged_in",
     ]:
 
-        st.session_state.pop(
-            key,
-            None,
+        if key in st.session_state:
+
+            del st.session_state[
+                key
+            ]
+
+
+# ==========================================================
+# Current User
+# ==========================================================
+
+def get_current_user() -> Optional[Dict[str, Any]]:
+    """
+    Retrieve the currently authenticated user.
+
+    Tries the common /auth/me endpoint.
+    """
+
+    result = get(
+        "/auth/me"
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        user = result.get(
+            "user"
         )
 
-    return True
+        if isinstance(
+            user,
+            dict,
+        ):
+
+            return user
+
+        return result
+
+
+    return None
+
+
+# ==========================================================
+# User Settings
+# ==========================================================
+
+def get_user_settings() -> Optional[Dict[str, Any]]:
+    """
+    Get the current user's account information.
+
+    Uses /auth/me first because account information
+    belongs to the authenticated user.
+    """
+
+    result = get_current_user()
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    # Fallback for projects that expose /users/me.
+
+    result = get(
+        "/users/me"
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    return None
+
+
+def update_user_settings(
+    settings: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """
+    Update current user profile.
+
+    Tries common backend endpoints without executing
+    anything at module import time.
+    """
+
+    if not isinstance(
+        settings,
+        dict,
+    ):
+
+        return None
+
+
+    # ------------------------------------------------------
+    # Preferred endpoint
+    # ------------------------------------------------------
+
+    result = put(
+        "/auth/me",
+        json=settings,
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    # ------------------------------------------------------
+    # Fallback
+    # ------------------------------------------------------
+
+    result = put(
+        "/users/me",
+        json=settings,
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    return None
+
+
+def change_password(
+    current_password: str,
+    new_password: str,
+) -> bool:
+    """
+    Change the current user's password.
+    """
+
+    if not current_password:
+
+        return False
+
+
+    if not new_password:
+
+        return False
+
+
+    payload = {
+        "current_password":
+            current_password,
+
+        "new_password":
+            new_password,
+    }
+
+
+    result = post(
+        "/auth/change-password",
+        json=payload,
+    )
+
+
+    if result is not None:
+
+        return True
+
+
+    # Fallback endpoint
+
+    result = put(
+        "/users/password",
+        json=payload,
+    )
+
+
+    return result is not None
 
 
 # ==========================================================
@@ -490,39 +790,118 @@ def logout_user():
 
 def predict_patient(
     patient_name: str,
-    age: int,
-    gender: str,
-    features: List[float],
-):
+    patient_age: int,
+    patient_gender: str,
+    values: List[float],
+) -> Optional[Dict[str, Any]]:
     """
-    Submit a Parkinson prediction.
+    Submit a patient prediction.
+
+    Expected frontend signature:
+
+        predict_patient(
+            patient_name,
+            patient_age,
+            patient_gender,
+            values,
+        )
+
+    where values contains exactly 22 ML features.
     """
 
     if not patient_name:
+
         return None
+
 
     if not isinstance(
-        features,
+        values,
         list,
     ):
+
         return None
 
-    if len(features) != 22:
+
+    if len(values) != 22:
+
+        return None
+
+
+    try:
+
+        numeric_values = [
+            float(value)
+            for value in values
+        ]
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
         return None
 
 
     payload = {
-        "patient_name": patient_name,
-        "age": int(age),
-        "gender": gender,
-        "features": features,
+        "patient_name":
+            str(
+                patient_name
+            ).strip(),
+
+        "age":
+            int(
+                patient_age
+            ),
+
+        "gender":
+            str(
+                patient_gender
+            ),
+
+        "features":
+            numeric_values,
     }
 
 
-    return post(
+    # ------------------------------------------------------
+    # Primary prediction endpoint
+    # ------------------------------------------------------
+
+    result = post(
         "/prediction/predict",
-        payload,
+        json=payload,
+        timeout=120,
     )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    # ------------------------------------------------------
+    # Compatibility fallback
+    # ------------------------------------------------------
+
+    result = post(
+        "/prediction",
+        json=payload,
+        timeout=120,
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    return None
 
 
 # ==========================================================
@@ -540,6 +919,7 @@ def get_patient_history():
 
 
     if result is None:
+
         return None
 
 
@@ -547,6 +927,7 @@ def get_patient_history():
         result,
         list,
     ):
+
         return result
 
 
@@ -556,46 +937,16 @@ def get_patient_history():
     ):
 
         return (
-            result.get(
-                "history"
-            )
-            or result.get(
-                "patients"
-            )
-            or result.get(
-                "predictions"
-            )
-            or result.get(
-                "records"
-            )
-            or result.get(
-                "data"
-            )
+            result.get("history")
+            or result.get("patients")
+            or result.get("predictions")
+            or result.get("records")
+            or result.get("data")
             or []
         )
 
 
     return []
-
-
-def get_prediction_history():
-    """
-    Compatibility alias.
-    """
-
-    return get_patient_history()
-
-
-def delete_prediction(
-    prediction_id: int,
-):
-    """
-    Delete prediction.
-    """
-
-    return delete(
-        f"/prediction/{prediction_id}"
-    )
 
 
 # ==========================================================
@@ -604,15 +955,19 @@ def delete_prediction(
 
 def get_patients():
     """
-    Get patients.
+    Get normal patient records.
+
+    Backend route:
+        GET /patients/
     """
 
     result = get(
-        "/patients"
+        "/patients/"
     )
 
 
     if result is None:
+
         return None
 
 
@@ -620,6 +975,7 @@ def get_patients():
         result,
         list,
     ):
+
         return result
 
 
@@ -629,15 +985,9 @@ def get_patients():
     ):
 
         return (
-            result.get(
-                "patients"
-            )
-            or result.get(
-                "data"
-            )
-            or result.get(
-                "records"
-            )
+            result.get("patients")
+            or result.get("data")
+            or result.get("records")
             or []
         )
 
@@ -645,94 +995,31 @@ def get_patients():
     return []
 
 
-def delete_patient(
-    patient_id: int,
+def get_patient(
+    patient_id: Any,
 ):
     """
-    Delete patient.
+    Get one patient.
     """
 
-    return delete(
+    if patient_id is None:
+
+        return None
+
+
+    result = get(
         f"/patients/{patient_id}"
     )
 
 
-# ==========================================================
-# Reports
-# ==========================================================
-
-def get_reports():
-    """
-    Get reports.
-    """
-
-    result = get(
-        "/reports"
-    )
-
-
-    if result is None:
-        return None
-
-
-    if isinstance(
-        result,
-        list,
-    ):
-        return result
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return (
-            result.get(
-                "reports"
-            )
-            or result.get(
-                "data"
-            )
-            or result.get(
-                "records"
-            )
-            or []
+    return (
+        result
+        if isinstance(
+            result,
+            dict,
         )
-
-
-    return []
-
-
-def download_report(
-    report_id: int,
-):
-    """
-    Download report PDF.
-    """
-
-    url = (
-        f"{BASE_URL}"
-        f"/reports/{report_id}/download"
+        else None
     )
-
-
-    try:
-
-        response = requests.get(
-            url,
-            headers=_headers(),
-            timeout=TIMEOUT,
-        )
-
-        if not response.ok:
-            return None
-
-        return response.content
-
-    except requests.RequestException:
-
-        return None
 
 
 # ==========================================================
@@ -741,7 +1028,10 @@ def download_report(
 
 def get_analytics():
     """
-    Get analytics.
+    Get analytics summary.
+
+    Backend:
+        GET /analytics
     """
 
     result = get(
@@ -753,6 +1043,7 @@ def get_analytics():
         result,
         dict,
     ):
+
         return result
 
 
@@ -760,136 +1051,25 @@ def get_analytics():
 
 
 # ==========================================================
-# AI Assistant
+# Reports
 # ==========================================================
 
-def ask_ai_assistant(
-    question: str,
-):
+def get_reports():
     """
-    Ask the AI Health Assistant.
+    Get report list.
+
+    Backend:
+        GET /reports/
     """
-
-    if question is None:
-        return None
-
-
-    question = str(
-        question
-    ).strip()
-
-
-    if not question:
-
-        return {
-            "response": ""
-        }
-
-
-    payload = {
-        "question": question,
-        "message": question,
-    }
-
-
-    result = post(
-        "/chatbot/",
-        payload,
-    )
-
-
-    if result is None:
-
-        result = post(
-            "/chatbot",
-            payload,
-        )
-
-
-    if result is None:
-        return None
-
-
-    # Backend returned plain text.
-    if isinstance(
-        result,
-        str,
-    ):
-
-        return {
-            "response": result
-        }
-
-
-    # Backend returned JSON.
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        answer = (
-            result.get(
-                "response"
-            )
-            or result.get(
-                "answer"
-            )
-            or result.get(
-                "message"
-            )
-            or result.get(
-                "reply"
-            )
-        )
-
-
-        if answer is not None:
-
-            return {
-                **result,
-                "response": str(
-                    answer
-                ),
-            }
-
-
-        return {
-            **result,
-            "response": str(
-                result
-            ),
-        }
-
-
-    return {
-        "response": str(
-            result
-        )
-    }
-
-
-def get_chatbot_suggestions():
-    """
-    Get AI Assistant suggested questions.
-    """
-
-    fallback = [
-        "What is Parkinson's Disease?",
-        "What are the early symptoms?",
-        "What causes hand tremors?",
-        "How is Parkinson's diagnosed?",
-        "Is Parkinson's curable?",
-        "Which exercises are beneficial?",
-        "What foods are recommended?",
-        "How can stress be reduced?",
-        "What is Bradykinesia?",
-        "What are voice disorders?",
-    ]
-
 
     result = get(
-        "/chatbot/suggestions"
+        "/reports/"
     )
+
+
+    if result is None:
+
+        return None
 
 
     if isinstance(
@@ -905,37 +1085,128 @@ def get_chatbot_suggestions():
         dict,
     ):
 
-        suggestions = (
-            result.get(
-                "suggestions"
-            )
-            or result.get(
-                "questions"
-            )
-            or result.get(
-                "data"
-            )
+        return (
+            result.get("reports")
+            or result.get("data")
+            or result.get("records")
+            or []
         )
 
 
-        if isinstance(
-            suggestions,
-            list,
+    return []
+
+
+def get_report(
+    report_id: Any,
+):
+    """
+    Get one report.
+    """
+
+    if report_id is None:
+
+        return None
+
+
+    result = get(
+        f"/reports/{report_id}"
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    return None
+
+
+def download_report(
+    report_id: Any,
+):
+    """
+    Download a generated report.
+
+    Returns:
+        bytes for PDF
+        dict for metadata
+        None on failure
+    """
+
+    if report_id is None:
+
+        return None
+
+
+    endpoint = (
+        f"/reports/{report_id}/download"
+    )
+
+
+    url = (
+        f"{BASE_URL}"
+        f"{endpoint}"
+    )
+
+
+    try:
+
+        response = requests.get(
+            url,
+            headers=_headers(),
+            timeout=60,
+        )
+
+
+        if not response.ok:
+
+            return None
+
+
+        content_type = (
+            response.headers.get(
+                "content-type",
+                "",
+            )
+            .lower()
+        )
+
+
+        if (
+            "application/pdf"
+            in content_type
         ):
 
-            return suggestions
+            return response.content
 
 
-    return fallback
+        try:
+
+            return response.json()
+
+        except ValueError:
+
+            return response.content
+
+
+    except requests.RequestException:
+
+        return None
 
 
 # ==========================================================
-# Admin
+# Admin Dashboard
 # ==========================================================
 
 def get_admin_dashboard():
     """
     Get administrator dashboard.
+
+    IMPORTANT:
+        The backend route is /admin/dashboard.
     """
 
     result = get(
@@ -954,17 +1225,26 @@ def get_admin_dashboard():
     return None
 
 
+# ==========================================================
+# Admin Users
+# ==========================================================
+
 def get_users():
     """
-    Get all users.
+    Get all users for administrator.
+
+    IMPORTANT:
+        The backend route is /admin/users,
+        not /users.
     """
 
     result = get(
-        "/users"
+        "/admin/users"
     )
 
 
     if result is None:
+
         return None
 
 
@@ -982,15 +1262,9 @@ def get_users():
     ):
 
         return (
-            result.get(
-                "users"
-            )
-            or result.get(
-                "data"
-            )
-            or result.get(
-                "records"
-            )
+            result.get("users")
+            or result.get("data")
+            or result.get("records")
             or []
         )
 
@@ -998,29 +1272,169 @@ def get_users():
     return []
 
 
-def delete_user(
-    user_id: int,
-):
-    """
-    Delete user.
-    """
-
-    return delete(
-        f"/users/{user_id}"
-    )
-
-
 # ==========================================================
-# Settings
+# Admin Patients
 # ==========================================================
 
-def get_user_settings():
+def get_admin_patients():
     """
-    Get current user settings.
+    Get all patients for administrator.
+
+    IMPORTANT:
+        The backend route is /admin/patients.
     """
 
     result = get(
-        "/settings"
+        "/admin/patients"
+    )
+
+
+    if result is None:
+
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("patients")
+            or result.get("data")
+            or result.get("records")
+            or []
+        )
+
+
+    return []
+
+
+# ==========================================================
+# Delete User
+# ==========================================================
+
+def delete_user(
+    user_id: Any,
+) -> bool:
+    """
+    Delete an administrator-managed user.
+    """
+
+    if user_id is None:
+
+        return False
+
+
+    result = delete(
+        f"/admin/users/{user_id}"
+    )
+
+
+    return result is not None
+
+
+# ==========================================================
+# Delete Patient
+# ==========================================================
+
+def delete_patient(
+    patient_id: Any,
+) -> bool:
+    """
+    Delete an administrator-managed patient.
+    """
+
+    if patient_id is None:
+
+        return False
+
+
+    result = delete(
+        f"/admin/patients/{patient_id}"
+    )
+
+
+    return result is not None
+
+
+# ==========================================================
+# AI Health Assistant
+# ==========================================================
+
+def ask_ai_assistant(
+    question: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Ask the AI Health Assistant a question.
+    """
+
+    question = str(
+        question
+    ).strip()
+
+
+    if not question:
+
+        return None
+
+
+    payload = {
+        "question":
+            question,
+    }
+
+
+    # ------------------------------------------------------
+    # Primary endpoint
+    # ------------------------------------------------------
+
+    result = post(
+        "/ai/ask",
+        json=payload,
+        timeout=120,
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    # ------------------------------------------------------
+    # Compatibility endpoints
+    # ------------------------------------------------------
+
+    result = post(
+        "/assistant/ask",
+        json=payload,
+        timeout=120,
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    result = post(
+        "/ai-assistant",
+        json=payload,
+        timeout=120,
     )
 
 
@@ -1035,54 +1449,18 @@ def get_user_settings():
     return None
 
 
-def update_user_settings(
-    data: Dict[str, Any],
-):
+# ==========================================================
+# Health Check
+# ==========================================================
+
+def health_check() -> bool:
     """
-    Update current user settings.
-    """
-
-    if not isinstance(
-        data,
-        dict,
-    ):
-
-        return None
-
-
-    return put(
-        "/settings",
-        data,
-    )
-
-
-def change_password(
-    current_password: str,
-    new_password: str,
-):
-    """
-    Change password.
+    Check whether the FastAPI backend is reachable.
     """
 
-    if not current_password:
-        return False
-
-    if not new_password:
-        return False
-
-
-    payload = {
-        "current_password":
-            current_password,
-
-        "new_password":
-            new_password,
-    }
-
-
-    result = post(
-        "/change-password",
-        payload,
+    result = get(
+        "/health",
+        timeout=10,
     )
 
 
@@ -1090,34 +1468,12 @@ def change_password(
 
 
 # ==========================================================
-# Backend Health
+# Backend URL
 # ==========================================================
 
-def check_backend():
+def get_api_url() -> str:
     """
-    Check FastAPI backend.
-    """
-
-    try:
-
-        response = requests.get(
-            f"{BASE_URL}/health",
-            timeout=15,
-        )
-
-        return (
-            response.status_code
-            == 200
-        )
-
-    except requests.RequestException:
-
-        return False
-
-
-def get_api_url():
-    """
-    Return backend URL.
+    Return the configured API URL.
     """
 
     return BASE_URL
