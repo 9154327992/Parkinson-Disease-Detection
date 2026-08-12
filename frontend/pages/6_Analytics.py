@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
 
-from utils.api_client import get_analytics
+from utils.api_client import (
+    get_analytics,
+    get_patient_history,
+)
 
 
 # ==========================================================
@@ -25,17 +28,212 @@ st.title(
 
 st.write(
     """
-    View insights and statistics about Parkinson's disease
-    predictions, patient demographics, risk distribution,
-    and prediction trends.
-    """
+View insights and statistics about Parkinson's disease
+predictions, patient demographics, and risk distribution.
+"""
 )
 
 st.divider()
 
 
 # ==========================================================
-# Load Analytics
+# Helper Functions
+# ==========================================================
+
+def get_value(
+    record,
+    keys,
+    default=None,
+):
+    """
+    Safely retrieve the first available value.
+    """
+
+    if not isinstance(
+        record,
+        dict,
+    ):
+        return default
+
+    for key in keys:
+
+        value = record.get(
+            key
+        )
+
+        if value is not None:
+            return value
+
+    return default
+
+
+def get_risk_level(
+    record,
+):
+    """
+    Normalize risk level.
+    """
+
+    value = get_value(
+        record,
+        [
+            "risk_level",
+            "risk_category",
+            "risk",
+        ],
+        None,
+    )
+
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        value = (
+            value.get("risk_level")
+            or value.get("level")
+            or value.get("category")
+        )
+
+    if value is None:
+        return "Unknown"
+
+    text = str(
+        value
+    ).strip().lower()
+
+    if "high" in text:
+        return "High Risk"
+
+    if "medium" in text:
+        return "Medium Risk"
+
+    if "low" in text:
+        return "Low Risk"
+
+    return str(value)
+
+
+def get_diagnosis(
+    record,
+):
+    """
+    Normalize prediction/diagnosis.
+    """
+
+    value = get_value(
+        record,
+        [
+            "diagnosis",
+            "prediction",
+            "prediction_result",
+            "result",
+        ],
+        "Unknown",
+    )
+
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        value = (
+            value.get("diagnosis")
+            or value.get("prediction")
+            or value.get("result")
+            or "Unknown"
+        )
+
+    return str(value)
+
+
+def get_patient_name(
+    record,
+):
+    """
+    Safely construct patient name.
+    """
+
+    value = get_value(
+        record,
+        [
+            "patient_name",
+            "name",
+            "full_name",
+        ],
+        None,
+    )
+
+    if value:
+        return str(value)
+
+    first_name = get_value(
+        record,
+        [
+            "first_name",
+            "firstName",
+        ],
+        "",
+    )
+
+    last_name = get_value(
+        record,
+        [
+            "last_name",
+            "lastName",
+        ],
+        "",
+    )
+
+    combined = (
+        f"{first_name} {last_name}"
+    ).strip()
+
+    return combined or "Unknown"
+
+
+def to_number(
+    value,
+):
+    """
+    Convert a value to float safely.
+    """
+
+    if value is None:
+        return None
+
+    try:
+        return float(value)
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return None
+
+
+def confidence_percentage(
+    value,
+):
+    """
+    Normalize confidence to percentage.
+    """
+
+    number = to_number(
+        value
+    )
+
+    if number is None:
+        return None
+
+    if number <= 1:
+        number *= 100
+
+    return number
+
+
+# ==========================================================
+# Load Data
 # ==========================================================
 
 with st.spinner(
@@ -44,150 +242,484 @@ with st.spinner(
 
     analytics = get_analytics()
 
+with st.spinner(
+    "Loading prediction history..."
+):
+
+    history = get_patient_history()
+
 
 # ==========================================================
-# Validate Response
+# Normalize Analytics
 # ==========================================================
-
-if analytics is None:
-
-    st.error(
-        "Unable to load analytics data."
-    )
-
-    st.info(
-        """
-        The analytics service did not return data.
-        Please check your backend connection and try again.
-        """
-    )
-
-    if st.button(
-        "🔄 Retry",
-        width="stretch",
-    ):
-
-        st.rerun()
-
-    st.stop()
-
 
 if not isinstance(
     analytics,
     dict,
 ):
 
-    st.error(
-        "Invalid analytics response received."
-    )
-
-    st.write(
-        f"Response type: "
-        f"`{type(analytics).__name__}`"
-    )
-
-    st.stop()
+    analytics = {}
 
 
-# ==========================================================
-# Safe Dictionary Helper
-# ==========================================================
-
-def section(
-    name,
+if isinstance(
+    history,
+    dict,
 ):
-    value = analytics.get(
-        name,
-        {},
+
+    history = (
+        history.get("history")
+        or history.get("predictions")
+        or history.get("records")
+        or []
     )
 
-    if isinstance(
-        value,
+
+if not isinstance(
+    history,
+    list,
+):
+
+    history = []
+
+
+# ==========================================================
+# Build Local Analytics From History
+# ==========================================================
+
+total_predictions = len(
+    history
+)
+
+high_risk = 0
+medium_risk = 0
+low_risk = 0
+unknown_risk = 0
+
+healthy_cases = 0
+parkinson_cases = 0
+
+risk_scores = []
+confidence_values = []
+
+patient_names = []
+genders = []
+ages = []
+
+recent_predictions = []
+
+
+for record in history:
+
+    if not isinstance(
+        record,
         dict,
     ):
-
-        return value
-
-    return {}
+        continue
 
 
-def list_section(
-    name,
-):
+    # ------------------------------------------------------
+    # Risk
+    # ------------------------------------------------------
 
-    value = analytics.get(
-        name,
-        [],
+    risk = get_risk_level(
+        record
     )
 
-    if isinstance(
-        value,
-        list,
+
+    if risk == "High Risk":
+
+        high_risk += 1
+
+    elif risk == "Medium Risk":
+
+        medium_risk += 1
+
+    elif risk == "Low Risk":
+
+        low_risk += 1
+
+    else:
+
+        unknown_risk += 1
+
+
+    # ------------------------------------------------------
+    # Diagnosis
+    # ------------------------------------------------------
+
+    diagnosis = get_diagnosis(
+        record
+    )
+
+    diagnosis_lower = (
+        diagnosis.lower()
+    )
+
+
+    if (
+        "healthy" in diagnosis_lower
+        or "normal" in diagnosis_lower
+        or "negative" in diagnosis_lower
     ):
 
-        return value
+        healthy_cases += 1
 
-    return []
+    elif (
+        "parkinson" in diagnosis_lower
+        or "positive" in diagnosis_lower
+        or "detected" in diagnosis_lower
+    ):
+
+        parkinson_cases += 1
 
 
-def number(
-    value,
-    default=0,
-):
+    # ------------------------------------------------------
+    # Risk Score
+    # ------------------------------------------------------
 
-    try:
+    risk_score = to_number(
+        get_value(
+            record,
+            [
+                "risk_score",
+                "risk_percentage",
+            ],
+            None,
+        )
+    )
 
-        return float(
-            value
+
+    if risk_score is not None:
+
+        risk_scores.append(
+            risk_score
         )
 
-    except (
-        TypeError,
-        ValueError,
-    ):
 
-        return default
+    # ------------------------------------------------------
+    # Confidence
+    # ------------------------------------------------------
+
+    confidence = confidence_percentage(
+        get_value(
+            record,
+            [
+                "confidence",
+                "prediction_confidence",
+            ],
+            None,
+        )
+    )
+
+
+    if confidence is not None:
+
+        confidence_values.append(
+            confidence
+        )
+
+
+    # ------------------------------------------------------
+    # Patient
+    # ------------------------------------------------------
+
+    patient_name = get_patient_name(
+        record
+    )
+
+    if patient_name != "Unknown":
+
+        patient_names.append(
+            patient_name
+        )
+
+
+    # ------------------------------------------------------
+    # Gender
+    # ------------------------------------------------------
+
+    gender = get_value(
+        record,
+        [
+            "gender",
+            "patient_gender",
+        ],
+        None,
+    )
+
+    if gender:
+
+        genders.append(
+            str(gender)
+        )
+
+
+    # ------------------------------------------------------
+    # Age
+    # ------------------------------------------------------
+
+    age = to_number(
+        get_value(
+            record,
+            [
+                "age",
+                "patient_age",
+            ],
+            None,
+        )
+    )
+
+    if age is not None:
+
+        ages.append(
+            age
+        )
+
+
+    # ------------------------------------------------------
+    # Recent Prediction
+    # ------------------------------------------------------
+
+    recent_predictions.append(
+        {
+            "Prediction ID":
+                get_value(
+                    record,
+                    [
+                        "prediction_id",
+                        "id",
+                    ],
+                    "N/A",
+                ),
+
+            "Patient":
+                patient_name,
+
+            "Diagnosis":
+                diagnosis,
+
+            "Risk Level":
+                risk,
+
+            "Risk Score":
+                (
+                    f"{risk_score:.2f}%"
+                    if risk_score is not None
+                    else "N/A"
+                ),
+
+            "Confidence":
+                (
+                    f"{confidence:.2f}%"
+                    if confidence is not None
+                    else "N/A"
+                ),
+
+            "Created":
+                get_value(
+                    record,
+                    [
+                        "created_at",
+                        "timestamp",
+                        "date",
+                    ],
+                    "N/A",
+                ),
+        }
+    )
 
 
 # ==========================================================
-# Extract Sections
+# Analytics Backend Values
 # ==========================================================
 
-dashboard = section(
-    "dashboard"
+dashboard = analytics.get(
+    "dashboard",
+    {},
 )
 
-prediction = section(
-    "prediction"
+prediction = analytics.get(
+    "prediction",
+    {},
 )
 
-patient = section(
-    "patient"
+patient = analytics.get(
+    "patient",
+    {},
 )
 
-risk_distribution = list_section(
-    "risk_distribution"
+
+if not isinstance(
+    dashboard,
+    dict,
+):
+
+    dashboard = {}
+
+
+if not isinstance(
+    prediction,
+    dict,
+):
+
+    prediction = {}
+
+
+if not isinstance(
+    patient,
+    dict,
+):
+
+    patient = {}
+
+
+# ==========================================================
+# Use Backend Values Only As Fallback
+# ==========================================================
+
+if total_predictions == 0:
+
+    total_predictions = int(
+        prediction.get(
+            "total_predictions",
+            dashboard.get(
+                "total_predictions",
+                0,
+            ),
+        )
+        or 0
+    )
+
+
+if (
+    high_risk
+    + medium_risk
+    + low_risk
+    == 0
+):
+
+    high_risk = int(
+        dashboard.get(
+            "high_risk_cases",
+            analytics.get(
+                "high_risk_cases",
+                0,
+            ),
+        )
+        or 0
+    )
+
+    medium_risk = int(
+        dashboard.get(
+            "medium_risk_cases",
+            analytics.get(
+                "medium_risk_cases",
+                0,
+            ),
+        )
+        or 0
+    )
+
+    low_risk = int(
+        dashboard.get(
+            "low_risk_cases",
+            analytics.get(
+                "low_risk_cases",
+                0,
+            ),
+        )
+        or 0
+    )
+
+
+# ==========================================================
+# Average Risk Score
+# ==========================================================
+
+if risk_scores:
+
+    average_risk_score = (
+        sum(risk_scores)
+        / len(risk_scores)
+    )
+
+else:
+
+    average_risk_score = to_number(
+        prediction.get(
+            "average_risk_score"
+        )
+    )
+
+
+# ==========================================================
+# Average Confidence
+# ==========================================================
+
+if confidence_values:
+
+    average_confidence = (
+        sum(confidence_values)
+        / len(confidence_values)
+    )
+
+else:
+
+    average_confidence = to_number(
+        prediction.get(
+            "average_confidence"
+        )
+    )
+
+
+# ==========================================================
+# Total Patients
+# ==========================================================
+
+unique_patient_names = set(
+    patient_names
 )
 
-disease_distribution = list_section(
-    "disease_distribution"
+total_patients = len(
+    unique_patient_names
 )
 
-gender_distribution = list_section(
-    "gender_distribution"
-)
+if total_patients == 0:
 
-age_distribution = list_section(
-    "age_distribution"
-)
+    total_patients = int(
+        dashboard.get(
+            "total_patients",
+            0,
+        )
+        or 0
+    )
 
-monthly_trend = list_section(
-    "monthly_trend"
-)
 
-recent_predictions = list_section(
-    "recent_predictions"
-)
+# ==========================================================
+# Healthy / Parkinson Fallback
+# ==========================================================
+
+if (
+    healthy_cases
+    + parkinson_cases
+    == 0
+):
+
+    healthy_cases = int(
+        dashboard.get(
+            "healthy_cases",
+            0,
+        )
+        or 0
+    )
+
+    parkinson_cases = int(
+        dashboard.get(
+            "parkinson_cases",
+            0,
+        )
+        or 0
+    )
 
 
 # ==========================================================
@@ -198,76 +730,38 @@ st.subheader(
     "📈 Overview"
 )
 
-col1, col2, col3, col4 = (
-    st.columns(4)
-)
+col1, col2, col3, col4 = st.columns(4)
 
 
 with col1:
 
-    total_patients = dashboard.get(
-        "total_patients",
-        0,
-    )
-
     st.metric(
-        "👥 Total Patients",
-        int(
-            number(
-                total_patients
-            )
-        ),
+        "Total Patients",
+        total_patients,
     )
 
 
 with col2:
 
-    total_predictions = dashboard.get(
-        "total_predictions",
-        0,
-    )
-
     st.metric(
-        "🧠 Total Predictions",
-        int(
-            number(
-                total_predictions
-            )
-        ),
+        "Total Predictions",
+        total_predictions,
     )
 
 
 with col3:
 
-    healthy_cases = dashboard.get(
-        "healthy_cases",
-        0,
-    )
-
     st.metric(
-        "🟢 Healthy Cases",
-        int(
-            number(
-                healthy_cases
-            )
-        ),
+        "Healthy Cases",
+        healthy_cases,
     )
 
 
 with col4:
 
-    parkinson_cases = dashboard.get(
-        "parkinson_cases",
-        0,
-    )
-
     st.metric(
-        "🔴 Parkinson Cases",
-        int(
-            number(
-                parkinson_cases
-            )
-        ),
+        "Parkinson Cases",
+        parkinson_cases,
     )
 
 
@@ -282,23 +776,14 @@ st.subheader(
     "🧠 Prediction Statistics"
 )
 
-col1, col2, col3, col4 = (
-    st.columns(4)
-)
+col1, col2, col3, col4 = st.columns(4)
 
 
 with col1:
 
     st.metric(
         "Predictions",
-        int(
-            number(
-                prediction.get(
-                    "total_predictions",
-                    0,
-                )
-            )
-        ),
+        total_predictions,
     )
 
 
@@ -306,14 +791,7 @@ with col2:
 
     st.metric(
         "Healthy",
-        int(
-            number(
-                prediction.get(
-                    "healthy_predictions",
-                    0,
-                )
-            )
-        ),
+        healthy_cases,
     )
 
 
@@ -321,44 +799,39 @@ with col3:
 
     st.metric(
         "Parkinson",
-        int(
-            number(
-                prediction.get(
-                    "parkinson_predictions",
-                    0,
-                )
-            )
-        ),
+        parkinson_cases,
     )
 
 
 with col4:
 
-    average_confidence = number(
-        prediction.get(
-            "average_confidence",
-            0,
+    if average_confidence is not None:
+
+        st.metric(
+            "Average Confidence",
+            f"{average_confidence:.2f}%",
         )
+
+    else:
+
+        st.metric(
+            "Average Confidence",
+            "N/A",
+        )
+
+
+if average_risk_score is not None:
+
+    st.write(
+        f"**Average Risk Score:** "
+        f"{average_risk_score:.2f}%"
     )
 
-    st.metric(
-        "Average Confidence",
-        f"{average_confidence:.1f}%",
+else:
+
+    st.write(
+        "**Average Risk Score:** N/A"
     )
-
-
-average_risk_score = number(
-    prediction.get(
-        "average_risk_score",
-        0,
-    )
-)
-
-
-st.info(
-    f"**Average Risk Score:** "
-    f"{average_risk_score:.1f}%"
-)
 
 
 st.divider()
@@ -373,65 +846,74 @@ st.subheader(
 )
 
 
-if risk_distribution:
+risk_data = pd.DataFrame(
+    {
+        "Risk Level": [
+            "High Risk",
+            "Medium Risk",
+            "Low Risk",
+        ],
+        "Count": [
+            high_risk,
+            medium_risk,
+            low_risk,
+        ],
+    }
+)
 
-    risk_df = pd.DataFrame(
-        risk_distribution
+
+if risk_data["Count"].sum() > 0:
+
+    st.bar_chart(
+        risk_data.set_index(
+            "Risk Level"
+        )
     )
-
-
-    if {
-        "risk_level",
-        "count",
-    }.issubset(
-        risk_df.columns
-    ):
-
-        risk_df = risk_df[
-            [
-                "risk_level",
-                "count",
-            ]
-        ].copy()
-
-
-        risk_df["count"] = pd.to_numeric(
-            risk_df["count"],
-            errors="coerce",
-        ).fillna(0)
-
-
-        st.bar_chart(
-            risk_df.set_index(
-                "risk_level"
-            )[
-                "count"
-            ]
-        )
-
-
-        st.dataframe(
-            risk_df.rename(
-                columns={
-                    "risk_level": "Risk Level",
-                    "count": "Count",
-                }
-            ),
-            width="stretch",
-            hide_index=True,
-        )
-
-    else:
-
-        st.warning(
-            "Risk distribution response does not "
-            "contain the expected fields."
-        )
 
 else:
 
     st.info(
         "No risk distribution data available."
+    )
+
+
+st.divider()
+
+
+# ==========================================================
+# Risk Metrics
+# ==========================================================
+
+st.subheader(
+    "🚨 Risk Summary"
+)
+
+risk_col1, risk_col2, risk_col3 = (
+    st.columns(3)
+)
+
+
+with risk_col1:
+
+    st.metric(
+        "🔴 High Risk",
+        high_risk,
+    )
+
+
+with risk_col2:
+
+    st.metric(
+        "🟠 Medium Risk",
+        medium_risk,
+    )
+
+
+with risk_col3:
+
+    st.metric(
+        "🟢 Low Risk",
+        low_risk,
     )
 
 
@@ -447,141 +929,32 @@ st.subheader(
 )
 
 
-if disease_distribution:
+disease_data = pd.DataFrame(
+    {
+        "Diagnosis": [
+            "Healthy",
+            "Parkinson",
+        ],
+        "Count": [
+            healthy_cases,
+            parkinson_cases,
+        ],
+    }
+)
 
-    disease_df = pd.DataFrame(
-        disease_distribution
+
+if disease_data["Count"].sum() > 0:
+
+    st.bar_chart(
+        disease_data.set_index(
+            "Diagnosis"
+        )
     )
-
-
-    if {
-        "label",
-        "count",
-    }.issubset(
-        disease_df.columns
-    ):
-
-        disease_df = disease_df[
-            [
-                "label",
-                "count",
-            ]
-        ].copy()
-
-
-        disease_df["count"] = pd.to_numeric(
-            disease_df["count"],
-            errors="coerce",
-        ).fillna(0)
-
-
-        st.bar_chart(
-            disease_df.set_index(
-                "label"
-            )[
-                "count"
-            ]
-        )
-
-
-        st.dataframe(
-            disease_df.rename(
-                columns={
-                    "label": "Diagnosis",
-                    "count": "Count",
-                }
-            ),
-            width="stretch",
-            hide_index=True,
-        )
-
-    else:
-
-        st.warning(
-            "Disease distribution response does not "
-            "contain the expected fields."
-        )
 
 else:
 
     st.info(
         "No disease distribution data available."
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# Patient Demographics
-# ==========================================================
-
-st.subheader(
-    "👥 Patient Demographics"
-)
-
-col1, col2, col3, col4 = (
-    st.columns(4)
-)
-
-
-with col1:
-
-    st.metric(
-        "Male",
-        int(
-            number(
-                patient.get(
-                    "male_patients",
-                    0,
-                )
-            )
-        ),
-    )
-
-
-with col2:
-
-    st.metric(
-        "Female",
-        int(
-            number(
-                patient.get(
-                    "female_patients",
-                    0,
-                )
-            )
-        ),
-    )
-
-
-with col3:
-
-    st.metric(
-        "Other",
-        int(
-            number(
-                patient.get(
-                    "other_patients",
-                    0,
-                )
-            )
-        ),
-    )
-
-
-with col4:
-
-    average_age = number(
-        patient.get(
-            "average_age",
-            0,
-        )
-    )
-
-    st.metric(
-        "Average Age",
-        f"{average_age:.1f}",
     )
 
 
@@ -597,48 +970,91 @@ st.subheader(
 )
 
 
-if gender_distribution:
+gender_counts = {}
 
-    gender_df = pd.DataFrame(
-        gender_distribution
+
+for gender in genders:
+
+    normalized_gender = (
+        gender.strip().title()
+    )
+
+    gender_counts[
+        normalized_gender
+    ] = (
+        gender_counts.get(
+            normalized_gender,
+            0,
+        )
+        + 1
     )
 
 
-    if {
-        "gender",
-        "count",
-    }.issubset(
-        gender_df.columns
+# Backend fallback
+
+if not gender_counts:
+
+    gender_distribution = analytics.get(
+        "gender_distribution",
+        [],
+    )
+
+    if isinstance(
+        gender_distribution,
+        list,
     ):
 
-        gender_df = gender_df[
-            [
-                "gender",
-                "count",
-            ]
-        ].copy()
+        for item in gender_distribution:
+
+            if not isinstance(
+                item,
+                dict,
+            ):
+                continue
+
+            gender = get_value(
+                item,
+                [
+                    "gender",
+                    "label",
+                ],
+                "Unknown",
+            )
+
+            count = get_value(
+                item,
+                [
+                    "count",
+                ],
+                0,
+            )
+
+            gender_counts[
+                str(gender)
+            ] = count
 
 
-        gender_df["count"] = pd.to_numeric(
-            gender_df["count"],
-            errors="coerce",
-        ).fillna(0)
+if gender_counts:
 
+    gender_df = pd.DataFrame(
+        {
+            "Gender":
+                list(
+                    gender_counts.keys()
+                ),
 
-        st.bar_chart(
-            gender_df.set_index(
-                "gender"
-            )[
-                "count"
-            ]
+            "Count":
+                list(
+                    gender_counts.values()
+                ),
+        }
+    )
+
+    st.bar_chart(
+        gender_df.set_index(
+            "Gender"
         )
-
-    else:
-
-        st.warning(
-            "Gender distribution data has "
-            "an unexpected format."
-        )
+    )
 
 else:
 
@@ -659,53 +1075,36 @@ st.subheader(
 )
 
 
-if age_distribution:
+if ages:
 
     age_df = pd.DataFrame(
-        age_distribution
+        {
+            "Age": ages
+        }
     )
 
-
-    if {
-        "age_group",
-        "count",
-    }.issubset(
-        age_df.columns
-    ):
-
-        age_df = age_df[
-            [
-                "age_group",
-                "count",
-            ]
-        ].copy()
-
-
-        age_df["count"] = pd.to_numeric(
-            age_df["count"],
-            errors="coerce",
-        ).fillna(0)
-
-
-        st.bar_chart(
-            age_df.set_index(
-                "age_group"
-            )[
-                "count"
-            ]
-        )
-
-    else:
-
-        st.warning(
-            "Age distribution data has "
-            "an unexpected format."
-        )
+    st.bar_chart(
+        age_df["Age"].value_counts()
+        .sort_index()
+    )
 
 else:
 
     st.info(
         "No age distribution data available."
+    )
+
+
+if ages:
+
+    average_age = (
+        sum(ages)
+        / len(ages)
+    )
+
+    st.write(
+        f"**Average Patient Age:** "
+        f"{average_age:.1f} years"
     )
 
 
@@ -717,68 +1116,79 @@ st.divider()
 # ==========================================================
 
 st.subheader(
-    "📅 Monthly Prediction Trend"
+    "📅 Monthly Predictions"
 )
 
 
-if monthly_trend:
+monthly_trend = analytics.get(
+    "monthly_trend",
+    [],
+)
 
-    monthly_df = pd.DataFrame(
-        monthly_trend
-    )
 
+if isinstance(
+    monthly_trend,
+    list,
+) and monthly_trend:
 
-    if {
-        "month",
-        "predictions",
-    }.issubset(
-        monthly_df.columns
-    ):
+    monthly_rows = []
 
-        monthly_df = monthly_df[
+    for item in monthly_trend:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        month = get_value(
+            item,
             [
                 "month",
-                "predictions",
-            ]
-        ].copy()
-
-
-        monthly_df["predictions"] = (
-            pd.to_numeric(
-                monthly_df[
-                    "predictions"
-                ],
-                errors="coerce",
-            )
-            .fillna(0)
+            ],
+            None,
         )
 
+        predictions = get_value(
+            item,
+            [
+                "predictions",
+                "count",
+            ],
+            0,
+        )
+
+        if month is not None:
+
+            monthly_rows.append(
+                {
+                    "Month":
+                        month,
+
+                    "Predictions":
+                        predictions,
+                }
+            )
+
+
+    if monthly_rows:
+
+        monthly_df = pd.DataFrame(
+            monthly_rows
+        )
 
         st.line_chart(
             monthly_df.set_index(
-                "month"
+                "Month"
             )[
-                "predictions"
+                "Predictions"
             ]
-        )
-
-
-        st.dataframe(
-            monthly_df.rename(
-                columns={
-                    "month": "Month",
-                    "predictions": "Predictions",
-                }
-            ),
-            width="stretch",
-            hide_index=True,
         )
 
     else:
 
-        st.warning(
-            "Monthly trend data has "
-            "an unexpected format."
+        st.info(
+            "No monthly prediction data available."
         )
 
 else:
@@ -806,35 +1216,11 @@ if recent_predictions:
         recent_predictions
     )
 
-
-    # ------------------------------------------------------
-    # Friendly column names
-    # ------------------------------------------------------
-
-    rename_columns = {
-        "id": "ID",
-        "patient_id": "Patient ID",
-        "patient_name": "Patient",
-        "diagnosis": "Diagnosis",
-        "prediction": "Prediction",
-        "risk_score": "Risk Score",
-        "risk_level": "Risk Level",
-        "confidence": "Confidence",
-        "created_at": "Date",
-    }
-
-
-    recent_df = recent_df.rename(
-        columns=rename_columns
-    )
-
-
     st.dataframe(
         recent_df,
-        width="stretch",
+        use_container_width=True,
         hide_index=True,
     )
-
 
 else:
 
@@ -851,32 +1237,14 @@ st.divider()
 # ==========================================================
 
 st.subheader(
-    "⬇️ Export Analytics"
+    "⬇ Export Analytics"
 )
 
 
-# Export the complete analytics response
-# in a readable flattened CSV when possible.
-
-export_rows = []
-
-
-for record in recent_predictions:
-
-    if isinstance(
-        record,
-        dict,
-    ):
-
-        export_rows.append(
-            record
-        )
-
-
-if export_rows:
+if recent_predictions:
 
     export_df = pd.DataFrame(
-        export_rows
+        recent_predictions
     )
 
 else:
@@ -888,50 +1256,35 @@ else:
                 "Total Predictions",
                 "Healthy Cases",
                 "Parkinson Cases",
-                "Average Confidence",
-                "Average Risk Score",
+                "High Risk",
+                "Medium Risk",
+                "Low Risk",
             ],
+
             "Value": [
-                dashboard.get(
-                    "total_patients",
-                    0,
-                ),
-                dashboard.get(
-                    "total_predictions",
-                    0,
-                ),
-                dashboard.get(
-                    "healthy_cases",
-                    0,
-                ),
-                dashboard.get(
-                    "parkinson_cases",
-                    0,
-                ),
-                prediction.get(
-                    "average_confidence",
-                    0,
-                ),
-                prediction.get(
-                    "average_risk_score",
-                    0,
-                ),
+                total_patients,
+                total_predictions,
+                healthy_cases,
+                parkinson_cases,
+                high_risk,
+                medium_risk,
+                low_risk,
             ],
         }
     )
 
 
-csv = export_df.to_csv(
+csv_data = export_df.to_csv(
     index=False
 )
 
 
 st.download_button(
-    label="⬇️ Export Analytics (CSV)",
-    data=csv,
+    label="⬇ Export Analytics (CSV)",
+    data=csv_data,
     file_name="analytics.csv",
     mime="text/csv",
-    width="stretch",
+    use_container_width=True,
 )
 
 
@@ -939,47 +1292,26 @@ st.divider()
 
 
 # ==========================================================
-# Analytics Status
+# Data Quality Information
 # ==========================================================
 
-st.subheader(
-    "💻 Analytics Status"
-)
+with st.expander(
+    "ℹ️ Analytics Data Source"
+):
 
+    st.write(
+        """
+Analytics uses prediction history as the primary source
+for prediction, diagnosis, risk, confidence, and patient
+statistics.
 
-if analytics:
+Backend aggregate analytics are used as a fallback when
+individual history records do not contain the required data.
 
-    st.success(
-        "🟢 Analytics data loaded successfully."
+This prevents missing API fields from being incorrectly
+displayed as zero values.
+"""
     )
-
-else:
-
-    st.warning(
-        "🟡 Analytics service returned no data."
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# Medical Disclaimer
-# ==========================================================
-
-st.warning(
-    """
-    ⚠️ **Medical Disclaimer**
-
-    Analytics and prediction results are intended
-    for AI-assisted screening and educational purposes.
-    They are not a substitute for professional medical
-    diagnosis or treatment.
-
-    Always consult a qualified healthcare professional
-    for medical decisions.
-    """
-)
 
 
 # ==========================================================
@@ -987,6 +1319,6 @@ st.warning(
 # ==========================================================
 
 st.caption(
-    "Parkinson Disease Detection Agent "
-    "• Analytics Dashboard"
+    "Analytics | "
+    "Parkinson Disease Detection Agent"
 )
