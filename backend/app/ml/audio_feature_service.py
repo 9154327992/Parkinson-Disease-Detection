@@ -239,35 +239,6 @@ class AudioFeatureService:
 
         return audio, sample_rate
 
-    # ------------------------------------------------------
-    # Convert stereo/multi-channel audio to mono
-    # ------------------------------------------------------
-
-    if audio.ndim == 2:
-
-        audio = np.mean(
-            audio,
-            axis=1,
-        )
-
-    elif audio.ndim != 1:
-
-        raise ValueError(
-            "Audio must contain one or two dimensions."
-        )
-
-    sample_rate = int(
-        sample_rate
-    )
-
-    self.validate_audio(
-        audio,
-        sample_rate,
-    )
-
-    return audio, sample_rate
-
-
 # ==========================================================
 # Validate Audio
 # ==========================================================
