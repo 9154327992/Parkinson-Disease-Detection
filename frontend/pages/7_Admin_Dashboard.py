@@ -4,7 +4,7 @@ import pandas as pd
 from utils.api_client import (
     get_admin_dashboard,
     get_users,
-    get_patients,
+    get_admin_patients,
     delete_user,
     delete_patient,
 )
@@ -28,7 +28,7 @@ st.set_page_config(
 
 
 # ==========================================================
-# Initialize Session
+# Session
 # ==========================================================
 
 initialize_session()
@@ -48,7 +48,7 @@ if not is_logged_in():
 
 
 # ==========================================================
-# Admin Authorization
+# Authorization
 # ==========================================================
 
 if not is_admin():
@@ -68,43 +68,48 @@ if not is_admin():
 # Helper Functions
 # ==========================================================
 
-def normalize_list(
-    data,
+def safe_list(
+    value,
     keys=None,
 ):
     """
-    Convert different API response formats into a list.
+    Normalize API list responses.
     """
 
-    if data is None:
-        return []
-
     if isinstance(
-        data,
+        value,
         list,
     ):
-        return data
+        return value
+
 
     if isinstance(
-        data,
+        value,
         dict,
     ):
 
-        if keys:
+        search_keys = keys or [
+            "data",
+            "items",
+            "records",
+            "users",
+            "patients",
+        ]
 
-            for key in keys:
 
-                value = data.get(
-                    key
-                )
+        for key in search_keys:
 
-                if isinstance(
-                    value,
-                    list,
-                ):
-                    return value
+            result = value.get(
+                key
+            )
 
-        return []
+            if isinstance(
+                result,
+                list,
+            ):
+
+                return result
+
 
     return []
 
@@ -124,6 +129,7 @@ def get_value(
     ):
         return default
 
+
     for key in keys:
 
         value = record.get(
@@ -131,16 +137,18 @@ def get_value(
         )
 
         if value is not None:
+
             return value
+
 
     return default
 
 
-def get_patient_name(
+def patient_name(
     patient,
 ):
     """
-    Safely construct patient name.
+    Build patient display name safely.
     """
 
     name = get_value(
@@ -153,8 +161,13 @@ def get_patient_name(
         None,
     )
 
+
     if name:
-        return str(name)
+
+        return str(
+            name
+        )
+
 
     first_name = get_value(
         patient,
@@ -165,6 +178,7 @@ def get_patient_name(
         "",
     )
 
+
     last_name = get_value(
         patient,
         [
@@ -174,28 +188,14 @@ def get_patient_name(
         "",
     )
 
-    combined = (
-        f"{first_name} {last_name}"
+
+    result = (
+        f"{first_name} "
+        f"{last_name}"
     ).strip()
 
-    return combined or "Unknown"
 
-
-def get_role(
-    user,
-):
-    role = get_value(
-        user,
-        [
-            "role",
-            "user_role",
-        ],
-        "user",
-    )
-
-    return str(
-        role
-    )
+    return result or "Unknown"
 
 
 # ==========================================================
@@ -213,48 +213,48 @@ overall health of the system.
 """
 )
 
+
 st.success(
-    f"Administrator access granted: "
+    "Administrator access granted: "
     f"{st.session_state.get('username', 'Administrator')}"
 )
+
 
 st.divider()
 
 
 # ==========================================================
-# Load Data
+# Load Admin Dashboard
 # ==========================================================
 
 with st.spinner(
-    "Loading administrator data..."
+    "Loading administrator dashboard..."
 ):
 
     dashboard = get_admin_dashboard()
-    users_response = get_users()
-    patients_response = get_patients()
 
 
 # ==========================================================
-# Normalize Data
+# Dashboard Validation
 # ==========================================================
 
-users = normalize_list(
-    users_response,
-    [
-        "users",
-        "data",
-        "records",
-    ],
-)
+if dashboard is None:
 
-patients = normalize_list(
-    patients_response,
-    [
-        "patients",
-        "data",
-        "records",
-    ],
-)
+    st.error(
+        "Unable to load the administrator dashboard."
+    )
+
+    st.warning(
+        """
+The backend rejected the administrator request
+or the Admin API is unavailable.
+
+Make sure you are logged in with an administrator
+account and that the backend has been redeployed.
+"""
+    )
+
+    st.stop()
 
 
 if not isinstance(
@@ -262,109 +262,53 @@ if not isinstance(
     dict,
 ):
 
-    dashboard = {}
-
-
-# ==========================================================
-# Calculate Real Counts
-# ==========================================================
-
-# Prefer actual returned records.
-
-total_users = len(
-    users
-)
-
-total_patients = len(
-    patients
-)
-
-
-# Fallback to dashboard values if list endpoint
-# did not return records.
-
-if total_users == 0:
-
-    total_users = int(
-        dashboard.get(
-            "total_users",
-            0,
-        )
-        or 0
+    st.error(
+        "Invalid dashboard response from backend."
     )
 
-
-if total_patients == 0:
-
-    total_patients = int(
-        dashboard.get(
-            "total_patients",
-            0,
-        )
-        or 0
-    )
-
-
-total_predictions = int(
-    dashboard.get(
-        "total_predictions",
-        0,
-    )
-    or 0
-)
-
-
-total_reports = int(
-    dashboard.get(
-        "total_reports",
-        0,
-    )
-    or 0
-)
-
-
-# ==========================================================
-# User Role Counts
-# ==========================================================
-
-admin_count = 0
-doctor_count = 0
-normal_count = 0
-
-
-for user in users:
-
-    role = get_role(
-        user
-    ).lower().strip()
-
-    if role == "admin":
-
-        admin_count += 1
-
-    elif role == "doctor":
-
-        doctor_count += 1
-
-    else:
-
-        normal_count += 1
+    st.stop()
 
 
 # ==========================================================
 # Dashboard Metrics
 # ==========================================================
 
+total_users = dashboard.get(
+    "total_users",
+    0,
+)
+
+total_patients = dashboard.get(
+    "total_patients",
+    0,
+)
+
+total_predictions = dashboard.get(
+    "total_predictions",
+    0,
+)
+
+total_reports = dashboard.get(
+    "total_reports",
+    0,
+)
+
+
+# ==========================================================
+# Overview
+# ==========================================================
+
 st.subheader(
     "📊 System Overview"
 )
 
-metric1, metric2, metric3, metric4 = (
+
+col1, col2, col3, col4 = (
     st.columns(4)
 )
 
 
-with metric1:
+with col1:
 
     st.metric(
         "👥 Users",
@@ -372,7 +316,7 @@ with metric1:
     )
 
 
-with metric2:
+with col2:
 
     st.metric(
         "🩺 Patients",
@@ -380,7 +324,7 @@ with metric2:
     )
 
 
-with metric3:
+with col3:
 
     st.metric(
         "🧠 Predictions",
@@ -388,11 +332,75 @@ with metric3:
     )
 
 
-with metric4:
+with col4:
 
     st.metric(
         "📄 Reports",
         total_reports,
+    )
+
+
+st.divider()
+
+
+# ==========================================================
+# User Roles
+# ==========================================================
+
+st.subheader(
+    "👥 User Roles"
+)
+
+
+user_roles = dashboard.get(
+    "user_roles",
+    {},
+)
+
+
+if not isinstance(
+    user_roles,
+    dict,
+):
+
+    user_roles = {}
+
+
+role1, role2, role3 = (
+    st.columns(3)
+)
+
+
+with role1:
+
+    st.metric(
+        "🛡️ Administrators",
+        user_roles.get(
+            "admins",
+            0,
+        ),
+    )
+
+
+with role2:
+
+    st.metric(
+        "👨‍⚕️ Doctors",
+        user_roles.get(
+            "doctors",
+            0,
+        ),
+    )
+
+
+with role3:
+
+    st.metric(
+        "👤 Users",
+        user_roles.get(
+            "users",
+            0,
+        ),
     )
 
 
@@ -408,9 +416,41 @@ st.subheader(
 )
 
 
+with st.spinner(
+    "Loading users..."
+):
+
+    users_response = get_users()
+
+
+if users_response is None:
+
+    st.error(
+        "Unable to load users."
+    )
+
+    users = []
+
+else:
+
+    users = safe_list(
+        users_response,
+        [
+            "users",
+            "data",
+            "records",
+        ],
+    )
+
+
+# ==========================================================
+# Users Table
+# ==========================================================
+
 if users:
 
     user_rows = []
+
 
     for user in users:
 
@@ -419,14 +459,19 @@ if users:
                 "ID":
                     get_value(
                         user,
-                        ["id", "user_id"],
+                        [
+                            "id",
+                            "user_id",
+                        ],
                         "N/A",
                     ),
 
                 "Username":
                     get_value(
                         user,
-                        ["username"],
+                        [
+                            "username",
+                        ],
                         "N/A",
                     ),
 
@@ -443,13 +488,20 @@ if users:
                 "Email":
                     get_value(
                         user,
-                        ["email"],
+                        [
+                            "email",
+                        ],
                         "N/A",
                     ),
 
                 "Role":
-                    get_role(
-                        user
+                    get_value(
+                        user,
+                        [
+                            "role",
+                            "user_role",
+                        ],
+                        "User",
                     ),
 
                 "Active":
@@ -475,61 +527,35 @@ if users:
         )
 
 
-    users_df = pd.DataFrame(
-        user_rows
-    )
-
-
     st.dataframe(
-        users_df,
+        pd.DataFrame(
+            user_rows
+        ),
         use_container_width=True,
         hide_index=True,
     )
 
 
-    # ------------------------------------------------------
-    # User Summary
-    # ------------------------------------------------------
+else:
 
-    role1, role2, role3 = (
-        st.columns(3)
+    st.info(
+        "No users found."
     )
 
 
-    with role1:
+# ==========================================================
+# Delete User
+# ==========================================================
 
-        st.metric(
-            "Administrators",
-            admin_count,
-        )
-
-
-    with role2:
-
-        st.metric(
-            "Doctors",
-            doctor_count,
-        )
-
-
-    with role3:
-
-        st.metric(
-            "Users",
-            normal_count,
-        )
-
-
-    # ------------------------------------------------------
-    # Delete User
-    # ------------------------------------------------------
+if users:
 
     st.write(
-        "### 🗑️ User Management"
+        "### 🗑️ Delete User"
     )
 
 
     selectable_users = []
+
 
     for user in users:
 
@@ -542,6 +568,7 @@ if users:
             None,
         )
 
+
         username = get_value(
             user,
             [
@@ -550,11 +577,14 @@ if users:
             f"User {user_id}",
         )
 
+
         if user_id is not None:
 
             selectable_users.append(
                 (
-                    str(username),
+                    str(
+                        username
+                    ),
                     user_id,
                 )
             )
@@ -562,7 +592,7 @@ if users:
 
     if selectable_users:
 
-        user_labels = [
+        labels = [
             item[0]
             for item in selectable_users
         ]
@@ -570,8 +600,8 @@ if users:
 
         selected_username = st.selectbox(
             "Select User",
-            user_labels,
-            key="admin_selected_user",
+            labels,
+            key="admin_delete_user",
         )
 
 
@@ -579,73 +609,66 @@ if users:
             user_id
             for username, user_id
             in selectable_users
-            if username == selected_username
+            if username
+            == selected_username
         )
 
 
-        confirm_user_delete = st.checkbox(
-            "I understand that deleting this user cannot be undone.",
-            key="confirm_user_delete",
+        current_username = (
+            st.session_state.get(
+                "username"
+            )
+        )
+
+
+        if (
+            selected_username
+            == current_username
+        ):
+
+            st.warning(
+                "You cannot delete the currently logged-in administrator."
+            )
+
+
+        confirm = st.checkbox(
+            "I understand this action cannot be undone.",
+            key="confirm_delete_user",
         )
 
 
         if st.button(
             "❌ Delete Selected User",
-            disabled=not confirm_user_delete,
+            disabled=(
+                not confirm
+                or selected_username
+                == current_username
+            ),
             use_container_width=True,
         ):
 
-            # Safety: prevent accidental deletion
-            # of the currently logged-in administrator.
-
-            current_username = (
-                st.session_state.get(
-                    "username"
-                )
-            )
-
-
-            if (
-                selected_username
-                == current_username
+            with st.spinner(
+                "Deleting user..."
             ):
 
-                st.error(
-                    "You cannot delete the currently logged-in administrator."
+                success = delete_user(
+                    selected_user_id
                 )
+
+
+            if success:
+
+                st.success(
+                    "User deleted successfully."
+                )
+
+                st.rerun()
 
             else:
 
-                try:
-
-                    success = delete_user(
-                        selected_user_id
-                    )
-
-                except Exception:
-
-                    success = False
-
-
-                if success:
-
-                    st.success(
-                        "User deleted successfully."
-                    )
-
-                    st.rerun()
-
-                else:
-
-                    st.error(
-                        "Unable to delete user."
-                    )
-
-else:
-
-    st.info(
-        "No users were returned by the backend."
-    )
+                st.error(
+                    "Unable to delete user."
+                )
 
 
 st.divider()
@@ -660,9 +683,43 @@ st.subheader(
 )
 
 
+with st.spinner(
+    "Loading patients..."
+):
+
+    patients_response = (
+        get_admin_patients()
+    )
+
+
+if patients_response is None:
+
+    st.error(
+        "Unable to load administrator patients."
+    )
+
+    patients = []
+
+else:
+
+    patients = safe_list(
+        patients_response,
+        [
+            "patients",
+            "data",
+            "records",
+        ],
+    )
+
+
+# ==========================================================
+# Patient Table
+# ==========================================================
+
 if patients:
 
     patient_rows = []
+
 
     for patient in patients:
 
@@ -679,59 +736,73 @@ if patients:
                     ),
 
                 "Patient Name":
-                    get_patient_name(
+                    patient_name(
                         patient
                     ),
 
                 "Age":
                     get_value(
                         patient,
-                        ["age"],
+                        [
+                            "age",
+                        ],
                         "N/A",
                     ),
 
                 "Gender":
                     get_value(
                         patient,
-                        ["gender"],
+                        [
+                            "gender",
+                        ],
                         "N/A",
                     ),
 
                 "Email":
                     get_value(
                         patient,
-                        ["email"],
+                        [
+                            "email",
+                        ],
                         "N/A",
                     ),
 
                 "Phone":
                     get_value(
                         patient,
-                        ["phone"],
+                        [
+                            "phone",
+                        ],
                         "N/A",
                     ),
             }
         )
 
 
-    patients_df = pd.DataFrame(
-        patient_rows
-    )
-
-
     st.dataframe(
-        patients_df,
+        pd.DataFrame(
+            patient_rows
+        ),
         use_container_width=True,
         hide_index=True,
     )
 
 
-    # ------------------------------------------------------
-    # Delete Patient
-    # ------------------------------------------------------
+else:
+
+    st.info(
+        "No patient records found."
+    )
+
+
+# ==========================================================
+# Delete Patient
+# ==========================================================
+
+if patients:
 
     st.write(
-        "### 🗑️ Patient Management"
+        "### 🗑️ Delete Patient"
     )
 
 
@@ -749,7 +820,8 @@ if patients:
             None,
         )
 
-        patient_name = get_patient_name(
+
+        name = patient_name(
             patient
         )
 
@@ -758,7 +830,7 @@ if patients:
 
             selectable_patients.append(
                 (
-                    f"{patient_name} "
+                    f"{name} "
                     f"(ID: {patient_id})",
                     patient_id,
                 )
@@ -767,7 +839,7 @@ if patients:
 
     if selectable_patients:
 
-        patient_labels = [
+        labels = [
             item[0]
             for item in selectable_patients
         ]
@@ -775,8 +847,8 @@ if patients:
 
         selected_patient = st.selectbox(
             "Select Patient",
-            patient_labels,
-            key="admin_selected_patient",
+            labels,
+            key="admin_delete_patient",
         )
 
 
@@ -784,31 +856,30 @@ if patients:
             patient_id
             for label, patient_id
             in selectable_patients
-            if label == selected_patient
+            if label
+            == selected_patient
         )
 
 
-        confirm_patient_delete = st.checkbox(
-            "I understand that deleting this patient cannot be undone.",
-            key="confirm_patient_delete",
+        confirm_patient = st.checkbox(
+            "I understand this action cannot be undone.",
+            key="confirm_delete_patient",
         )
 
 
         if st.button(
             "🗑️ Delete Selected Patient",
-            disabled=not confirm_patient_delete,
+            disabled=not confirm_patient,
             use_container_width=True,
         ):
 
-            try:
+            with st.spinner(
+                "Deleting patient..."
+            ):
 
                 success = delete_patient(
                     selected_patient_id
                 )
-
-            except Exception:
-
-                success = False
 
 
             if success:
@@ -825,10 +896,91 @@ if patients:
                     "Unable to delete patient."
                 )
 
+
+st.divider()
+
+
+# ==========================================================
+# Recent Users
+# ==========================================================
+
+st.subheader(
+    "📝 Recent Users"
+)
+
+
+recent_users = dashboard.get(
+    "recent_users",
+    [],
+)
+
+
+if isinstance(
+    recent_users,
+    list,
+) and recent_users:
+
+    recent_rows = []
+
+
+    for user in recent_users:
+
+        if not isinstance(
+            user,
+            dict,
+        ):
+            continue
+
+
+        recent_rows.append(
+            {
+                "Username":
+                    user.get(
+                        "username",
+                        "N/A",
+                    ),
+
+                "Full Name":
+                    user.get(
+                        "full_name",
+                        "N/A",
+                    ),
+
+                "Role":
+                    user.get(
+                        "role",
+                        "N/A",
+                    ),
+
+                "Created":
+                    user.get(
+                        "created_at",
+                        "N/A",
+                    ),
+            }
+        )
+
+
+    if recent_rows:
+
+        st.dataframe(
+            pd.DataFrame(
+                recent_rows
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No recent users available."
+        )
+
 else:
 
     st.info(
-        "No patient records were returned by the backend."
+        "No recent users available."
     )
 
 
@@ -857,6 +1009,7 @@ if isinstance(
 
     activity_rows = []
 
+
     for item in activity:
 
         if not isinstance(
@@ -865,33 +1018,31 @@ if isinstance(
         ):
             continue
 
+
         activity_rows.append(
             {
                 "Type":
-                    get_value(
-                        item,
-                        ["type"],
+                    item.get(
+                        "type",
                         "Activity",
                     ),
 
                 "Description":
-                    get_value(
-                        item,
-                        [
-                            "description",
+                    item.get(
+                        "description",
+                        item.get(
                             "message",
-                        ],
-                        "",
+                            "",
+                        ),
                     ),
 
                 "Created":
-                    get_value(
-                        item,
-                        [
-                            "created_at",
+                    item.get(
+                        "created_at",
+                        item.get(
                             "timestamp",
-                        ],
-                        "N/A",
+                            "N/A",
+                        ),
                     ),
             }
         )
@@ -939,22 +1090,9 @@ health1, health2 = (
 
 with health1:
 
-    if (
-        dashboard
-        or users
-        or patients
-    ):
-
-        st.success(
-            "🟢 FastAPI Backend"
-        )
-
-    else:
-
-        st.error(
-            "🔴 FastAPI Backend"
-        )
-
+    st.success(
+        "🟢 FastAPI Backend"
+    )
 
     st.success(
         "🟢 Machine Learning Model"
@@ -963,18 +1101,9 @@ with health1:
 
 with health2:
 
-    if patients is not None:
-
-        st.success(
-            "🟢 Database"
-        )
-
-    else:
-
-        st.warning(
-            "🟡 Database"
-        )
-
+    st.success(
+        "🟢 Database"
+    )
 
     st.success(
         "🟢 AI Assistant"
