@@ -1,30 +1,3 @@
-"""
-frontend/utils/api_client.py
-
-Central API client for the Parkinson Disease Detection
-Streamlit frontend.
-
-This module provides:
-    - Authentication
-    - Generic GET / POST / PUT / DELETE
-    - Prediction
-    - Patient history
-    - Patients
-    - Reports
-    - Analytics
-    - Admin dashboard
-    - User management
-    - Settings
-    - Password changes
-    - AI Health Assistant
-
-All functions fail safely and return None / [] / False
-instead of crashing the Streamlit application.
-"""
-
-from __future__ import annotations
-
-import os
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -35,33 +8,32 @@ import streamlit as st
 # Configuration
 # ==========================================================
 
-DEFAULT_API_URL = (
+BASE_URL = (
     "https://parkinson-disease-detection-wced.onrender.com"
 )
 
-BASE_URL = os.getenv(
-    "API_URL",
-    DEFAULT_API_URL,
-).rstrip("/")
-
-REQUEST_TIMEOUT = 60
+TIMEOUT = 60
 
 
 # ==========================================================
-# Session Helpers
+# Authentication
 # ==========================================================
 
 def _get_token() -> Optional[str]:
     """
-    Get authentication token from Streamlit session.
+    Get JWT token from Streamlit session.
     """
 
-    token = st.session_state.get("access_token")
+    token = st.session_state.get(
+        "access_token"
+    )
 
     if token:
         return str(token)
 
-    token = st.session_state.get("token")
+    token = st.session_state.get(
+        "token"
+    )
 
     if token:
         return str(token)
@@ -71,7 +43,7 @@ def _get_token() -> Optional[str]:
 
 def _headers() -> Dict[str, str]:
     """
-    Build HTTP headers.
+    Build request headers.
     """
 
     headers = {
@@ -82,25 +54,22 @@ def _headers() -> Dict[str, str]:
     token = _get_token()
 
     if token:
-        headers["Authorization"] = (
-            f"Bearer {token}"
-        )
+        headers[
+            "Authorization"
+        ] = f"Bearer {token}"
 
     return headers
 
 
 # ==========================================================
-# Response Helpers
+# Response
 # ==========================================================
 
-def _json_response(
+def _read_response(
     response: requests.Response,
-) -> Any:
+):
     """
-    Safely decode an HTTP response.
-
-    JSON responses are returned as Python objects.
-    Plain text responses are returned as strings.
+    Safely read JSON or text response.
     """
 
     try:
@@ -108,48 +77,10 @@ def _json_response(
 
     except ValueError:
 
-        text = response.text
-
-        if text:
-            return text
+        if response.text:
+            return response.text
 
         return None
-
-
-def _request_error(
-    response: requests.Response,
-) -> None:
-    """
-    Store useful API error information in session state.
-
-    Do not expose sensitive server details to users.
-    """
-
-    try:
-        detail = response.json()
-
-        if isinstance(detail, dict):
-            detail = (
-                detail.get("detail")
-                or detail.get("message")
-                or detail.get("error")
-            )
-
-        if detail:
-            st.session_state["last_api_error"] = str(
-                detail
-            )
-
-        else:
-            st.session_state["last_api_error"] = (
-                f"HTTP {response.status_code}"
-            )
-
-    except Exception:
-
-        st.session_state["last_api_error"] = (
-            f"HTTP {response.status_code}"
-        )
 
 
 # ==========================================================
@@ -158,10 +89,12 @@ def _request_error(
 
 def get(
     endpoint: str,
-    params: Optional[Dict[str, Any]] = None,
-) -> Any:
+    params: Optional[
+        Dict[str, Any]
+    ] = None,
+):
     """
-    Perform GET request against FastAPI.
+    Generic GET request.
     """
 
     url = (
@@ -173,26 +106,28 @@ def get(
 
         response = requests.get(
             url,
-            params=params,
             headers=_headers(),
-            timeout=REQUEST_TIMEOUT,
+            params=params,
+            timeout=TIMEOUT,
         )
 
         if not response.ok:
-            _request_error(response)
+
+            st.session_state[
+                "last_api_status"
+            ] = response.status_code
+
             return None
 
-        return _json_response(response)
+        return _read_response(
+            response
+        )
 
     except requests.RequestException as exc:
 
-        st.session_state["last_api_error"] = str(exc)
-
-        return None
-
-    except Exception as exc:
-
-        st.session_state["last_api_error"] = str(exc)
+        st.session_state[
+            "last_api_error"
+        ] = str(exc)
 
         return None
 
@@ -203,11 +138,12 @@ def get(
 
 def post(
     endpoint: str,
-    data: Optional[Dict[str, Any]] = None,
-    params: Optional[Dict[str, Any]] = None,
-) -> Any:
+    data: Optional[
+        Dict[str, Any]
+    ] = None,
+):
     """
-    Perform POST request against FastAPI.
+    Generic POST request.
     """
 
     url = (
@@ -220,26 +156,27 @@ def post(
         response = requests.post(
             url,
             json=data or {},
-            params=params,
             headers=_headers(),
-            timeout=REQUEST_TIMEOUT,
+            timeout=TIMEOUT,
         )
 
         if not response.ok:
-            _request_error(response)
+
+            st.session_state[
+                "last_api_status"
+            ] = response.status_code
+
             return None
 
-        return _json_response(response)
+        return _read_response(
+            response
+        )
 
     except requests.RequestException as exc:
 
-        st.session_state["last_api_error"] = str(exc)
-
-        return None
-
-    except Exception as exc:
-
-        st.session_state["last_api_error"] = str(exc)
+        st.session_state[
+            "last_api_error"
+        ] = str(exc)
 
         return None
 
@@ -250,10 +187,12 @@ def post(
 
 def put(
     endpoint: str,
-    data: Optional[Dict[str, Any]] = None,
-) -> Any:
+    data: Optional[
+        Dict[str, Any]
+    ] = None,
+):
     """
-    Perform PUT request against FastAPI.
+    Generic PUT request.
     """
 
     url = (
@@ -267,24 +206,17 @@ def put(
             url,
             json=data or {},
             headers=_headers(),
-            timeout=REQUEST_TIMEOUT,
+            timeout=TIMEOUT,
         )
 
         if not response.ok:
-            _request_error(response)
             return None
 
-        return _json_response(response)
+        return _read_response(
+            response
+        )
 
-    except requests.RequestException as exc:
-
-        st.session_state["last_api_error"] = str(exc)
-
-        return None
-
-    except Exception as exc:
-
-        st.session_state["last_api_error"] = str(exc)
+    except requests.RequestException:
 
         return None
 
@@ -295,9 +227,9 @@ def put(
 
 def delete(
     endpoint: str,
-) -> Any:
+):
     """
-    Perform DELETE request against FastAPI.
+    Generic DELETE request.
     """
 
     url = (
@@ -310,30 +242,33 @@ def delete(
         response = requests.delete(
             url,
             headers=_headers(),
-            timeout=REQUEST_TIMEOUT,
+            timeout=TIMEOUT,
         )
 
         if not response.ok:
-            _request_error(response)
-            return None
+            return False
 
-        return _json_response(response)
+        # Some DELETE endpoints return no body.
+        if not response.content:
+            return True
 
-    except requests.RequestException as exc:
+        result = _read_response(
+            response
+        )
 
-        st.session_state["last_api_error"] = str(exc)
+        return (
+            result
+            if isinstance(result, bool)
+            else True
+        )
 
-        return None
+    except requests.RequestException:
 
-    except Exception as exc:
-
-        st.session_state["last_api_error"] = str(exc)
-
-        return None
+        return False
 
 
 # ==========================================================
-# Authentication
+# LOGIN
 # ==========================================================
 
 def login_user(
@@ -341,119 +276,197 @@ def login_user(
     password: str,
 ):
     """
-    Login user through FastAPI.
+    Login user.
 
-    Supports common FastAPI login response formats.
+    Supports JSON login and OAuth-style form login.
     """
 
-    username = str(username).strip()
+    username = str(
+        username
+    ).strip()
 
     if not username or not password:
         return None
 
-    # ------------------------------------------------------
-    # Primary JSON login
-    # ------------------------------------------------------
 
-    payload = {
-        "username": username,
-        "password": password,
-    }
-
-    result = post(
-        "/auth/login",
-        payload,
+    url = (
+        f"{BASE_URL}/auth/login"
     )
 
+
     # ------------------------------------------------------
-    # Alternative endpoint
+    # JSON request
     # ------------------------------------------------------
 
-    if result is None:
+    try:
 
-        result = post(
-            "/login",
-            payload,
+        response = requests.post(
+            url,
+            json={
+                "username": username,
+                "password": password,
+            },
+            timeout=TIMEOUT,
         )
 
-    if result is None:
+        if response.ok:
 
-        result = post(
-            "/users/login",
-            payload,
-        )
-
-    if result is None:
-        return None
-
-    # ------------------------------------------------------
-    # Save authentication
-    # ------------------------------------------------------
-
-    if isinstance(result, dict):
-
-        token = (
-            result.get("access_token")
-            or result.get("token")
-        )
-
-        if token:
-
-            st.session_state["access_token"] = str(
-                token
+            result = _read_response(
+                response
             )
 
-            st.session_state["token"] = str(
-                token
+            _store_login(
+                result
             )
 
-        user = result.get("user")
+            return result
 
-        if isinstance(user, dict):
+    except requests.RequestException:
+        pass
 
-            st.session_state["user"] = user
 
-            if user.get("id") is not None:
-                st.session_state["user_id"] = user.get(
-                    "id"
-                )
+    # ------------------------------------------------------
+    # OAuth2 form request
+    # ------------------------------------------------------
 
-            if user.get("username"):
-                st.session_state["username"] = user.get(
-                    "username"
-                )
+    try:
 
-            if user.get("role"):
-                st.session_state["role"] = user.get(
-                    "role"
-                )
+        response = requests.post(
+            url,
+            data={
+                "username": username,
+                "password": password,
+            },
+            timeout=TIMEOUT,
+        )
 
-        if result.get("user_id") is not None:
-            st.session_state["user_id"] = result.get(
+        if response.ok:
+
+            result = _read_response(
+                response
+            )
+
+            _store_login(
+                result
+            )
+
+            return result
+
+    except requests.RequestException:
+        pass
+
+
+    return None
+
+
+def _store_login(
+    result,
+):
+    """
+    Store authentication information.
+    """
+
+    if not isinstance(
+        result,
+        dict,
+    ):
+        return
+
+
+    token = (
+        result.get(
+            "access_token"
+        )
+        or result.get(
+            "token"
+        )
+    )
+
+
+    if token:
+
+        st.session_state[
+            "access_token"
+        ] = token
+
+        st.session_state[
+            "token"
+        ] = token
+
+
+    user = result.get(
+        "user"
+    )
+
+
+    if isinstance(
+        user,
+        dict,
+    ):
+
+        st.session_state[
+            "user"
+        ] = user
+
+
+        if user.get("id") is not None:
+
+            st.session_state[
                 "user_id"
-            )
+            ] = user.get("id")
 
-        if result.get("username"):
-            st.session_state["username"] = result.get(
+
+        if user.get("username"):
+
+            st.session_state[
+                "username"
+            ] = user.get(
                 "username"
             )
 
-        if result.get("role"):
-            st.session_state["role"] = result.get(
+
+        if user.get("role"):
+
+            st.session_state[
+                "role"
+            ] = user.get(
                 "role"
             )
 
-        st.session_state["logged_in"] = True
 
-    return result
+    if result.get(
+        "username"
+    ):
+
+        st.session_state[
+            "username"
+        ] = result.get(
+            "username"
+        )
+
+
+    if result.get(
+        "role"
+    ):
+
+        st.session_state[
+            "role"
+        ] = result.get(
+            "role"
+        )
+
+
+    st.session_state[
+        "logged_in"
+    ] = True
 
 
 def logout_user():
     """
-    Clear frontend authentication state.
+    Clear login state.
     """
 
-    keys = [
+    for key in [
         "access_token",
         "token",
         "user",
@@ -461,12 +474,12 @@ def logout_user():
         "username",
         "role",
         "logged_in",
-    ]
+    ]:
 
-    for key in keys:
-
-        if key in st.session_state:
-            del st.session_state[key]
+        st.session_state.pop(
+            key,
+            None,
+        )
 
     return True
 
@@ -477,52 +490,39 @@ def logout_user():
 
 def predict_patient(
     patient_name: str,
-    patient_age: int,
-    patient_gender: str,
-    values: List[float],
+    age: int,
+    gender: str,
+    features: List[float],
 ):
     """
-    Submit Parkinson prediction.
-
-    The backend may expect either:
-        - features
-        - measurements
-        - voice_features
-
-    The primary payload uses features.
+    Submit a Parkinson prediction.
     """
 
     if not patient_name:
         return None
 
-    if not isinstance(values, list):
+    if not isinstance(
+        features,
+        list,
+    ):
         return None
 
-    if len(values) != 22:
+    if len(features) != 22:
         return None
+
 
     payload = {
         "patient_name": patient_name,
-        "age": patient_age,
-        "gender": patient_gender,
-        "features": values,
+        "age": int(age),
+        "gender": gender,
+        "features": features,
     }
 
-    result = post(
+
+    return post(
         "/prediction/predict",
         payload,
     )
-
-    if result is None:
-
-        payload["voice_features"] = values
-
-        result = post(
-            "/predict",
-            payload,
-        )
-
-    return result
 
 
 # ==========================================================
@@ -538,29 +538,64 @@ def get_patient_history():
         "/prediction/history"
     )
 
+
     if result is None:
         return None
 
-    if isinstance(result, list):
+
+    if isinstance(
+        result,
+        list,
+    ):
         return result
 
-    if isinstance(result, dict):
+
+    if isinstance(
+        result,
+        dict,
+    ):
 
         return (
-            result.get("history")
-            or result.get("patients")
-            or result.get("predictions")
-            or result.get("records")
+            result.get(
+                "history"
+            )
+            or result.get(
+                "patients"
+            )
+            or result.get(
+                "predictions"
+            )
+            or result.get(
+                "records"
+            )
+            or result.get(
+                "data"
+            )
             or []
         )
+
 
     return []
 
 
-# Compatibility alias
-
 def get_prediction_history():
+    """
+    Compatibility alias.
+    """
+
     return get_patient_history()
+
+
+def delete_prediction(
+    prediction_id: int,
+):
+    """
+    Delete prediction.
+    """
+
+    return delete(
+        f"/prediction/{prediction_id}"
+    )
 
 
 # ==========================================================
@@ -569,52 +604,57 @@ def get_prediction_history():
 
 def get_patients():
     """
-    Get all patients.
+    Get patients.
     """
 
     result = get(
         "/patients"
     )
 
-    if isinstance(result, list):
+
+    if result is None:
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
         return result
 
-    if isinstance(result, dict):
+
+    if isinstance(
+        result,
+        dict,
+    ):
 
         return (
-            result.get("patients")
-            or result.get("data")
-            or result.get("records")
+            result.get(
+                "patients"
+            )
+            or result.get(
+                "data"
+            )
+            or result.get(
+                "records"
+            )
             or []
         )
+
 
     return []
 
 
-def get_patient(
+def delete_patient(
     patient_id: int,
 ):
     """
-    Get one patient.
+    Delete patient.
     """
 
-    return get(
+    return delete(
         f"/patients/{patient_id}"
     )
-
-
-def delete_patient(
-    patient_id: int,
-) -> bool:
-    """
-    Delete a patient.
-    """
-
-    result = delete(
-        f"/patients/{patient_id}"
-    )
-
-    return result is not None
 
 
 # ==========================================================
@@ -630,45 +670,69 @@ def get_reports():
         "/reports"
     )
 
-    if isinstance(result, list):
+
+    if result is None:
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
         return result
 
-    if isinstance(result, dict):
+
+    if isinstance(
+        result,
+        dict,
+    ):
 
         return (
-            result.get("reports")
-            or result.get("data")
-            or result.get("records")
+            result.get(
+                "reports"
+            )
+            or result.get(
+                "data"
+            )
+            or result.get(
+                "records"
+            )
             or []
         )
+
 
     return []
 
 
-def get_report(
+def download_report(
     report_id: int,
 ):
     """
-    Get a single report.
+    Download report PDF.
     """
 
-    return get(
-        f"/reports/{report_id}"
+    url = (
+        f"{BASE_URL}"
+        f"/reports/{report_id}/download"
     )
 
 
-def delete_report(
-    report_id: int,
-) -> bool:
-    """
-    Delete a report.
-    """
+    try:
 
-    result = delete(
-        f"/reports/{report_id}"
-    )
+        response = requests.get(
+            url,
+            headers=_headers(),
+            timeout=TIMEOUT,
+        )
 
-    return result is not None
+        if not response.ok:
+            return None
+
+        return response.content
+
+    except requests.RequestException:
+
+        return None
 
 
 # ==========================================================
@@ -677,27 +741,196 @@ def delete_report(
 
 def get_analytics():
     """
-    Get analytics dashboard data.
+    Get analytics.
     """
 
     result = get(
         "/analytics"
     )
 
-    if result is None:
 
-        result = get(
-            "/analytics/dashboard"
-        )
-
-    if isinstance(result, dict):
+    if isinstance(
+        result,
+        dict,
+    ):
         return result
+
 
     return None
 
 
 # ==========================================================
-# Admin Dashboard
+# AI Assistant
+# ==========================================================
+
+def ask_ai_assistant(
+    question: str,
+):
+    """
+    Ask the AI Health Assistant.
+    """
+
+    if question is None:
+        return None
+
+
+    question = str(
+        question
+    ).strip()
+
+
+    if not question:
+
+        return {
+            "response": ""
+        }
+
+
+    payload = {
+        "question": question,
+        "message": question,
+    }
+
+
+    result = post(
+        "/chatbot/",
+        payload,
+    )
+
+
+    if result is None:
+
+        result = post(
+            "/chatbot",
+            payload,
+        )
+
+
+    if result is None:
+        return None
+
+
+    # Backend returned plain text.
+    if isinstance(
+        result,
+        str,
+    ):
+
+        return {
+            "response": result
+        }
+
+
+    # Backend returned JSON.
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        answer = (
+            result.get(
+                "response"
+            )
+            or result.get(
+                "answer"
+            )
+            or result.get(
+                "message"
+            )
+            or result.get(
+                "reply"
+            )
+        )
+
+
+        if answer is not None:
+
+            return {
+                **result,
+                "response": str(
+                    answer
+                ),
+            }
+
+
+        return {
+            **result,
+            "response": str(
+                result
+            ),
+        }
+
+
+    return {
+        "response": str(
+            result
+        )
+    }
+
+
+def get_chatbot_suggestions():
+    """
+    Get AI Assistant suggested questions.
+    """
+
+    fallback = [
+        "What is Parkinson's Disease?",
+        "What are the early symptoms?",
+        "What causes hand tremors?",
+        "How is Parkinson's diagnosed?",
+        "Is Parkinson's curable?",
+        "Which exercises are beneficial?",
+        "What foods are recommended?",
+        "How can stress be reduced?",
+        "What is Bradykinesia?",
+        "What are voice disorders?",
+    ]
+
+
+    result = get(
+        "/chatbot/suggestions"
+    )
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        suggestions = (
+            result.get(
+                "suggestions"
+            )
+            or result.get(
+                "questions"
+            )
+            or result.get(
+                "data"
+            )
+        )
+
+
+        if isinstance(
+            suggestions,
+            list,
+        ):
+
+            return suggestions
+
+
+    return fallback
+
+
+# ==========================================================
+# Admin
 # ==========================================================
 
 def get_admin_dashboard():
@@ -709,8 +942,14 @@ def get_admin_dashboard():
         "/admin/dashboard"
     )
 
-    if isinstance(result, dict):
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
         return result
+
 
     return None
 
@@ -724,411 +963,161 @@ def get_users():
         "/users"
     )
 
-    if isinstance(result, list):
+
+    if result is None:
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
         return result
 
-    if isinstance(result, dict):
+
+    if isinstance(
+        result,
+        dict,
+    ):
 
         return (
-            result.get("users")
-            or result.get("data")
-            or result.get("records")
+            result.get(
+                "users"
+            )
+            or result.get(
+                "data"
+            )
+            or result.get(
+                "records"
+            )
             or []
         )
+
 
     return []
 
 
-def get_user(
+def delete_user(
     user_id: int,
 ):
     """
-    Get a single user.
+    Delete user.
     """
 
-    return get(
+    return delete(
         f"/users/{user_id}"
     )
-
-
-def delete_user(
-    user_id: int,
-) -> bool:
-    """
-    Delete a user.
-    """
-
-    result = delete(
-        f"/users/{user_id}"
-    )
-
-    return result is not None
 
 
 # ==========================================================
-# User Settings
+# Settings
 # ==========================================================
 
 def get_user_settings():
     """
-    Get current user's settings/profile.
+    Get current user settings.
     """
 
     result = get(
-        "/users/me"
+        "/settings"
     )
 
-    if result is None:
 
-        result = get(
-            "/users/settings"
-        )
+    if isinstance(
+        result,
+        dict,
+    ):
 
-    if result is None:
-
-        result = get(
-            "/settings"
-        )
-
-    if isinstance(result, dict):
         return result
+
 
     return None
 
 
 def update_user_settings(
-    settings: Dict[str, Any],
+    data: Dict[str, Any],
 ):
     """
-    Update current user's settings/profile.
+    Update current user settings.
     """
 
-    if not isinstance(settings, dict):
+    if not isinstance(
+        data,
+        dict,
+    ):
+
         return None
 
-    result = put(
-        "/users/me",
-        settings,
+
+    return put(
+        "/settings",
+        data,
     )
-
-    if result is None:
-
-        result = put(
-            "/users/settings",
-            settings,
-        )
-
-    if result is None:
-
-        result = put(
-            "/settings",
-            settings,
-        )
-
-    return result
 
 
 def change_password(
     current_password: str,
     new_password: str,
-) -> bool:
-    """
-    Change current user's password.
-    """
-
-    if not current_password or not new_password:
-        return False
-
-    payload = {
-        "current_password": current_password,
-        "new_password": new_password,
-    }
-
-    result = post(
-        "/auth/change-password",
-        payload,
-    )
-
-    if result is None:
-
-        result = post(
-            "/users/change-password",
-            payload,
-        )
-
-    if result is None:
-
-        result = post(
-            "/change-password",
-            payload,
-        )
-
-    return result is not None
-
-
-# ==========================================================
-# AI Health Assistant
-# ==========================================================
-
-def ask_ai_assistant(
-    question: str,
 ):
     """
-    Send a question to the FastAPI AI Assistant.
-
-    Always normalizes a plain string response into:
-
-        {
-            "response": "..."
-        }
-
-    This prevents:
-        AttributeError:
-        'str' object has no attribute 'get'
+    Change password.
     """
 
-    if question is None:
-        return None
+    if not current_password:
+        return False
 
-    question = str(
-        question
-    ).strip()
+    if not new_password:
+        return False
 
-    if not question:
-        return {
-            "response": ""
-        }
 
     payload = {
-        "question": question,
-        "message": question,
+        "current_password":
+            current_password,
+
+        "new_password":
+            new_password,
     }
 
-    # ------------------------------------------------------
-    # Primary endpoint
-    # ------------------------------------------------------
 
     result = post(
-        "/chatbot",
+        "/change-password",
         payload,
     )
 
-    # ------------------------------------------------------
-    # Alternative endpoint
-    # ------------------------------------------------------
 
-    if result is None:
-
-        result = post(
-            "/chatbot/",
-            payload,
-        )
-
-    # ------------------------------------------------------
-    # Alternative AI endpoint
-    # ------------------------------------------------------
-
-    if result is None:
-
-        result = post(
-            "/ai/assistant",
-            payload,
-        )
-
-    if result is None:
-        return None
-
-    # ------------------------------------------------------
-    # Plain text response
-    # ------------------------------------------------------
-
-    if isinstance(result, str):
-
-        return {
-            "response": result
-        }
-
-    # ------------------------------------------------------
-    # JSON response
-    # ------------------------------------------------------
-
-    if isinstance(result, dict):
-
-        answer = (
-            result.get("response")
-            or result.get("answer")
-            or result.get("message")
-            or result.get("reply")
-        )
-
-        if answer is not None:
-
-            return {
-                **result,
-                "response": str(answer),
-            }
-
-        return {
-            **result,
-            "response": str(result),
-        }
-
-    # ------------------------------------------------------
-    # Other response types
-    # ------------------------------------------------------
-
-    return {
-        "response": str(result)
-    }
-
-
-def get_chatbot_suggestions():
-    """
-    Get suggested questions for the AI Assistant.
-
-    Uses the backend when available and falls back
-    to local suggestions.
-    """
-
-    fallback = [
-        "What is Parkinson's Disease?",
-        "What are the early symptoms of Parkinson's?",
-        "What causes hand tremors?",
-        "How is Parkinson's diagnosed?",
-        "Is Parkinson's disease curable?",
-        "Which exercises are beneficial?",
-        "What foods are recommended?",
-        "How can stress be reduced?",
-        "What is Bradykinesia?",
-        "What are common voice disorders in Parkinson's?",
-    ]
-
-    result = get(
-        "/chatbot/suggestions"
-    )
-
-    if isinstance(result, list):
-
-        return result
-
-    if isinstance(result, dict):
-
-        suggestions = (
-            result.get("suggestions")
-            or result.get("questions")
-            or result.get("data")
-        )
-
-        if isinstance(suggestions, list):
-            return suggestions
-
-    return fallback
+    return result is not None
 
 
 # ==========================================================
 # Backend Health
 # ==========================================================
 
-def check_backend_health() -> bool:
+def check_backend():
     """
-    Check whether the FastAPI backend is reachable.
+    Check FastAPI backend.
     """
 
-    result = get(
-        "/health"
-    )
+    try:
 
-    if result is not None:
-        return True
+        response = requests.get(
+            f"{BASE_URL}/health",
+            timeout=15,
+        )
 
-    result = get(
-        "/"
-    )
+        return (
+            response.status_code
+            == 200
+        )
 
-    return result is not None
+    except requests.RequestException:
 
-
-# Compatibility alias
-
-def health_check():
-    return check_backend_health()
+        return False
 
 
-# ==========================================================
-# Utility
-# ==========================================================
-
-def get_api_url() -> str:
+def get_api_url():
     """
-    Return configured API URL.
+    Return backend URL.
     """
 
     return BASE_URL
-
-
-def get_last_api_error() -> Optional[str]:
-    """
-    Return last API error stored in session.
-    """
-
-    return st.session_state.get(
-        "last_api_error"
-    )
-
-
-# ==========================================================
-# Public API
-# ==========================================================
-
-__all__ = [
-    # Generic
-    "get",
-    "post",
-    "put",
-    "delete",
-
-    # Authentication
-    "login_user",
-    "logout_user",
-
-    # Prediction
-    "predict_patient",
-    "get_patient_history",
-    "get_prediction_history",
-
-    # Patients
-    "get_patients",
-    "get_patient",
-    "delete_patient",
-
-    # Reports
-    "get_reports",
-    "get_report",
-    "delete_report",
-
-    # Analytics
-    "get_analytics",
-
-    # Admin
-    "get_admin_dashboard",
-    "get_users",
-    "get_user",
-    "delete_user",
-
-    # Settings
-    "get_user_settings",
-    "update_user_settings",
-    "change_password",
-
-    # AI
-    "ask_ai_assistant",
-    "get_chatbot_suggestions",
-
-    # Health
-    "check_backend_health",
-    "health_check",
-
-    # Utility
-    "get_api_url",
-    "get_last_api_error",
-]
