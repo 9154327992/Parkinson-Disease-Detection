@@ -2,7 +2,7 @@ import requests
 
 
 # ==========================================================
-# Configuration
+# API Configuration
 # ==========================================================
 
 API_BASE_URL = (
@@ -10,33 +10,50 @@ API_BASE_URL = (
 )
 
 
+DEFAULT_TIMEOUT = 60
+
+
 # ==========================================================
-# Session Token Helper
+# Streamlit Session Helpers
 # ==========================================================
+
+def _get_session_state():
+    """
+    Safely return Streamlit session state.
+    """
+
+    try:
+        import streamlit as st
+
+        return st.session_state
+
+    except Exception:
+        return None
+
 
 def _get_token():
     """
     Get JWT access token from Streamlit session.
     """
 
-    try:
-        import streamlit as st
+    session = _get_session_state()
 
-        return st.session_state.get(
-            "access_token"
-        )
-
-    except Exception:
+    if session is None:
         return None
+
+    return (
+        session.get("access_token")
+        or session.get("token")
+    )
 
 
 # ==========================================================
-# Headers
+# HTTP Headers
 # ==========================================================
 
 def _headers():
     """
-    Build request headers.
+    Build common HTTP headers.
     """
 
     headers = {
@@ -46,21 +63,39 @@ def _headers():
     token = _get_token()
 
     if token:
-        headers["Authorization"] = (
-            f"Bearer {token}"
-        )
+        headers[
+            "Authorization"
+        ] = f"Bearer {token}"
 
     return headers
 
 
 # ==========================================================
-# GET
+# URL Helper
+# ==========================================================
+
+def _url(endpoint: str) -> str:
+    """
+    Build complete backend URL.
+    """
+
+    if not endpoint.startswith("/"):
+        endpoint = "/" + endpoint
+
+    return (
+        API_BASE_URL.rstrip("/")
+        + endpoint
+    )
+
+
+# ==========================================================
+# Generic GET
 # ==========================================================
 
 def get(
-    endpoint,
+    endpoint: str,
     params=None,
-    timeout=60,
+    timeout: int = DEFAULT_TIMEOUT,
 ):
     """
     Generic GET request.
@@ -72,7 +107,7 @@ def get(
     try:
 
         response = requests.get(
-            f"{API_BASE_URL}{endpoint}",
+            _url(endpoint),
             params=params,
             headers=_headers(),
             timeout=timeout,
@@ -80,12 +115,19 @@ def get(
 
         response.raise_for_status()
 
-        content_type = response.headers.get(
-            "content-type",
-            "",
-        ).lower()
+        content_type = (
+            response.headers
+            .get(
+                "content-type",
+                "",
+            )
+            .lower()
+        )
 
-        if "application/json" in content_type:
+        if (
+            "application/json"
+            in content_type
+        ):
 
             return response.json()
 
@@ -101,37 +143,72 @@ def get(
 
 
 # ==========================================================
-# POST
+# Generic POST
 # ==========================================================
 
 def post(
-    endpoint,
+    endpoint: str,
     data=None,
-    timeout=60,
+    timeout: int = DEFAULT_TIMEOUT,
+    form_data=None,
 ):
     """
     Generic POST request.
+
+    JSON:
+        post("/endpoint", {"key": "value"})
+
+    Form:
+        post(
+            "/auth/login",
+            form_data={
+                "username": "...",
+                "password": "..."
+            }
+        )
     """
 
     try:
 
+        kwargs = {
+            "headers": _headers(),
+            "timeout": timeout,
+        }
+
+        if form_data is not None:
+
+            kwargs["data"] = form_data
+
+        else:
+
+            kwargs["json"] = data
+
         response = requests.post(
-            f"{API_BASE_URL}{endpoint}",
-            json=data,
-            headers=_headers(),
-            timeout=timeout,
+            _url(endpoint),
+            **kwargs,
         )
 
         response.raise_for_status()
 
-        content_type = response.headers.get(
-            "content-type",
-            "",
-        ).lower()
+        content_type = (
+            response.headers
+            .get(
+                "content-type",
+                "",
+            )
+            .lower()
+        )
 
-        if "application/json" in content_type:
+        if (
+            "application/json"
+            in content_type
+        ):
 
             return response.json()
+
+        if not response.content:
+
+            return True
 
         return response.content
 
@@ -145,13 +222,13 @@ def post(
 
 
 # ==========================================================
-# PUT
+# Generic PUT
 # ==========================================================
 
 def put(
-    endpoint,
+    endpoint: str,
     data=None,
-    timeout=60,
+    timeout: int = DEFAULT_TIMEOUT,
 ):
     """
     Generic PUT request.
@@ -160,7 +237,7 @@ def put(
     try:
 
         response = requests.put(
-            f"{API_BASE_URL}{endpoint}",
+            _url(endpoint),
             json=data,
             headers=_headers(),
             timeout=timeout,
@@ -168,14 +245,25 @@ def put(
 
         response.raise_for_status()
 
-        content_type = response.headers.get(
-            "content-type",
-            "",
-        ).lower()
+        content_type = (
+            response.headers
+            .get(
+                "content-type",
+                "",
+            )
+            .lower()
+        )
 
-        if "application/json" in content_type:
+        if (
+            "application/json"
+            in content_type
+        ):
 
             return response.json()
+
+        if not response.content:
+
+            return True
 
         return response.content
 
@@ -189,12 +277,12 @@ def put(
 
 
 # ==========================================================
-# DELETE
+# Generic DELETE
 # ==========================================================
 
 def delete(
-    endpoint,
-    timeout=60,
+    endpoint: str,
+    timeout: int = DEFAULT_TIMEOUT,
 ):
     """
     Generic DELETE request.
@@ -203,7 +291,7 @@ def delete(
     try:
 
         response = requests.delete(
-            f"{API_BASE_URL}{endpoint}",
+            _url(endpoint),
             headers=_headers(),
             timeout=timeout,
         )
@@ -211,14 +299,22 @@ def delete(
         response.raise_for_status()
 
         if not response.content:
+
             return True
 
-        content_type = response.headers.get(
-            "content-type",
-            "",
-        ).lower()
+        content_type = (
+            response.headers
+            .get(
+                "content-type",
+                "",
+            )
+            .lower()
+        )
 
-        if "application/json" in content_type:
+        if (
+            "application/json"
+            in content_type
+        ):
 
             return response.json()
 
@@ -234,46 +330,48 @@ def delete(
 
 
 # ==========================================================
-# Compatibility Helpers
+# Compatibility HTTP Helpers
 # ==========================================================
 
 def _get(
-    endpoint,
-    timeout=60,
+    endpoint: str,
+    params=None,
+    timeout: int = DEFAULT_TIMEOUT,
 ):
     return get(
         endpoint,
+        params=params,
         timeout=timeout,
     )
 
 
 def _post(
-    endpoint,
+    endpoint: str,
     data=None,
-    timeout=60,
+    timeout: int = DEFAULT_TIMEOUT,
 ):
     return post(
         endpoint,
-        data,
+        data=data,
         timeout=timeout,
     )
 
 
 def _put(
-    endpoint,
+    endpoint: str,
     data=None,
-    timeout=60,
+    timeout: int = DEFAULT_TIMEOUT,
 ):
     return put(
         endpoint,
-        data,
+        data=data,
         timeout=timeout,
     )
 
 
 def _delete(
-    endpoint,
-    timeout=60,
+    endpoint: str,
+    timeout: int = DEFAULT_TIMEOUT,
 ):
     return delete(
         endpoint,
@@ -286,19 +384,54 @@ def _delete(
 # ==========================================================
 
 def login_user(
-    username,
-    password,
+    username: str,
+    password: str,
 ):
     """
-    Login through FastAPI.
+    Login user.
+
+    FastAPI authentication commonly expects
+    application/x-www-form-urlencoded data.
     """
 
-    return post(
-        "/auth/login",
-        {
-            "username": username,
-            "password": password,
-        },
+    try:
+
+        response = requests.post(
+            _url("/auth/login"),
+            data={
+                "username": username,
+                "password": password,
+            },
+            headers={
+                "Accept": "application/json",
+            },
+            timeout=30,
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.RequestException as e:
+
+        print(
+            f"Login failed: {e}"
+        )
+
+        return None
+
+
+def login(
+    username: str,
+    password: str,
+):
+    """
+    Compatibility alias.
+    """
+
+    return login_user(
+        username,
+        password,
     )
 
 
@@ -314,43 +447,38 @@ def get_current_user():
 
 def logout_user():
     """
-    Clear local login session.
+    Clear local authentication session.
     """
 
-    try:
+    session = _get_session_state()
 
-        import streamlit as st
-
-        st.session_state.pop(
-            "access_token",
-            None,
-        )
-
-        st.session_state.pop(
-            "username",
-            None,
-        )
-
-        st.session_state.pop(
-            "role",
-            None,
-        )
-
-        st.session_state.pop(
-            "email",
-            None,
-        )
-
-        st.session_state.pop(
-            "full_name",
-            None,
-        )
+    if session is None:
 
         return True
 
-    except Exception:
+    keys = [
+        "access_token",
+        "token",
+        "username",
+        "email",
+        "full_name",
+        "role",
+        "user",
+        "user_id",
+    ]
 
-        return False
+    for key in keys:
+
+        try:
+            session.pop(
+                key,
+                None,
+            )
+
+        except Exception:
+            pass
+
+    return True
 
 
 # ==========================================================
@@ -358,86 +486,26 @@ def logout_user():
 # ==========================================================
 
 def predict_patient(
-    *args,
-    **kwargs,
+    patient_name,
+    age,
+    gender,
+    features,
 ):
     """
-    Send Parkinson prediction request.
+    Run Parkinson prediction.
 
-    Supports:
-
-        predict_patient(values)
-
-    and:
-
-        predict_patient(
-            patient_name,
-            age,
-            gender,
-            values
-        )
+    Expected:
+        patient_name
+        age
+        gender
+        22 voice features
     """
-
-    patient_name = kwargs.get(
-        "patient_name",
-        "Patient",
-    )
-
-    age = kwargs.get(
-        "age",
-        kwargs.get(
-            "patient_age",
-            30,
-        ),
-    )
-
-    gender = kwargs.get(
-        "gender",
-        kwargs.get(
-            "patient_gender",
-            "Other",
-        ),
-    )
-
-    features = kwargs.get(
-        "features"
-    )
-
-    # ------------------------------------------------------
-    # Positional arguments
-    # ------------------------------------------------------
-
-    if len(args) == 1:
-
-        features = args[0]
-
-    elif len(args) >= 4:
-
-        patient_name = args[0]
-        age = args[1]
-        gender = args[2]
-        features = args[3]
-
-    elif len(args) == 3:
-
-        patient_name = args[0]
-        age = args[1]
-        features = args[2]
-
-    elif len(args) == 2:
-
-        patient_name = args[0]
-        features = args[1]
-
-    # ------------------------------------------------------
-    # Validate features
-    # ------------------------------------------------------
 
     if features is None:
 
         print(
             "Prediction failed: "
-            "No feature values supplied."
+            "features are missing."
         )
 
         return None
@@ -456,20 +524,22 @@ def predict_patient(
 
         print(
             "Prediction failed: "
-            "Invalid feature values."
+            "invalid feature values."
         )
 
         return None
+
 
     if len(features) != 22:
 
         print(
             "Prediction failed: "
-            f"Expected 22 features, "
+            f"expected 22 features, "
             f"received {len(features)}."
         )
 
         return None
+
 
     payload = {
         "patient_name": str(
@@ -482,74 +552,93 @@ def predict_patient(
         "features": features,
     }
 
+
     result = post(
         "/prediction/predict",
-        payload,
+        data=payload,
         timeout=60,
     )
+
 
     if isinstance(
         result,
         dict,
     ):
 
-        # Backend returns "prediction".
-        # Frontend may use "diagnosis".
-        if "diagnosis" not in result:
+        # --------------------------------------------------
+        # Normalize backend response
+        # --------------------------------------------------
 
-            result["diagnosis"] = result.get(
-                "prediction",
-                "Unknown",
+        if (
+            "diagnosis"
+            not in result
+            and "prediction"
+            in result
+        ):
+
+            result["diagnosis"] = (
+                result["prediction"]
             )
+
+
+        if (
+            "prediction"
+            not in result
+            and "diagnosis"
+            in result
+        ):
+
+            result["prediction"] = (
+                result["diagnosis"]
+            )
+
 
     return result
 
 
-def predict(data):
+def predict(
+    data,
+):
     """
-    Compatibility prediction function.
+    Generic prediction compatibility helper.
     """
 
     return post(
         "/prediction/predict",
-        data,
+        data=data,
         timeout=60,
     )
 
 
-def get_prediction(
-    prediction_id,
-):
-    return get(
-        f"/prediction/{prediction_id}"
-    )
+# ==========================================================
+# Prediction History
+# ==========================================================
 
-
-def get_prediction_history(
-    patient_id=1,
-):
+def get_patient_history():
     """
-    Get prediction history.
+    Get prediction/patient history.
+
+    Backend endpoint:
+        GET /prediction/history
     """
 
     result = get(
-        f"/prediction/history/{patient_id}"
+        "/prediction/history"
     )
 
-    if result is None:
-
-        result = get(
-            "/prediction/history"
-        )
 
     if result is None:
+
         return None
+
 
     if isinstance(
         result,
         list,
     ):
+
         return result
+
 
     if isinstance(
         result,
@@ -559,28 +648,42 @@ def get_prediction_history(
         return (
             result.get("history")
             or result.get("predictions")
+            or result.get("patients")
             or result.get("records")
             or []
         )
 
+
     return []
 
 
-def get_prediction_statistics():
-    return get(
-        "/prediction/statistics"
-    )
+def get_prediction_history():
+    """
+    Compatibility alias for prediction history.
+    """
+
+    return get_patient_history()
 
 
-def get_model_info():
+def get_prediction(
+    prediction_id: int,
+):
+    """
+    Get one prediction.
+    """
+
     return get(
-        "/prediction/model-info"
+        f"/prediction/{prediction_id}"
     )
 
 
 def delete_prediction(
-    prediction_id,
+    prediction_id: int,
 ):
+    """
+    Delete prediction.
+    """
+
     return delete(
         f"/prediction/{prediction_id}"
     )
@@ -591,14 +694,50 @@ def delete_prediction(
 # ==========================================================
 
 def get_patients():
-    return get(
+    """
+    Get all patients.
+    """
+
+    result = get(
         "/patients"
     )
 
 
+    if result is None:
+
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("patients")
+            or result.get("data")
+            or []
+        )
+
+
+    return []
+
+
 def get_patient(
-    patient_id,
+    patient_id: int,
 ):
+    """
+    Get one patient.
+    """
+
     return get(
         f"/patients/{patient_id}"
     )
@@ -607,28 +746,43 @@ def get_patient(
 def create_patient(
     data,
 ):
+    """
+    Create patient.
+    """
+
     return post(
         "/patients",
-        data,
+        data=data,
     )
 
 
 def update_patient(
-    patient_id,
+    patient_id: int,
     data,
 ):
+    """
+    Update patient.
+    """
+
     return put(
         f"/patients/{patient_id}",
-        data,
+        data=data,
     )
 
 
 def delete_patient(
-    patient_id,
+    patient_id: int,
 ):
-    return delete(
+    """
+    Delete patient.
+    """
+
+    # Primary patient endpoint.
+    result = delete(
         f"/patients/{patient_id}"
     )
+
+    return result
 
 
 # ==========================================================
@@ -638,20 +792,34 @@ def delete_patient(
 def get_reports():
     """
     Get all reports.
+
+    Backend:
+        GET /reports
+
+    Backend response:
+        {
+            "total_reports": 1,
+            "reports": [...]
+        }
     """
 
     result = get(
         "/reports"
     )
 
+
     if result is None:
+
         return None
+
 
     if isinstance(
         result,
         list,
     ):
+
         return result
+
 
     if isinstance(
         result,
@@ -663,69 +831,85 @@ def get_reports():
             [],
         )
 
+
     return []
 
 
 def get_report(
-    report_id,
+    report_id: int,
 ):
+    """
+    Get detailed report.
+    """
+
     return get(
         f"/reports/{report_id}"
     )
 
 
-def download_report(
-    report_id,
+def get_patient_reports(
+    patient_id: int,
 ):
     """
-    Download report PDF.
-
-    If backend returns JSON, that JSON is returned.
-    If backend returns PDF, raw PDF bytes are returned.
+    Get reports for one patient.
     """
 
-    try:
+    result = get(
+        f"/reports/patient/{patient_id}"
+    )
 
-        response = requests.get(
-            f"{API_BASE_URL}/reports/"
-            f"{report_id}/download",
 
-            headers=_headers(),
-
-            timeout=60,
-        )
-
-        response.raise_for_status()
-
-        content_type = response.headers.get(
-            "content-type",
-            "",
-        ).lower()
-
-        if "application/pdf" in content_type:
-
-            return response.content
-
-        try:
-
-            return response.json()
-
-        except ValueError:
-
-            return response.content
-
-    except requests.RequestException as e:
-
-        print(
-            f"Report download failed: {e}"
-        )
+    if result is None:
 
         return None
 
 
-def delete_report(
-    report_id,
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result.get(
+            "reports",
+            [],
+        )
+
+
+    return []
+
+
+def download_report(
+    report_id: int,
 ):
+    """
+    Get report download information.
+
+    IMPORTANT:
+    The current backend returns metadata rather than
+    actual PDF bytes. The backend report service currently
+    returns filename/download_url/file_type/file_size.
+    """
+
+    return get(
+        f"/reports/{report_id}/download"
+    )
+
+
+def delete_report(
+    report_id: int,
+):
+    """
+    Delete report.
+    """
+
     return delete(
         f"/reports/{report_id}"
     )
@@ -736,15 +920,45 @@ def delete_report(
 # ==========================================================
 
 def get_analytics():
-    return get(
+    """
+    Get analytics dashboard data.
+    """
+
+    result = get(
         "/analytics"
     )
 
 
+    if result is None:
+
+        return None
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return result
+
+
+    return {}
+
+
 def get_analytics_summary():
-    return get(
+    """
+    Compatibility analytics helper.
+    """
+
+    result = get(
         "/analytics/summary"
     )
+
+    if result is None:
+
+        return get_analytics()
+
+    return result
 
 
 # ==========================================================
@@ -752,264 +966,504 @@ def get_analytics_summary():
 # ==========================================================
 
 def get_recommendations():
-    return get(
+    """
+    Get recommendations.
+    """
+
+    result = get(
         "/recommendations"
     )
 
 
+    if result is None:
+
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("recommendations")
+            or result.get("data")
+            or []
+        )
+
+
+    return []
+
+
 def get_patient_recommendations(
-    patient_id,
+    patient_id: int,
 ):
-    return get(
-        f"/recommendations/patient/"
-        f"{patient_id}"
+    """
+    Get recommendations for patient.
+    """
+
+    result = get(
+        f"/recommendations/patient/{patient_id}"
     )
 
 
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("recommendations")
+            or result
+        )
+
+
+    return result
+
+
 # ==========================================================
-# AI Assistant
+# Medication
+# ==========================================================
+
+def get_medications():
+    """
+    Get medication information.
+    """
+
+    result = get(
+        "/medication"
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("medications")
+            or result.get("data")
+            or result
+        )
+
+
+    return result
+
+
+def get_patient_medications(
+    patient_id: int,
+):
+    """
+    Get medication information for a patient.
+    """
+
+    result = get(
+        f"/medication/patient/{patient_id}"
+    )
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("medications")
+            or result.get("data")
+            or result
+        )
+
+
+    return result
+
+
+# ==========================================================
+# AI Assistant / Chatbot
 # ==========================================================
 
 def ask_ai_assistant(
-    question,
+    question: str,
 ):
-    return post(
+    """
+    Send question to AI assistant.
+    """
+
+    payload = {
+        "message": question,
+    }
+
+
+    result = post(
         "/chatbot/",
-        {
-            "message": question,
-        },
+        data=payload,
         timeout=60,
     )
 
 
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        # Normalize possible response keys.
+
+        if "response" in result:
+            return result["response"]
+
+        if "message" in result:
+            return result["message"]
+
+        if "answer" in result:
+            return result["answer"]
+
+
+    return result
+
+
+def ask_chatbot(
+    question: str,
+):
+    """
+    Compatibility alias.
+    """
+
+    return ask_ai_assistant(
+        question
+    )
+
+
 # ==========================================================
-# Admin
+# Admin Dashboard
 # ==========================================================
 
 def get_admin_dashboard():
+    """
+    Get administrator dashboard.
+
+    Backend:
+        GET /admin/dashboard
+    """
+
     return get(
         "/admin/dashboard"
     )
 
 
 def get_users():
-    return get(
+    """
+    Get all users for admin.
+    """
+
+    result = get(
         "/admin/users"
     )
 
 
+    if result is None:
+
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("users")
+            or result.get("data")
+            or []
+        )
+
+
+    return []
+
+
 def get_admin_patients():
-    return get(
+    """
+    Get all patients for admin.
+    """
+
+    result = get(
         "/admin/patients"
     )
 
 
+    if result is None:
+
+        return None
+
+
+    if isinstance(
+        result,
+        list,
+    ):
+
+        return result
+
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get("patients")
+            or result.get("data")
+            or []
+        )
+
+
+    return []
+
+
 def delete_user(
-    user_id,
+    user_id: int,
 ):
+    """
+    Delete admin user.
+
+    Uses admin endpoint.
+    """
+
     return delete(
         f"/admin/users/{user_id}"
     )
 
 
 def delete_admin_patient(
-    patient_id,
+    patient_id: int,
 ):
+    """
+    Delete admin patient.
+    """
+
     return delete(
         f"/admin/patients/{patient_id}"
     )
 
 
 # ==========================================================
-# Settings
+# User Settings
 # ==========================================================
 
 def get_user_settings():
     """
-    Get current frontend user settings.
+    Get current user information.
 
-    Theme and language are intentionally omitted.
+    Theme and language are intentionally NOT included.
     """
 
-    try:
+    session = _get_session_state()
 
-        import streamlit as st
 
-        token = st.session_state.get(
-            "access_token"
-        )
+    username = ""
+    email = ""
+    full_name = ""
+    role = "user"
 
-        username = st.session_state.get(
+
+    if session is not None:
+
+        username = session.get(
             "username",
             "",
         )
 
-        email = st.session_state.get(
+        email = session.get(
             "email",
             "",
         )
 
-        full_name = st.session_state.get(
+        full_name = session.get(
             "full_name",
             "",
         )
 
-        role = st.session_state.get(
+        role = session.get(
             "role",
             "user",
         )
 
-        if token:
 
-            result = get(
-                "/auth/me"
-            )
+    # ------------------------------------------------------
+    # Try backend profile
+    # ------------------------------------------------------
 
-            if isinstance(
-                result,
-                dict,
-            ):
+    backend_user = get_current_user()
 
-                username = result.get(
-                    "username",
-                    username,
-                )
 
-                email = result.get(
-                    "email",
-                    email,
-                )
+    if isinstance(
+        backend_user,
+        dict,
+    ):
 
-                full_name = result.get(
-                    "full_name",
-                    full_name,
-                )
-
-                role = result.get(
-                    "role",
-                    role,
-                )
-
-        return {
-            "username": username,
-            "email": email,
-            "full_name": full_name,
-            "role": role,
-            "api_url": API_BASE_URL,
-        }
-
-    except Exception as e:
-
-        print(
-            f"Settings load failed: {e}"
+        username = backend_user.get(
+            "username",
+            username,
         )
 
-        return None
+        email = backend_user.get(
+            "email",
+            email,
+        )
+
+        full_name = backend_user.get(
+            "full_name",
+            full_name,
+        )
+
+        role = backend_user.get(
+            "role",
+            role,
+        )
+
+
+    return {
+        "username": username,
+        "email": email,
+        "full_name": full_name,
+        "role": role,
+        "api_url": API_BASE_URL,
+    }
 
 
 def update_user_settings(
     data,
 ):
     """
-    Update profile values locally.
+    Update user profile.
 
-    Theme/language are intentionally not handled.
+    The current backend may not expose a dedicated settings
+    endpoint, so profile values are kept in the frontend
+    session unless a supported backend endpoint is available.
     """
 
-    try:
-
-        import streamlit as st
-
-        if "username" in data:
-
-            st.session_state[
-                "username"
-            ] = data["username"]
-
-        if "email" in data:
-
-            st.session_state[
-                "email"
-            ] = data["email"]
-
-        if "full_name" in data:
-
-            st.session_state[
-                "full_name"
-            ] = data["full_name"]
-
-        return True
-
-    except Exception as e:
-
-        print(
-            f"Settings update failed: {e}"
-        )
+    if not isinstance(
+        data,
+        dict,
+    ):
 
         return False
 
+
+    session = _get_session_state()
+
+
+    if session is None:
+
+        return False
+
+
+    # ------------------------------------------------------
+    # Update local session
+    # ------------------------------------------------------
+
+    if "username" in data:
+
+        session[
+            "username"
+        ] = data["username"]
+
+
+    if "email" in data:
+
+        session[
+            "email"
+        ] = data["email"]
+
+
+    if "full_name" in data:
+
+        session[
+            "full_name"
+        ] = data["full_name"]
+
+
+    return True
+
+
+# ==========================================================
+# Change Password
+# ==========================================================
 
 def change_password(
-    current_password,
-    new_password,
+    current_password: str,
+    new_password: str,
 ):
     """
-    Change password using the authenticated API.
+    Change current user's password.
     """
-
-    token = _get_token()
-
-    if not token:
-        return False
 
     if not current_password:
         return False
 
+
     if not new_password:
         return False
 
-    # bcrypt limit
-    if len(
-        new_password.encode(
-            "utf-8"
+
+    # bcrypt maximum password size
+    if (
+        len(
+            new_password.encode(
+                "utf-8"
+            )
         )
-    ) > 72:
+        > 72
+    ):
 
         return False
 
-    try:
 
-        response = requests.post(
-            f"{API_BASE_URL}/auth/"
-            f"change-password",
+    # ------------------------------------------------------
+    # Try expected endpoint
+    # ------------------------------------------------------
 
-            json={
-                "old_password":
-                    current_password,
+    result = post(
+        "/auth/change-password",
+        data={
+            "old_password":
+                current_password,
 
-                "new_password":
-                    new_password,
-            },
+            "new_password":
+                new_password,
+        },
+        timeout=30,
+    )
 
-            headers={
-                "Authorization":
-                    f"Bearer {token}"
-            },
 
-            timeout=30,
-        )
+    return result is not None
 
-        response.raise_for_status()
 
-        return True
+# ==========================================================
+# Model Information
+# ==========================================================
 
-    except requests.RequestException as e:
+def get_model_info():
+    """
+    Get ML model information.
+    """
 
-        print(
-            f"Password change failed: {e}"
-        )
-
-        return False
+    return get(
+        "/prediction/model-info"
+    )
 
 
 # ==========================================================
@@ -1017,6 +1471,50 @@ def change_password(
 # ==========================================================
 
 def health_check():
+    """
+    Check FastAPI backend health.
+    """
+
     return get(
         "/health"
     )
+
+
+def is_backend_available():
+    """
+    Return True when backend responds.
+    """
+
+    result = health_check()
+
+    return (
+        isinstance(
+            result,
+            dict,
+        )
+        and result.get(
+            "status"
+        ) in (
+            "healthy",
+            "success",
+            "ok",
+            "Online",
+        )
+    )
+
+
+# ==========================================================
+# Utility
+# ==========================================================
+
+def get_api_url():
+    """
+    Return configured backend URL.
+    """
+
+    return API_BASE_URL
+
+
+# ==========================================================
+# End of API Client
+# ==========================================================
