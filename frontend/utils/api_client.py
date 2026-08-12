@@ -1,340 +1,374 @@
+from typing import Any, Dict, List, Optional
 import requests
+import streamlit as st
 
 
 # ==========================================================
-# API Configuration
+# Backend Configuration
 # ==========================================================
 
-API_BASE_URL = (
+BASE_URL = (
     "https://parkinson-disease-detection-wced.onrender.com"
 )
 
-DEFAULT_TIMEOUT = 60
+TIMEOUT = 30
 
 
 # ==========================================================
-# Session State
+# Internal Helpers
 # ==========================================================
 
-def _get_session_state():
-    """Safely get Streamlit session state."""
+def _clean_endpoint(endpoint: str) -> str:
+    """
+    Ensure endpoint starts with /.
+    """
 
-    try:
-        import streamlit as st
-        return st.session_state
-    except Exception:
-        return None
-
-
-def _get_token():
-    """Get JWT token from Streamlit session."""
-
-    session = _get_session_state()
-
-    if session is None:
-        return None
-
-    return (
-        session.get("token")
-        or session.get("access_token")
-    )
-
-
-# ==========================================================
-# URL
-# ==========================================================
-
-def _url(endpoint: str) -> str:
+    if not endpoint:
+        return ""
 
     if not endpoint.startswith("/"):
         endpoint = "/" + endpoint
 
-    return (
-        API_BASE_URL.rstrip("/")
-        + endpoint
-    )
+    return endpoint
 
 
-# ==========================================================
-# Headers
-# ==========================================================
+def _get_token() -> Optional[str]:
+    """
+    Get JWT token from Streamlit session.
+    """
 
-def _headers():
+    try:
+        return st.session_state.get(
+            "token"
+        )
+    except Exception:
+        return None
+
+
+def _headers(
+    authenticated: bool = True,
+) -> Dict[str, str]:
+    """
+    Build request headers.
+
+    Adds Bearer token when available.
+    """
 
     headers = {
         "Accept": "application/json",
+        "Content-Type": "application/json",
     }
 
-    token = _get_token()
+    if authenticated:
 
-    if token:
+        token = _get_token()
 
-        headers[
-            "Authorization"
-        ] = f"Bearer {token}"
+        if token:
+
+            headers["Authorization"] = (
+                f"Bearer {token}"
+            )
 
     return headers
 
 
+def _parse_response(
+    response: requests.Response,
+) -> Any:
+    """
+    Safely parse a FastAPI response.
+    """
+
+    try:
+
+        return response.json()
+
+    except ValueError:
+
+        return response.text
+
+
+def _error_message(
+    response: Optional[requests.Response],
+) -> str:
+    """
+    Extract useful API error information.
+    """
+
+    if response is None:
+        return "Unable to connect to backend."
+
+    try:
+
+        data = response.json()
+
+        if isinstance(data, dict):
+
+            detail = data.get(
+                "detail"
+            )
+
+            if detail:
+
+                if isinstance(
+                    detail,
+                    list,
+                ):
+
+                    return "; ".join(
+                        str(item)
+                        for item in detail
+                    )
+
+                return str(detail)
+
+            message = data.get(
+                "message"
+            )
+
+            if message:
+                return str(message)
+
+    except Exception:
+        pass
+
+    if response.text:
+        return response.text
+
+    return (
+        f"Request failed "
+        f"with status {response.status_code}."
+    )
+
+
 # ==========================================================
-# GET
+# Generic GET
 # ==========================================================
 
 def get(
     endpoint: str,
-    params=None,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-    """Generic GET request."""
+    params: Optional[Dict[str, Any]] = None,
+    timeout: int = TIMEOUT,
+    authenticated: bool = True,
+) -> Any:
+    """
+    Generic GET request.
+    """
+
+    endpoint = _clean_endpoint(
+        endpoint
+    )
+
+    url = (
+        f"{BASE_URL}"
+        f"{endpoint}"
+    )
 
     try:
 
         response = requests.get(
-            _url(endpoint),
+            url,
             params=params,
-            headers=_headers(),
+            headers=_headers(
+                authenticated
+            ),
             timeout=timeout,
         )
 
         response.raise_for_status()
 
-        content_type = (
-            response.headers
-            .get(
-                "content-type",
-                "",
-            )
-            .lower()
+        return _parse_response(
+            response
         )
 
-        if "application/json" in content_type:
-
-            return response.json()
-
-        return response.content
-
-    except requests.HTTPError as e:
+    except requests.RequestException as exc:
 
         print(
-            f"GET {endpoint} HTTP error: {e}"
+            f"GET {url} failed: {exc}"
         )
 
         return None
 
-    except requests.RequestException as e:
+    except Exception as exc:
 
         print(
-            f"GET {endpoint} failed: {e}"
+            f"GET {url} unexpected error: {exc}"
         )
 
         return None
 
 
 # ==========================================================
-# POST
+# Generic POST
 # ==========================================================
 
 def post(
     endpoint: str,
-    data=None,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-    """Generic JSON POST request."""
+    data: Optional[Dict[str, Any]] = None,
+    timeout: int = TIMEOUT,
+    authenticated: bool = True,
+) -> Any:
+    """
+    Generic POST request.
+    """
+
+    endpoint = _clean_endpoint(
+        endpoint
+    )
+
+    url = (
+        f"{BASE_URL}"
+        f"{endpoint}"
+    )
+
+    if data is None:
+        data = {}
 
     try:
 
         response = requests.post(
-            _url(endpoint),
+            url,
             json=data,
-            headers=_headers(),
+            headers=_headers(
+                authenticated
+            ),
             timeout=timeout,
         )
 
         response.raise_for_status()
 
-        if not response.content:
-            return True
-
-        content_type = (
-            response.headers
-            .get(
-                "content-type",
-                "",
-            )
-            .lower()
+        return _parse_response(
+            response
         )
 
-        if "application/json" in content_type:
-
-            return response.json()
-
-        return response.content
-
-    except requests.HTTPError as e:
+    except requests.RequestException as exc:
 
         print(
-            f"POST {endpoint} HTTP error: {e}"
+            f"POST {url} failed: {exc}"
         )
 
         return None
 
-    except requests.RequestException as e:
+    except Exception as exc:
 
         print(
-            f"POST {endpoint} failed: {e}"
+            f"POST {url} unexpected error: {exc}"
         )
 
         return None
 
 
 # ==========================================================
-# PUT
+# Generic PUT
 # ==========================================================
 
 def put(
     endpoint: str,
-    data=None,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-    """Generic PUT request."""
+    data: Optional[Dict[str, Any]] = None,
+    timeout: int = TIMEOUT,
+    authenticated: bool = True,
+) -> Any:
+    """
+    Generic PUT request.
+    """
+
+    endpoint = _clean_endpoint(
+        endpoint
+    )
+
+    url = (
+        f"{BASE_URL}"
+        f"{endpoint}"
+    )
+
+    if data is None:
+        data = {}
 
     try:
 
         response = requests.put(
-            _url(endpoint),
+            url,
             json=data,
-            headers=_headers(),
+            headers=_headers(
+                authenticated
+            ),
             timeout=timeout,
         )
 
         response.raise_for_status()
 
-        if not response.content:
-            return True
-
-        content_type = (
-            response.headers
-            .get(
-                "content-type",
-                "",
-            )
-            .lower()
+        return _parse_response(
+            response
         )
 
-        if "application/json" in content_type:
-
-            return response.json()
-
-        return response.content
-
-    except requests.RequestException as e:
+    except requests.RequestException as exc:
 
         print(
-            f"PUT {endpoint} failed: {e}"
+            f"PUT {url} failed: {exc}"
+        )
+
+        return None
+
+    except Exception as exc:
+
+        print(
+            f"PUT {url} unexpected error: {exc}"
         )
 
         return None
 
 
 # ==========================================================
-# DELETE
+# Generic DELETE
 # ==========================================================
 
 def delete(
     endpoint: str,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-    """Generic DELETE request."""
+    timeout: int = TIMEOUT,
+    authenticated: bool = True,
+) -> bool:
+    """
+    Generic DELETE request.
+    """
+
+    endpoint = _clean_endpoint(
+        endpoint
+    )
+
+    url = (
+        f"{BASE_URL}"
+        f"{endpoint}"
+    )
 
     try:
 
         response = requests.delete(
-            _url(endpoint),
-            headers=_headers(),
+            url,
+            headers=_headers(
+                authenticated
+            ),
             timeout=timeout,
         )
 
         response.raise_for_status()
 
-        if not response.content:
-            return True
-
-        content_type = (
-            response.headers
-            .get(
-                "content-type",
-                "",
-            )
-            .lower()
-        )
-
-        if "application/json" in content_type:
-
-            return response.json()
-
         return True
 
-    except requests.RequestException as e:
+    except requests.RequestException as exc:
 
         print(
-            f"DELETE {endpoint} failed: {e}"
+            f"DELETE {url} failed: {exc}"
         )
 
-        return None
+        return False
 
+    except Exception as exc:
 
-# ==========================================================
-# Compatibility HTTP Functions
-# ==========================================================
+        print(
+            f"DELETE {url} unexpected error: {exc}"
+        )
 
-def _get(
-    endpoint: str,
-    params=None,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-
-    return get(
-        endpoint,
-        params=params,
-        timeout=timeout,
-    )
-
-
-def _post(
-    endpoint: str,
-    data=None,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-
-    return post(
-        endpoint,
-        data=data,
-        timeout=timeout,
-    )
-
-
-def _put(
-    endpoint: str,
-    data=None,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-
-    return put(
-        endpoint,
-        data=data,
-        timeout=timeout,
-    )
-
-
-def _delete(
-    endpoint: str,
-    timeout: int = DEFAULT_TIMEOUT,
-):
-
-    return delete(
-        endpoint,
-        timeout=timeout,
-    )
+        return False
 
 
 # ==========================================================
@@ -344,163 +378,160 @@ def _delete(
 def login_user(
     username: str,
     password: str,
-):
+) -> Optional[Dict[str, Any]]:
     """
-    Login through FastAPI.
+    Login user.
 
-    Backend expects JSON:
-    {
-        "username": "...",
-        "password": "..."
+    Backend:
+        POST /auth/login
+    """
+
+    if not username or not password:
+        return None
+
+    payload = {
+        "username": username,
+        "password": password,
     }
-    """
 
-    try:
+    result = post(
+        "/auth/login",
+        payload,
+        timeout=30,
+        authenticated=False,
+    )
 
-        response = requests.post(
-            _url("/auth/login"),
+    if not isinstance(
+        result,
+        dict,
+    ):
+        return None
 
-            json={
-                "username": username,
-                "password": password,
-            },
+    # ------------------------------------------------------
+    # Extract user
+    # ------------------------------------------------------
 
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
+    user = result.get(
+        "user"
+    )
 
-            timeout=30,
-        )
+    if not isinstance(
+        user,
+        dict,
+    ):
 
-        response.raise_for_status()
+        user = {
+            "id": result.get(
+                "user_id"
+            ),
+            "username": result.get(
+                "username",
+                username,
+            ),
+            "full_name": result.get(
+                "full_name",
+                "",
+            ),
+            "email": result.get(
+                "email",
+                "",
+            ),
+            "role": result.get(
+                "role",
+                "User",
+            ),
+            "is_active": result.get(
+                "is_active",
+                True,
+            ),
+        }
 
-        result = response.json()
-
-        if not isinstance(
-            result,
-            dict,
-        ):
-
-            return None
-
-
-        # ==================================================
-        # Save authentication
-        # ==================================================
-
-        session = _get_session_state()
-
-        token = result.get(
+    token = (
+        result.get(
             "access_token"
         )
-
-        user = result.get(
-            "user",
-            {},
+        or result.get(
+            "token"
         )
+    )
 
+    # ------------------------------------------------------
+    # Normalize role
+    # ------------------------------------------------------
 
-        if session is not None:
-
-            if token:
-
-                session[
-                    "token"
-                ] = token
-
-                session[
-                    "access_token"
-                ] = token
-
-
-            session[
-                "logged_in"
-            ] = True
-
-
-            if isinstance(
-                user,
-                dict,
-            ):
-
-                session[
-                    "user_id"
-                ] = user.get(
-                    "id"
-                )
-
-                session[
-                    "username"
-                ] = user.get(
-                    "username",
-                    username,
-                )
-
-                session[
-                    "email"
-                ] = user.get(
-                    "email",
-                    "",
-                )
-
-                session[
-                    "full_name"
-                ] = user.get(
-                    "full_name",
-                    "",
-                )
-
-                session[
-                    "role"
-                ] = str(
-                    user.get(
-                        "role",
-                        "user",
-                    )
-                ).lower()
-
-
-        return result
-
-
-    except requests.HTTPError as e:
-
-        try:
-            detail = response.json()
-        except Exception:
-            detail = response.text
-
-        print(
-            f"Login HTTP error: "
-            f"{e} | {detail}"
+    role = (
+        user.get(
+            "role"
         )
-
-        return None
-
-
-    except requests.RequestException as e:
-
-        print(
-            f"Login connection error: {e}"
+        or result.get(
+            "role"
         )
+        or "User"
+    )
 
-        return None
+    if isinstance(
+        role,
+        str,
+    ):
 
+        if role.lower() == "admin":
+            role = "Admin"
 
-    except Exception as e:
+        elif role.lower() == "doctor":
+            role = "Doctor"
 
-        print(
-            f"Login error: {e}"
-        )
+        elif role.lower() == "user":
+            role = "User"
 
-        return None
+    # ------------------------------------------------------
+    # Return normalized response
+    # ------------------------------------------------------
+
+    return {
+        "success": True,
+        "access_token": token,
+        "token": token,
+        "token_type": result.get(
+            "token_type",
+            "bearer",
+        ),
+        "expires_in": result.get(
+            "expires_in"
+        ),
+        "user": user,
+        "id": user.get(
+            "id"
+        ),
+        "user_id": user.get(
+            "id"
+        ),
+        "username": user.get(
+            "username",
+            username,
+        ),
+        "full_name": user.get(
+            "full_name",
+            "",
+        ),
+        "email": user.get(
+            "email",
+            "",
+        ),
+        "role": role,
+        "is_active": user.get(
+            "is_active",
+            True,
+        ),
+    }
 
 
 def login(
     username: str,
     password: str,
-):
+) -> Optional[Dict[str, Any]]:
+    """
+    Compatibility alias for login_user().
+    """
 
     return login_user(
         username,
@@ -508,60 +539,123 @@ def login(
     )
 
 
-def get_current_user():
+def register_user(
+    username: str,
+    password: str,
+    confirm_password: str,
+    full_name: str = "",
+    email: str = "",
+    role: str = "User",
+) -> Optional[Dict[str, Any]]:
+    """
+    Register a new user.
+
+    Backend:
+        POST /auth/register
+    """
+
+    payload = {
+        "username": username,
+        "password": password,
+        "confirm_password": (
+            confirm_password
+        ),
+        "full_name": full_name,
+        "email": email,
+        "role": role,
+    }
+
+    return post(
+        "/auth/register",
+        payload,
+        timeout=30,
+        authenticated=False,
+    )
+
+
+def register(
+    username: str,
+    password: str,
+    confirm_password: str,
+    full_name: str = "",
+    email: str = "",
+    role: str = "User",
+) -> Optional[Dict[str, Any]]:
+    """
+    Compatibility alias.
+    """
+
+    return register_user(
+        username=username,
+        password=password,
+        confirm_password=confirm_password,
+        full_name=full_name,
+        email=email,
+        role=role,
+    )
+
+
+def get_current_user(
+    user_id: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Get current authenticated user.
 
-    Backend expects user_id.
+    Backend currently exposes:
+        GET /auth/me
+
+    The current backend schema expects user_id
+    as a query parameter.
     """
 
-    session = _get_session_state()
+    params = None
 
-    if session is None:
-        return None
+    if user_id is None:
 
-    user_id = session.get(
-        "user_id"
-    )
+        try:
 
-    if not user_id:
-        return None
+            user_id = st.session_state.get(
+                "user_id"
+            )
+
+        except Exception:
+
+            user_id = None
+
+    if user_id is not None:
+
+        params = {
+            "user_id": user_id
+        }
 
     return get(
         "/auth/me",
-        params={
-            "user_id": user_id
-        },
+        params=params,
     )
 
 
-def logout_user():
+def logout_user() -> bool:
+    """
+    Logout user.
 
-    session = _get_session_state()
+    Backend:
+        POST /auth/logout
+    """
 
-    if session is None:
-        return True
+    result = post(
+        "/auth/logout",
+        {},
+    )
 
-    keys = [
-        "token",
-        "access_token",
-        "logged_in",
-        "username",
-        "email",
-        "full_name",
-        "role",
-        "user",
-        "user_id",
-    ]
+    return result is not None
 
-    for key in keys:
 
-        session.pop(
-            key,
-            None,
-        )
+def logout() -> bool:
+    """
+    Compatibility alias.
+    """
 
-    return True
+    return logout_user()
 
 
 # ==========================================================
@@ -569,122 +663,47 @@ def logout_user():
 # ==========================================================
 
 def predict_patient(
-    patient_name,
-    age,
-    gender,
-    features,
-):
+    patient_name: str,
+    age: int,
+    gender: str,
+    features: List[float],
+) -> Optional[Dict[str, Any]]:
     """
-    Run Parkinson prediction.
+    Predict Parkinson disease.
+
+    Backend:
+        POST /prediction/predict
     """
-
-    if features is None:
-
-        print(
-            "Prediction failed: "
-            "features are missing."
-        )
-
-        return None
-
-
-    try:
-
-        features = [
-            float(value)
-            for value in features
-        ]
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-
-        print(
-            "Prediction failed: "
-            "invalid feature values."
-        )
-
-        return None
-
-
-    if len(features) != 22:
-
-        print(
-            "Prediction failed: "
-            f"expected 22 features, "
-            f"received {len(features)}."
-        )
-
-        return None
-
 
     payload = {
-        "patient_name": str(
-            patient_name
-        ),
-
-        "age": int(age),
-
-        "gender": str(
-            gender
-        ),
-
+        "patient_name": patient_name,
+        "age": age,
+        "gender": gender,
         "features": features,
     }
 
-
-    result = post(
+    return post(
         "/prediction/predict",
-        data=payload,
+        payload,
         timeout=60,
     )
 
 
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        if (
-            "diagnosis"
-            not in result
-            and "prediction"
-            in result
-        ):
-
-            result[
-                "diagnosis"
-            ] = result[
-                "prediction"
-            ]
-
-
-        if (
-            "prediction"
-            not in result
-            and "diagnosis"
-            in result
-        ):
-
-            result[
-                "prediction"
-            ] = result[
-                "diagnosis"
-            ]
-
-
-    return result
-
-
 def predict(
-    data,
-):
+    patient_name: str,
+    age: int,
+    gender: str,
+    features: List[float],
+) -> Optional[Dict[str, Any]]:
+    """
+    Compatibility alias.
+    """
 
-    return post(
-        "/prediction/predict",
-        data=data,
-        timeout=60,
+    return predict_patient(
+        patient_name,
+        age,
+        gender,
+        features,
     )
 
 
@@ -692,27 +711,26 @@ def predict(
 # Prediction History
 # ==========================================================
 
-def get_patient_history():
+def get_prediction_history():
     """
-    Get prediction/patient history.
+    Get prediction history.
+
+    Backend:
+        GET /prediction/history
     """
 
     result = get(
         "/prediction/history"
     )
 
-
     if result is None:
         return None
-
 
     if isinstance(
         result,
         list,
     ):
-
         return result
-
 
     if isinstance(
         result,
@@ -720,490 +738,138 @@ def get_patient_history():
     ):
 
         return (
-            result.get("history")
-            or result.get("predictions")
-            or result.get("patients")
-            or result.get("records")
+            result.get(
+                "history"
+            )
+            or result.get(
+                "predictions"
+            )
+            or result.get(
+                "records"
+            )
             or []
         )
-
 
     return []
 
 
-def get_prediction_history():
+def delete_prediction(
+    prediction_id: int,
+) -> bool:
+    """
+    Delete prediction.
 
-    return get_patient_history()
+    Backend:
+        DELETE /prediction/{prediction_id}
+    """
+
+    return delete(
+        f"/prediction/{prediction_id}"
+    )
 
 
 def get_prediction(
     prediction_id: int,
 ):
+    """
+    Get a single prediction.
+    """
 
     return get(
         f"/prediction/{prediction_id}"
     )
 
 
-def delete_prediction(
-    prediction_id: int,
-):
+# ==========================================================
+# Patient History
+# ==========================================================
 
-    return delete(
-        f"/prediction/{prediction_id}"
+def get_patient_history():
+    """
+    Get patient/prediction history.
+
+    Primary endpoint:
+        /prediction/history
+
+    The prediction history contains patient_name,
+    diagnosis/prediction, confidence, risk level,
+    and timestamps.
+    """
+
+    result = get(
+        "/prediction/history"
     )
+
+    if result is None:
+        return None
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "history"
+            )
+            or result.get(
+                "patients"
+            )
+            or result.get(
+                "predictions"
+            )
+            or result.get(
+                "records"
+            )
+            or []
+        )
+
+    return []
 
 
 # ==========================================================
 # Patients
 # ==========================================================
 
-def get_patients():
-
-    result = get(
-        "/patients"
-    )
-
-
-    if result is None:
-        return None
-
-
-    if isinstance(
-        result,
-        list,
-    ):
-
-        return result
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return (
-            result.get("patients")
-            or result.get("data")
-            or []
-        )
-
-
-    return []
-
-
-def get_patient(
-    patient_id: int,
+def get_patients(
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
 ):
-
-    return get(
-        f"/patients/{patient_id}"
-    )
-
-
-def create_patient(
-    data,
-):
-
-    return post(
-        "/patients",
-        data=data,
-    )
-
-
-def update_patient(
-    patient_id: int,
-    data,
-):
-
-    return put(
-        f"/patients/{patient_id}",
-        data=data,
-    )
-
-
-def delete_patient(
-    patient_id: int,
-):
-
-    return delete(
-        f"/patients/{patient_id}"
-    )
-
-
-# ==========================================================
-# Reports
-# ==========================================================
-
-def get_reports():
     """
-    Get all reports.
+    Get all patients.
+
+    Backend:
+        GET /patients/
     """
 
-    result = get(
-        "/reports"
-    )
+    params = {
+        "skip": skip,
+        "limit": limit,
+    }
 
+    if search:
+        params["search"] = search
+
+    result = get(
+        "/patients/",
+        params=params,
+    )
 
     if result is None:
         return None
-
 
     if isinstance(
         result,
         list,
     ):
-
         return result
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return result.get(
-            "reports",
-            [],
-        )
-
-
-    return []
-
-
-def get_report(
-    report_id: int,
-):
-
-    return get(
-        f"/reports/{report_id}"
-    )
-
-
-def get_patient_reports(
-    patient_id: int,
-):
-
-    result = get(
-        f"/reports/patient/{patient_id}"
-    )
-
-
-    if result is None:
-        return None
-
-
-    if isinstance(
-        result,
-        list,
-    ):
-
-        return result
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return result.get(
-            "reports",
-            [],
-        )
-
-
-    return []
-
-
-def download_report(
-    report_id: int,
-):
-
-    return get(
-        f"/reports/{report_id}/download"
-    )
-
-
-def delete_report(
-    report_id: int,
-):
-
-    return delete(
-        f"/reports/{report_id}"
-    )
-
-
-# ==========================================================
-# Analytics
-# ==========================================================
-
-def get_analytics():
-
-    result = get(
-        "/analytics"
-    )
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return result
-
-
-    return {}
-
-
-def get_analytics_summary():
-
-    result = get(
-        "/analytics/summary"
-    )
-
-    if result is None:
-
-        return get_analytics()
-
-    return result
-
-
-# ==========================================================
-# Recommendations
-# ==========================================================
-
-def get_recommendations():
-
-    result = get(
-        "/recommendations"
-    )
-
-
-    if result is None:
-        return None
-
-
-    if isinstance(
-        result,
-        list,
-    ):
-
-        return result
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return (
-            result.get(
-                "recommendations"
-            )
-            or result.get(
-                "data"
-            )
-            or []
-        )
-
-
-    return []
-
-
-def get_patient_recommendations(
-    patient_id: int,
-):
-
-    result = get(
-        f"/recommendations/patient/{patient_id}"
-    )
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return (
-            result.get(
-                "recommendations"
-            )
-            or result
-        )
-
-
-    return result
-
-
-# ==========================================================
-# Medication
-# ==========================================================
-
-def get_medications():
-
-    result = get(
-        "/medication"
-    )
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return (
-            result.get(
-                "medications"
-            )
-            or result.get(
-                "data"
-            )
-            or result
-        )
-
-
-    return result
-
-
-def get_patient_medications(
-    patient_id: int,
-):
-
-    result = get(
-        f"/medication/patient/{patient_id}"
-    )
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return (
-            result.get(
-                "medications"
-            )
-            or result.get(
-                "data"
-            )
-            or result
-        )
-
-
-    return result
-
-
-# ==========================================================
-# AI Assistant
-# ==========================================================
-
-def ask_ai_assistant(
-    question: str,
-):
-
-    result = post(
-        "/chatbot/",
-        data={
-            "message": question
-        },
-        timeout=60,
-    )
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        if "response" in result:
-            return result["response"]
-
-        if "message" in result:
-            return result["message"]
-
-        if "answer" in result:
-            return result["answer"]
-
-
-    return result
-
-
-def ask_chatbot(
-    question: str,
-):
-
-    return ask_ai_assistant(
-        question
-    )
-
-
-# ==========================================================
-# Admin
-# ==========================================================
-
-def get_admin_dashboard():
-
-    return get(
-        "/admin/dashboard"
-    )
-
-
-def get_users():
-
-    result = get(
-        "/admin/users"
-    )
-
-
-    if result is None:
-        return None
-
-
-    if isinstance(
-        result,
-        list,
-    ):
-
-        return result
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return (
-            result.get(
-                "users"
-            )
-            or result.get(
-                "data"
-            )
-            or []
-        )
-
-
-    return []
-
-
-def get_admin_patients():
-
-    result = get(
-        "/admin/patients"
-    )
-
-
-    if result is None:
-        return None
-
-
-    if isinstance(
-        result,
-        list,
-    ):
-
-        return result
-
 
     if isinstance(
         result,
@@ -1215,30 +881,794 @@ def get_admin_patients():
                 "patients"
             )
             or result.get(
-                "data"
+                "records"
             )
             or []
         )
 
+    return []
+
+
+def get_patient(
+    patient_id: int,
+):
+    """
+    Get one patient.
+    """
+
+    return get(
+        f"/patients/{patient_id}"
+    )
+
+
+def create_patient(
+    data: Dict[str, Any],
+):
+    """
+    Create patient.
+    """
+
+    return post(
+        "/patients/",
+        data,
+    )
+
+
+def update_patient(
+    patient_id: int,
+    data: Dict[str, Any],
+):
+    """
+    Update patient.
+    """
+
+    return put(
+        f"/patients/{patient_id}",
+        data,
+    )
+
+
+def delete_patient(
+    patient_id: int,
+) -> bool:
+    """
+    Delete patient.
+
+    Backend:
+        DELETE /patients/{patient_id}
+    """
+
+    return delete(
+        f"/patients/{patient_id}"
+    )
+
+
+def get_patient_predictions(
+    patient_id: int,
+):
+    """
+    Get predictions belonging to a patient.
+    """
+
+    result = get(
+        f"/patients/{patient_id}/predictions"
+    )
+
+    if result is None:
+        return []
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "predictions"
+            )
+            or result.get(
+                "history"
+            )
+            or result.get(
+                "records"
+            )
+            or []
+        )
 
     return []
 
 
-def delete_user(
-    user_id: int,
+def get_patient_reports(
+    patient_id: int,
 ):
+    """
+    Get reports belonging to a patient.
+    """
 
-    return delete(
-        f"/admin/users/{user_id}"
+    result = get(
+        f"/patients/{patient_id}/reports"
+    )
+
+    if result is None:
+        return []
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "reports"
+            )
+            or result.get(
+                "records"
+            )
+            or []
+        )
+
+    return []
+
+
+# ==========================================================
+# Reports
+# ==========================================================
+
+def get_reports():
+    """
+    Get all reports.
+
+    Backend:
+        GET /reports/
+    """
+
+    result = get(
+        "/reports/"
+    )
+
+    if result is None:
+        return None
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "reports"
+            )
+            or result.get(
+                "records"
+            )
+            or []
+        )
+
+    return []
+
+
+def get_report(
+    report_id: int,
+):
+    """
+    Get report details.
+    """
+
+    return get(
+        f"/reports/{report_id}"
     )
 
 
-def delete_admin_patient(
-    patient_id: int,
+def generate_report(
+    data: Dict[str, Any],
 ):
+    """
+    Generate a patient report.
+    """
+
+    return post(
+        "/reports/",
+        data,
+    )
+
+
+def download_report(
+    report_id: int,
+):
+    """
+    Download report content.
+
+    Returns raw bytes when backend provides
+    a binary response.
+    """
+
+    url = (
+        f"{BASE_URL}"
+        f"/reports/{report_id}/download"
+    )
+
+    try:
+
+        response = requests.get(
+            url,
+            headers=_headers(),
+            timeout=TIMEOUT,
+        )
+
+        response.raise_for_status()
+
+        content_type = (
+            response.headers.get(
+                "content-type",
+                "",
+            )
+            .lower()
+        )
+
+        if (
+            "application/json"
+            in content_type
+        ):
+
+            return _parse_response(
+                response
+            )
+
+        return response.content
+
+    except requests.RequestException as exc:
+
+        print(
+            f"Report download failed: {exc}"
+        )
+
+        return None
+
+
+def delete_report(
+    report_id: int,
+) -> bool:
+    """
+    Delete report.
+    """
 
     return delete(
-        f"/admin/patients/{patient_id}"
+        f"/reports/{report_id}"
+    )
+
+
+# ==========================================================
+# Analytics
+# ==========================================================
+
+def get_analytics():
+    """
+    Get analytics dashboard.
+
+    Backend:
+        GET /analytics/dashboard
+
+    The old frontend used /analytics, but the
+    FastAPI router exposes /analytics/dashboard.
+    """
+
+    result = get(
+        "/analytics/dashboard"
+    )
+
+    if result is None:
+        return None
+
+    if isinstance(
+        result,
+        dict,
+    ):
+        return result
+
+    return {}
+
+
+def get_prediction_analytics():
+    """
+    Get prediction analytics.
+    """
+
+    return get(
+        "/analytics/predictions"
+    )
+
+
+def get_patient_analytics():
+    """
+    Get patient analytics.
+    """
+
+    return get(
+        "/analytics/patients"
+    )
+
+
+def get_monthly_trend():
+    """
+    Get monthly prediction trend.
+    """
+
+    return get(
+        "/analytics/monthly-trend"
+    )
+
+
+def get_age_distribution():
+    """
+    Get age distribution.
+    """
+
+    return get(
+        "/analytics/age-distribution"
+    )
+
+
+def get_gender_distribution():
+    """
+    Get gender distribution.
+    """
+
+    return get(
+        "/analytics/gender-distribution"
+    )
+
+
+def get_risk_distribution():
+    """
+    Get risk distribution.
+    """
+
+    return get(
+        "/analytics/risk-distribution"
+    )
+
+
+def get_analytics_summary():
+    """
+    Get analytics summary.
+    """
+
+    return get(
+        "/analytics/summary"
+    )
+
+
+# ==========================================================
+# AI Health Assistant
+# ==========================================================
+
+def ask_ai_assistant(
+    question: str,
+):
+    """
+    Send a question to the AI Health Assistant.
+
+    Backend endpoint:
+        POST /chatbot/chatbot/
+
+    Request:
+        {
+            "message": "..."
+        }
+
+    Response:
+        {
+            "conversation_id": "...",
+            "response": "...",
+            "sources": [...],
+            "suggestions": [...],
+            "timestamp": "..."
+        }
+    """
+
+    if not question:
+        return {
+            "success": False,
+            "answer": "Please enter a question.",
+            "response": "",
+            "sources": [],
+            "suggestions": [],
+        }
+
+    question = str(
+        question
+    ).strip()
+
+    if not question:
+
+        return {
+            "success": False,
+            "answer": "Please enter a question.",
+            "response": "",
+            "sources": [],
+            "suggestions": [],
+        }
+
+    payload = {
+        "message": question,
+    }
+
+    result = post(
+        "/chatbot/chatbot/",
+        payload,
+        timeout=60,
+    )
+
+    # ------------------------------------------------------
+    # Backend unavailable
+    # ------------------------------------------------------
+
+    if result is None:
+
+        return {
+            "success": False,
+            "answer": (
+                "The AI Health Assistant "
+                "is temporarily unavailable. "
+                "Please try again."
+            ),
+            "response": "",
+            "sources": [],
+            "suggestions": [],
+        }
+
+    # ------------------------------------------------------
+    # Dictionary response
+    # ------------------------------------------------------
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        answer = (
+            result.get(
+                "response"
+            )
+            or result.get(
+                "answer"
+            )
+            or result.get(
+                "message"
+            )
+            or ""
+        )
+
+        sources = (
+            result.get(
+                "sources"
+            )
+            or []
+        )
+
+        suggestions = (
+            result.get(
+                "suggestions"
+            )
+            or []
+        )
+
+        return {
+            "success": True,
+            "answer": str(
+                answer
+            ),
+            "response": str(
+                answer
+            ),
+            "conversation_id":
+                result.get(
+                    "conversation_id"
+                ),
+            "sources": sources,
+            "suggestions":
+                suggestions,
+            "timestamp":
+                result.get(
+                    "timestamp"
+                ),
+        }
+
+    # ------------------------------------------------------
+    # Plain text response
+    # ------------------------------------------------------
+
+    if isinstance(
+        result,
+        str,
+    ):
+
+        return {
+            "success": True,
+            "answer": result,
+            "response": result,
+            "sources": [],
+            "suggestions": [],
+        }
+
+    # ------------------------------------------------------
+    # Unexpected response
+    # ------------------------------------------------------
+
+    return {
+        "success": False,
+        "answer": (
+            "The AI Assistant returned "
+            "an unexpected response."
+        ),
+        "response": "",
+        "sources": [],
+        "suggestions": [],
+    }
+
+
+def ask_question(
+    question: str,
+):
+    """
+    Compatibility alias.
+
+    Some versions of the AI page use
+    ask_question() instead of
+    ask_ai_assistant().
+    """
+
+    return ask_ai_assistant(
+        question
+    )
+
+
+def ask_chatbot(
+    question: str,
+):
+    """
+    Compatibility alias.
+    """
+
+    return ask_ai_assistant(
+        question
+    )
+
+
+def get_chatbot_suggestions():
+    """
+    Get suggested questions.
+
+    Backend:
+        GET /chatbot/chatbot/suggestions
+    """
+
+    result = get(
+        "/chatbot/chatbot/suggestions"
+    )
+
+    if result is None:
+        return []
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "suggestions"
+            )
+            or result.get(
+                "questions"
+            )
+            or []
+        )
+
+    return []
+
+
+def get_chatbot_faq():
+    """
+    Get chatbot FAQs.
+    """
+
+    result = get(
+        "/chatbot/chatbot/faq"
+    )
+
+    if result is None:
+        return []
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "faq"
+            )
+            or result.get(
+                "faqs"
+            )
+            or []
+        )
+
+    return []
+
+
+def get_parkinson_information():
+    """
+    Get educational Parkinson information.
+    """
+
+    return get(
+        "/chatbot/chatbot/parkinson"
+    )
+
+
+# ==========================================================
+# Recommendations
+# ==========================================================
+
+def get_recommendations():
+    """
+    Get recommendations.
+
+    Kept flexible because recommendation routes
+    may evolve.
+    """
+
+    result = get(
+        "/recommendations/"
+    )
+
+    if result is None:
+        return []
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "recommendations"
+            )
+            or result.get(
+                "items"
+            )
+            or result.get(
+                "records"
+            )
+            or []
+        )
+
+    return []
+
+
+def create_recommendation(
+    data: Dict[str, Any],
+):
+    """
+    Create recommendation.
+    """
+
+    return post(
+        "/recommendations/",
+        data,
+    )
+
+
+# ==========================================================
+# Admin Dashboard
+# ==========================================================
+
+def get_admin_dashboard():
+    """
+    Get administrator dashboard.
+
+    Backend:
+        GET /admin/dashboard
+    """
+
+    return get(
+        "/admin/dashboard"
+    )
+
+
+def get_users():
+    """
+    Get users for admin dashboard.
+
+    The admin frontend expects a list.
+    """
+
+    result = get(
+        "/users"
+    )
+
+    if result is None:
+        return []
+
+    if isinstance(
+        result,
+        list,
+    ):
+        return result
+
+    if isinstance(
+        result,
+        dict,
+    ):
+
+        return (
+            result.get(
+                "users"
+            )
+            or result.get(
+                "records"
+            )
+            or []
+        )
+
+    return []
+
+
+def get_admin_users():
+    """
+    Compatibility alias.
+    """
+
+    return get_users()
+
+
+def delete_user(
+    user_id: int,
+) -> bool:
+    """
+    Delete a user.
+    """
+
+    return delete(
+        f"/users/{user_id}"
     )
 
 
@@ -1248,254 +1678,196 @@ def delete_admin_patient(
 
 def get_user_settings():
     """
-    Get current user settings.
+    Get user settings.
 
-    Theme and language are intentionally excluded.
+    If the backend settings endpoint is unavailable,
+    return safe frontend defaults rather than crashing
+    the Settings page.
     """
 
-    session = _get_session_state()
-
-    username = ""
-    email = ""
-    full_name = ""
-    role = "user"
-
-
-    if session is not None:
-
-        username = session.get(
-            "username",
-            "",
-        )
-
-        email = session.get(
-            "email",
-            "",
-        )
-
-        full_name = session.get(
-            "full_name",
-            "",
-        )
-
-        role = session.get(
-            "role",
-            "user",
-        )
-
-
-    backend_user = get_current_user()
-
+    result = get(
+        "/settings"
+    )
 
     if isinstance(
-        backend_user,
+        result,
         dict,
     ):
 
-        username = backend_user.get(
-            "username",
-            username,
-        )
+        return result
 
-        email = backend_user.get(
-            "email",
-            email,
-        )
-
-        full_name = backend_user.get(
-            "full_name",
-            full_name,
-        )
-
-        role = backend_user.get(
-            "role",
-            role,
-        )
-
-
+    # Safe frontend defaults.
     return {
-        "username": username,
-        "email": email,
-        "full_name": full_name,
-        "role": role,
-        "api_url": API_BASE_URL,
+        "username": st.session_state.get(
+            "username",
+            "",
+        ),
+        "email": st.session_state.get(
+            "email",
+            "",
+        ),
+        "full_name": st.session_state.get(
+            "full_name",
+            "",
+        ),
+        "theme": st.session_state.get(
+            "theme",
+            "Light",
+        ),
+        "language": st.session_state.get(
+            "language",
+            "English",
+        ),
+        "api_url": BASE_URL,
     }
 
 
 def update_user_settings(
-    data,
+    data: Dict[str, Any],
 ):
+    """
+    Update user settings.
+    """
 
-    if not isinstance(
+    result = put(
+        "/settings",
         data,
-        dict,
-    ):
+    )
 
-        return False
+    # Update local session for frontend
+    # preferences that don't require backend
+    # support.
+    try:
 
+        if "theme" in data:
 
-    session = _get_session_state()
+            st.session_state.theme = (
+                data["theme"]
+            )
 
+        if "language" in data:
 
-    if session is None:
-        return False
+            st.session_state.language = (
+                data["language"]
+            )
 
+        if "username" in data:
 
-    if "username" in data:
+            st.session_state.username = (
+                data["username"]
+            )
 
-        session[
-            "username"
-        ] = data[
-            "username"
-        ]
+        if "email" in data:
 
+            st.session_state.email = (
+                data["email"]
+            )
 
-    if "email" in data:
+    except Exception:
+        pass
 
-        session[
-            "email"
-        ] = data[
-            "email"
-        ]
+    return result
 
-
-    if "full_name" in data:
-
-        session[
-            "full_name"
-        ] = data[
-            "full_name"
-        ]
-
-
-    return True
-
-
-# ==========================================================
-# Change Password
-# ==========================================================
 
 def change_password(
     current_password: str,
     new_password: str,
 ):
     """
-    Change password.
+    Change current user's password.
+
+    Backend:
+        POST /auth/change-password
+
+    The backend currently defines old_password
+    and new_password as parameters.
     """
 
-    if not current_password:
-        return False
-
-
-    if not new_password:
-        return False
-
-
-    if len(
-        new_password.encode(
-            "utf-8"
-        )
-    ) > 72:
-
-        return False
-
-
-    session = _get_session_state()
-
-    if session is None:
-        return False
-
-
-    user_id = session.get(
-        "user_id"
-    )
-
-
     payload = {
-        "old_password":
-            current_password,
-
-        "new_password":
-            new_password,
-
-        "confirm_password":
-            new_password,
+        "old_password": current_password,
+        "new_password": new_password,
     }
 
-
-    # Try user-specific endpoint first
-    if user_id:
-
-        result = post(
-            f"/auth/change-password/{user_id}",
-            data=payload,
-            timeout=30,
-        )
-
-        if result is not None:
-
-            return True
-
-
-    # Fallback to generic endpoint
     result = post(
         "/auth/change-password",
-        data=payload,
-        timeout=30,
+        payload,
     )
 
-
-    return result is not None
+    return result
 
 
 # ==========================================================
-# Model Information
+# Backend Health
+# ==========================================================
+
+def check_backend() -> bool:
+    """
+    Check FastAPI backend.
+    """
+
+    result = get(
+        "/health",
+        timeout=10,
+        authenticated=False,
+    )
+
+    return isinstance(
+        result,
+        dict,
+    ) and (
+        result.get(
+            "status"
+        )
+        in (
+            "healthy",
+            "success",
+        )
+    )
+
+
+def backend_health():
+    """
+    Return full backend health response.
+    """
+
+    return get(
+        "/health",
+        timeout=10,
+        authenticated=False,
+    )
+
+
+# ==========================================================
+# Model Health
 # ==========================================================
 
 def get_model_info():
+    """
+    Get ML model information.
+    """
 
     return get(
         "/prediction/model-info"
     )
 
 
-# ==========================================================
-# Health
-# ==========================================================
-
-def health_check():
+def get_prediction_statistics():
+    """
+    Get prediction statistics.
+    """
 
     return get(
-        "/health"
+        "/prediction/statistics"
     )
 
 
-def is_backend_available():
-
-    result = health_check()
-
-    if not isinstance(
-        result,
-        dict,
-    ):
-
-        return False
-
-
-    return result.get(
-        "status"
-    ) in [
-        "healthy",
-        "success",
-        "ok",
-        "Online",
-    ]
-
-
 # ==========================================================
-# API URL
+# Utility
 # ==========================================================
 
-def get_api_url():
+def get_api_url() -> str:
+    """
+    Return backend URL.
+    """
 
-    return API_BASE_URL
+    return BASE_URL
