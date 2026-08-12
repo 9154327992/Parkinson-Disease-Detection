@@ -5,7 +5,13 @@ from fastapi import (
     status,
 )
 
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
+
 from app.database.database import SessionLocal
+
 from app.database.models import (
     User,
     Patient,
@@ -14,71 +20,155 @@ from app.database.models import (
 )
 
 from app.utils.security import (
+    decode_token,
     is_admin,
-    get_current_user,
 )
 
+
+# ==========================================================
+# Router
+# ==========================================================
 
 router = APIRouter()
 
 
 # ==========================================================
-# Admin Authorization
+# HTTP Bearer Authentication
 # ==========================================================
 
-def require_admin(
-    current_user,
+bearer_scheme = HTTPBearer(
+    auto_error=False
+)
+
+
+# ==========================================================
+# Get Current User
+# ==========================================================
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(
+        bearer_scheme
+    ),
 ):
     """
-    Verify that the currently authenticated user
-    is an active administrator.
+    Resolve the currently authenticated user from
+    the JWT Authorization header.
 
-    Supports both:
-        - dictionary user objects
-        - SQLAlchemy User objects
+    This function is local to the Admin router and uses
+    the existing security.py implementation.
     """
 
-    if current_user is None:
+    # ------------------------------------------------------
+    # Check Authorization Header
+    # ------------------------------------------------------
+
+    if credentials is None:
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required.",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
         )
 
 
-    # ------------------------------------------------------
-    # Extract user ID
-    # ------------------------------------------------------
-
-    if isinstance(
-        current_user,
-        dict,
-    ):
-
-        user_id = (
-            current_user.get("id")
-            or current_user.get("user_id")
-        )
-
-    else:
-
-        user_id = getattr(
-            current_user,
-            "id",
-            None,
-        )
+    token = credentials.credentials
 
 
-    if user_id is None:
+    if not token:
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authenticated user.",
+            detail="Invalid authentication token.",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
         )
 
 
     # ------------------------------------------------------
-    # Load actual user from database
+    # Decode JWT
+    # ------------------------------------------------------
+
+    payload = decode_token(
+        token
+    )
+
+
+    if payload is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token.",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
+        )
+
+
+    # ------------------------------------------------------
+    # Only Access Tokens Allowed
+    # ------------------------------------------------------
+
+    token_type = payload.get(
+        "type"
+    )
+
+
+    if token_type != "access":
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid access token.",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
+        )
+
+
+    # ------------------------------------------------------
+    # Extract Subject
+    # ------------------------------------------------------
+
+    subject = payload.get(
+        "sub"
+    )
+
+
+    if subject is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token does not contain a user ID.",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
+        )
+
+
+    try:
+
+        user_id = int(
+            subject
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token.",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
+        )
+
+
+    # ------------------------------------------------------
+    # Load User
     # ------------------------------------------------------
 
     db = SessionLocal()
@@ -110,23 +200,45 @@ def require_admin(
             )
 
 
-        if not is_admin(
-            user.role
-        ):
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "Administrator privileges required."
-                ),
-            )
-
-
         return user
 
     finally:
 
         db.close()
+
+
+# ==========================================================
+# Admin Authorization
+# ==========================================================
+
+def require_admin(
+    current_user,
+):
+    """
+    Verify that the authenticated user is an administrator.
+    """
+
+    if current_user is None:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+        )
+
+
+    if not is_admin(
+        current_user.role
+    ):
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Administrator privileges required."
+            ),
+        )
+
+
+    return current_user
 
 
 # ==========================================================
@@ -144,9 +256,6 @@ def admin_dashboard(
 ):
     """
     Return administrator dashboard statistics.
-
-    The authenticated user's JWT determines which
-    account is authorized to access this endpoint.
     """
 
     admin = require_admin(
@@ -166,13 +275,16 @@ def admin_dashboard(
             db.query(User).count()
         )
 
+
         total_patients = (
             db.query(Patient).count()
         )
 
+
         total_predictions = (
             db.query(Prediction).count()
         )
+
 
         total_reports = (
             db.query(Report).count()
@@ -191,6 +303,7 @@ def admin_dashboard(
             .count()
         )
 
+
         doctor_users = (
             db.query(User)
             .filter(
@@ -198,6 +311,7 @@ def admin_dashboard(
             )
             .count()
         )
+
 
         normal_users = (
             db.query(User)
@@ -355,8 +469,7 @@ def admin_users(
     """
     Return all users.
 
-    Only an authenticated administrator can access
-    this endpoint.
+    Administrator access required.
     """
 
     require_admin(
@@ -428,8 +541,7 @@ def admin_patients(
     """
     Return all patients.
 
-    Only an authenticated administrator can access
-    this endpoint.
+    Administrator access required.
     """
 
     require_admin(
@@ -460,13 +572,14 @@ def admin_patients(
                 or ""
             )
 
+
             last_name = (
                 patient.last_name
                 or ""
             )
 
 
-            patient_name = (
+            full_patient_name = (
                 f"{first_name} "
                 f"{last_name}"
             ).strip()
@@ -481,7 +594,7 @@ def admin_patients(
                         patient.id,
 
                     "patient_name":
-                        patient_name,
+                        full_patient_name,
 
                     "first_name":
                         patient.first_name,
