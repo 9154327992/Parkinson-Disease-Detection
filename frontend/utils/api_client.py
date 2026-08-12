@@ -1,12 +1,7 @@
 import requests
 import streamlit as st
 
-from typing import (
-    Optional,
-    Dict,
-    List,
-    Any,
-)
+from typing import Optional, Dict, List, Any
 
 
 # ==========================================================
@@ -21,7 +16,7 @@ TIMEOUT = 30
 
 
 # ==========================================================
-# Session / Authentication Helpers
+# Authentication Token
 # ==========================================================
 
 def _get_token() -> Optional[str]:
@@ -29,30 +24,25 @@ def _get_token() -> Optional[str]:
     Get JWT token from Streamlit session state.
     """
 
-    possible_keys = [
+    for key in (
         "access_token",
         "token",
         "jwt_token",
-    ]
+    ):
 
-    for key in possible_keys:
-
-        value = st.session_state.get(
+        token = st.session_state.get(
             key
         )
 
-        if value:
-
-            return str(
-                value
-            )
+        if token:
+            return str(token)
 
     return None
 
 
 def _headers() -> Dict[str, str]:
     """
-    Build authenticated request headers.
+    Build request headers.
     """
 
     headers = {
@@ -79,7 +69,7 @@ def _json_response(
     response: requests.Response,
 ) -> Any:
     """
-    Safely decode JSON response.
+    Safely convert response to JSON.
     """
 
     try:
@@ -99,10 +89,12 @@ def _json_response(
 
 def get(
     endpoint: str,
-    params: Optional[Dict[str, Any]] = None,
+    params: Optional[
+        Dict[str, Any]
+    ] = None,
 ):
     """
-    Generic authenticated GET request.
+    Generic GET request.
     """
 
     url = (
@@ -121,18 +113,7 @@ def get(
 
         if response.status_code == 401:
 
-            st.session_state.pop(
-                "access_token",
-                None,
-            )
-
-            st.session_state.pop(
-                "token",
-                None,
-            )
-
             return None
-
 
         response.raise_for_status()
 
@@ -151,10 +132,12 @@ def get(
 
 def post(
     endpoint: str,
-    data: Optional[Dict[str, Any]] = None,
+    data: Optional[
+        Dict[str, Any]
+    ] = None,
 ):
     """
-    Generic authenticated POST request.
+    Generic POST request.
     """
 
     url = (
@@ -175,7 +158,6 @@ def post(
 
             return None
 
-
         response.raise_for_status()
 
         return _json_response(
@@ -193,10 +175,12 @@ def post(
 
 def put(
     endpoint: str,
-    data: Optional[Dict[str, Any]] = None,
+    data: Optional[
+        Dict[str, Any]
+    ] = None,
 ):
     """
-    Generic authenticated PUT request.
+    Generic PUT request.
     """
 
     url = (
@@ -217,7 +201,6 @@ def put(
 
             return None
 
-
         response.raise_for_status()
 
         return _json_response(
@@ -235,10 +218,12 @@ def put(
 
 def patch(
     endpoint: str,
-    data: Optional[Dict[str, Any]] = None,
+    data: Optional[
+        Dict[str, Any]
+    ] = None,
 ):
     """
-    Generic authenticated PATCH request.
+    Generic PATCH request.
     """
 
     url = (
@@ -254,6 +239,10 @@ def patch(
             headers=_headers(),
             timeout=TIMEOUT,
         )
+
+        if response.status_code == 401:
+
+            return None
 
         response.raise_for_status()
 
@@ -274,7 +263,7 @@ def delete(
     endpoint: str,
 ):
     """
-    Generic authenticated DELETE request.
+    Generic DELETE request.
     """
 
     url = (
@@ -290,6 +279,10 @@ def delete(
             timeout=TIMEOUT,
         )
 
+        if response.status_code == 401:
+
+            return False
+
         response.raise_for_status()
 
         return True
@@ -300,7 +293,7 @@ def delete(
 
 
 # ==========================================================
-# Authentication
+# LOGIN
 # ==========================================================
 
 def login(
@@ -308,9 +301,9 @@ def login(
     password: str,
 ):
     """
-    Login using the FastAPI authentication endpoint.
+    Login against FastAPI /auth/login.
 
-    Supports both JSON and OAuth2 form-style login.
+    Attempts JSON first, then OAuth2 form data.
     """
 
     url = (
@@ -319,7 +312,7 @@ def login(
 
 
     # ------------------------------------------------------
-    # First attempt: JSON
+    # JSON Login
     # ------------------------------------------------------
 
     try:
@@ -333,7 +326,6 @@ def login(
             timeout=TIMEOUT,
         )
 
-
         if response.status_code < 400:
 
             data = _json_response(
@@ -364,7 +356,6 @@ def login(
                         "token"
                     ] = token
 
-
                 return data
 
     except requests.RequestException:
@@ -373,7 +364,7 @@ def login(
 
 
     # ------------------------------------------------------
-    # Second attempt: OAuth2 form
+    # OAuth2 Form Login
     # ------------------------------------------------------
 
     try:
@@ -387,7 +378,6 @@ def login(
             timeout=TIMEOUT,
         )
 
-
         if response.status_code < 400:
 
             data = _json_response(
@@ -418,9 +408,7 @@ def login(
                         "token"
                     ] = token
 
-
                 return data
-
 
     except requests.RequestException:
 
@@ -428,6 +416,50 @@ def login(
 
 
     return None
+
+
+# ==========================================================
+# LOGIN USER
+# ==========================================================
+
+def login_user(
+    username: str,
+    password: str,
+):
+    """
+    Compatibility wrapper used by frontend.py.
+    """
+
+    return login(
+        username,
+        password,
+    )
+
+
+# ==========================================================
+# LOGOUT
+# ==========================================================
+
+def logout():
+    """
+    Clear authentication information.
+    """
+
+    for key in (
+        "access_token",
+        "token",
+        "jwt_token",
+        "username",
+        "user_id",
+        "role",
+    ):
+
+        st.session_state.pop(
+            key,
+            None,
+        )
+
+    return True
 
 
 # ==========================================================
@@ -439,7 +471,15 @@ def predict_patient(
     age: int,
     gender: str,
     features: List[float],
-) -> Optional[Dict]:
+):
+    """
+    Submit patient information and 22 ML features.
+    """
+
+    if len(features) != 22:
+
+        return None
+
 
     payload = {
         "patient_name": patient_name,
@@ -461,7 +501,7 @@ def predict_patient(
 
 def get_prediction_history():
     """
-    Get all prediction history.
+    Get prediction history.
     """
 
     result = get(
@@ -514,10 +554,6 @@ def get_prediction_history():
 def get_patient_history():
     """
     Get patient/prediction history.
-
-    The Patient History page expects a list.
-    The backend may return either a list or a
-    dictionary containing the records.
     """
 
     result = get(
@@ -585,7 +621,7 @@ def delete_prediction(
 
 def get_patients():
     """
-    Get patient records.
+    Get all patients.
     """
 
     result = get(
@@ -647,7 +683,7 @@ def delete_patient(
 
 def get_reports():
     """
-    Get reports.
+    Get all reports.
     """
 
     result = get(
@@ -698,7 +734,7 @@ def download_report(
     report_id,
 ):
     """
-    Download report as bytes.
+    Download report.
     """
 
     url = (
@@ -730,7 +766,7 @@ def download_report(
 
 def get_analytics():
     """
-    Get analytics information.
+    Get analytics.
     """
 
     return get(
@@ -746,9 +782,7 @@ def ask_ai_assistant(
     question: str,
 ):
     """
-    Ask the backend AI assistant.
-
-    The primary endpoint is /chatbot/.
+    Ask AI assistant.
     """
 
     question = (
@@ -762,10 +796,7 @@ def ask_ai_assistant(
         return None
 
 
-    # ------------------------------------------------------
-    # Primary chatbot request
-    # ------------------------------------------------------
-
+    # Primary endpoint
     result = post(
         "/chatbot/",
         {
@@ -779,10 +810,7 @@ def ask_ai_assistant(
         return result
 
 
-    # ------------------------------------------------------
-    # Compatibility fallback
-    # ------------------------------------------------------
-
+    # Compatibility endpoint
     return post(
         "/chatbot",
         {
@@ -873,7 +901,7 @@ def delete_user(
 
 def get_user_settings():
     """
-    Get current user settings.
+    Get current user's settings.
     """
 
     result = get(
@@ -900,7 +928,7 @@ def update_user_settings(
     data: Dict[str, Any],
 ):
     """
-    Update current user settings.
+    Update current user's settings.
     """
 
     if not isinstance(
@@ -930,24 +958,18 @@ def change_password(
     """
 
     if not current_password:
-
         return False
-
 
     if not new_password:
-
         return False
-
-
-    payload = {
-        "current_password": current_password,
-        "new_password": new_password,
-    }
 
 
     result = post(
         "/change-password",
-        payload,
+        {
+            "current_password": current_password,
+            "new_password": new_password,
+        },
     )
 
 
@@ -960,7 +982,7 @@ def change_password(
 
 def check_backend():
     """
-    Check FastAPI backend health.
+    Check whether FastAPI backend is online.
     """
 
     try:
@@ -969,7 +991,6 @@ def check_backend():
             f"{BASE_URL}/health",
             timeout=10,
         )
-
 
         return (
             response.status_code
@@ -982,12 +1003,12 @@ def check_backend():
 
 
 # ==========================================================
-# API Information
+# API URL
 # ==========================================================
 
 def get_api_url():
     """
-    Return configured backend URL.
+    Return backend URL.
     """
 
     return BASE_URL
@@ -999,7 +1020,7 @@ def get_api_url():
 
 def get_api_status():
     """
-    Return simple API status information.
+    Return backend status.
     """
 
     online = check_backend()
