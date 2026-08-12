@@ -4,7 +4,6 @@ import pandas as pd
 from utils.api_client import (
     get_reports,
     download_report,
-    get,
 )
 
 
@@ -23,12 +22,14 @@ st.set_page_config(
 # Header
 # ==========================================================
 
-st.title("📄 Patient Reports")
+st.title(
+    "📄 Patient Reports"
+)
 
 st.write(
     """
-View, search, download, and manage generated patient reports.
-"""
+    View, search, and manage generated patient reports.
+    """
 )
 
 st.divider()
@@ -38,52 +39,26 @@ st.divider()
 # Load Reports
 # ==========================================================
 
-reports_response = get_reports()
+reports = get_reports()
 
-if reports_response is None:
+
+if reports is None:
 
     st.error(
-        "Unable to load reports."
+        "Unable to load reports from the backend."
     )
 
     st.stop()
 
-
-# ==========================================================
-# Extract Report List
-# ==========================================================
-
-if isinstance(
-    reports_response,
-    dict,
-):
-
-    reports = reports_response.get(
-        "reports",
-        [],
-    )
-
-else:
-
-    reports = reports_response
-
-
-# ==========================================================
-# No Reports
-# ==========================================================
 
 if not reports:
 
     st.info(
-        "No reports available."
+        "No reports are available yet."
     )
 
     st.stop()
 
-
-# ==========================================================
-# Convert to DataFrame
-# ==========================================================
 
 df = pd.DataFrame(
     reports
@@ -91,42 +66,105 @@ df = pd.DataFrame(
 
 
 # ==========================================================
+# Normalize IDs
+# ==========================================================
+
+if "report_id" in df.columns:
+
+    df["id"] = df["report_id"]
+
+
+if "generated_at" in df.columns:
+
+    df["created_at"] = df[
+        "generated_at"
+    ]
+
+
+# ==========================================================
 # Search
 # ==========================================================
 
-st.subheader("🔍 Search Report")
+st.subheader(
+    "🔍 Search Reports"
+)
 
 search = st.text_input(
-    "Search by Patient Name"
+    "Search by patient name or report name",
+    placeholder="Search...",
 )
+
+
+filtered_df = df.copy()
 
 
 if search:
 
-    if "patient_name" in df.columns:
-
-        df = df[
-            df["patient_name"]
-            .astype(str)
-            .str.contains(
-                search,
-                case=False,
-                na=False,
-            )
+    patient_match = (
+        filtered_df[
+            "patient_name"
         ]
-
-
-# ==========================================================
-# Search Result Check
-# ==========================================================
-
-if df.empty:
-
-    st.info(
-        "No reports match your search."
+        .astype(str)
+        .str.contains(
+            search,
+            case=False,
+            na=False,
+        )
+        if "patient_name"
+        in filtered_df.columns
+        else False
     )
 
-    st.stop()
+    report_match = (
+        filtered_df[
+            "report_name"
+        ]
+        .astype(str)
+        .str.contains(
+            search,
+            case=False,
+            na=False,
+        )
+        if "report_name"
+        in filtered_df.columns
+        else False
+    )
+
+    filtered_df = filtered_df[
+        patient_match
+        | report_match
+    ]
+
+
+st.divider()
+
+
+# ==========================================================
+# Summary
+# ==========================================================
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+
+    st.metric(
+        "Total Reports",
+        len(df),
+    )
+
+with c2:
+
+    st.metric(
+        "Matching Reports",
+        len(filtered_df),
+    )
+
+with c3:
+
+    st.metric(
+        "Report Type",
+        "PDF",
+    )
 
 
 st.divider()
@@ -136,7 +174,9 @@ st.divider()
 # Report List
 # ==========================================================
 
-st.subheader("📋 Report List")
+st.subheader(
+    "📋 Report List"
+)
 
 
 display_columns = [
@@ -148,161 +188,94 @@ display_columns = [
         "report_name",
         "generated_at",
     ]
-    if column in df.columns
+    if column in filtered_df.columns
 ]
 
 
 st.dataframe(
-    df[display_columns],
+    filtered_df[
+        display_columns
+    ] if display_columns else filtered_df,
     use_container_width=True,
     hide_index=True,
 )
+
+
+if filtered_df.empty:
+
+    st.warning(
+        "No reports match your search."
+    )
+
+    st.stop()
 
 
 st.divider()
 
 
 # ==========================================================
-# Select Report
-# ==========================================================
-
-st.subheader("📄 Report Details")
-
-
-if "report_id" not in df.columns:
-
-    st.error(
-        "Report ID is missing from the backend response."
-    )
-
-    st.stop()
-
-
-# ==========================================================
 # Report Selection
 # ==========================================================
 
-report_options = []
+st.subheader(
+    "📄 Report Details"
+)
 
-report_lookup = {}
 
+def report_label(row):
 
-for _, row in df.iterrows():
-
-    report_id = int(
-        row["report_id"]
+    patient = row.get(
+        "patient_name",
+        "Unknown Patient",
     )
 
-    patient_name = str(
+    name = row.get(
+        "report_name",
+        "Report",
+    )
+
+    report_id = row.get(
+        "report_id",
         row.get(
-            "patient_name",
-            "Patient",
-        )
+            "id",
+            "N/A",
+        ),
     )
 
-    report_name = str(
-        row.get(
-            "report_name",
-            "Report",
-        )
-    )
-
-    label = (
-        f"{patient_name} - "
-        f"{report_name} "
+    return (
+        f"{patient} - "
+        f"{name} "
         f"(ID: {report_id})"
     )
 
-    report_options.append(
-        label
+
+report_options = [
+    report_label(
+        row
     )
+    for _, row in filtered_df.iterrows()
+]
 
-    report_lookup[label] = report_id
 
-
-selected_report = st.selectbox(
+selected_label = st.selectbox(
     "Select Report",
     report_options,
 )
 
 
-selected_report_id = report_lookup[
-    selected_report
-]
-
-
-# ==========================================================
-# Load Full Report
-# ==========================================================
-
-with st.spinner(
-    "Loading report details..."
-):
-
-    full_report = get(
-        f"/reports/{selected_report_id}"
-    )
-
-
-# ==========================================================
-# Full Report Error
-# ==========================================================
-
-if full_report is None:
-
-    st.error(
-        "Unable to load the selected report."
-    )
-
-    st.stop()
-
-
-# ==========================================================
-# Extract Report Sections
-# ==========================================================
-
-metadata = full_report.get(
-    "metadata",
-    {}
+selected_index = report_options.index(
+    selected_label
 )
 
-patient = full_report.get(
-    "patient",
-    {}
-)
 
-prediction = full_report.get(
-    "prediction",
-    {}
-)
-
-recommendations = full_report.get(
-    "recommendations",
-    []
-)
-
-exercises = full_report.get(
-    "exercises",
-    []
-)
-
-medication = full_report.get(
-    "medication",
-    []
-)
-
-follow_up = full_report.get(
-    "follow_up",
-    {}
-)
-
-doctor_notes = full_report.get(
-    "doctor_notes"
+report = (
+    filtered_df
+    .iloc[selected_index]
 )
 
 
 # ==========================================================
-# Patient Information
+# Details
 # ==========================================================
 
 left, right = st.columns(2)
@@ -310,76 +283,40 @@ left, right = st.columns(2)
 
 with left:
 
-    st.subheader(
-        "👤 Patient Information"
+    st.markdown(
+        "### 👤 Patient Information"
     )
 
     st.write(
         f"**Name:** "
-        f"{patient.get('full_name', 'Not available')}"
+        f"{report.get('patient_name', 'N/A')}"
     )
 
     st.write(
         f"**Patient ID:** "
-        f"{patient.get('patient_id', 'Not available')}"
+        f"{report.get('patient_id', 'N/A')}"
     )
-
-    st.write(
-        f"**Age:** "
-        f"{patient.get('age', 'Not available')}"
-    )
-
-    st.write(
-        f"**Gender:** "
-        f"{patient.get('gender', 'Not available')}"
-    )
-
-    medical_history = patient.get(
-        "medical_history"
-    )
-
-    if medical_history:
-
-        st.write(
-            f"**Medical History:** "
-            f"{medical_history}"
-        )
 
 
 with right:
 
-    st.subheader(
-        "📄 Report Information"
+    st.markdown(
+        "### 📄 Report Information"
     )
 
     st.write(
         f"**Report ID:** "
-        f"{metadata.get('report_id', selected_report_id)}"
+        f"{report.get('report_id', 'N/A')}"
     )
 
     st.write(
         f"**Report Name:** "
-        f"{metadata.get('report_name', 'Not available')}"
-    )
-
-    st.write(
-        f"**Report Type:** "
-        f"{metadata.get('report_type', 'Not available')}"
-    )
-
-    st.write(
-        f"**Generated By:** "
-        f"{metadata.get('generated_by', 'Not available')}"
+        f"{report.get('report_name', 'N/A')}"
     )
 
     st.write(
         f"**Generated On:** "
-        f"{metadata.get('generated_at', 'Not available')}"
-    )
-
-    st.write(
-        f"**Version:** "
-        f"{metadata.get('version', 'Not available')}"
+        f"{report.get('generated_at', 'N/A')}"
     )
 
 
@@ -387,344 +324,99 @@ st.divider()
 
 
 # ==========================================================
-# Prediction Result
+# Report Status
 # ==========================================================
 
 st.subheader(
-    "🧠 Prediction Result"
+    "📋 Report Status"
 )
 
+st.info(
+    """
+    This report list currently contains report metadata.
 
-prediction_left, prediction_right = st.columns(2)
+    Detailed prediction information is displayed when it is
+    available from the corresponding prediction/report record.
 
-
-with prediction_left:
-
-    st.write(
-        f"**Prediction:** "
-        f"{prediction.get('prediction', 'Not available')}"
-    )
-
-    st.write(
-        f"**Confidence:** "
-        f"{prediction.get('confidence', 'Not available')}%"
-    )
-
-    st.write(
-        f"**Risk Score:** "
-        f"{prediction.get('risk_score', 'Not available')}%"
-    )
-
-
-with prediction_right:
-
-    st.write(
-        f"**Risk Level:** "
-        f"{prediction.get('risk_level', 'Not available')}"
-    )
-
-    st.write(
-        f"**Recommendation:** "
-        f"{prediction.get('recommendation', 'Not available')}"
-    )
+    Actual PDF generation is intentionally left for a later phase.
+    """
+)
 
 
 st.divider()
 
 
 # ==========================================================
-# Recommendations
-# ==========================================================
-
-st.subheader(
-    "💡 Recommendations"
-)
-
-
-if recommendations:
-
-    for item in recommendations:
-
-        title = item.get(
-            "title",
-            "Recommendation",
-        )
-
-        description = item.get(
-            "description",
-            "",
-        )
-
-        st.write(
-            f"**{title}**"
-        )
-
-        st.info(
-            description
-        )
-
-else:
-
-    st.info(
-        "No recommendations available."
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# Recommended Exercises
-# ==========================================================
-
-st.subheader(
-    "🏃 Recommended Exercises"
-)
-
-
-if exercises:
-
-    exercise_data = []
-
-    for exercise in exercises:
-
-        exercise_data.append(
-            {
-                "Exercise": exercise.get(
-                    "name",
-                    "",
-                ),
-                "Duration": exercise.get(
-                    "duration",
-                    "",
-                ),
-                "Frequency": exercise.get(
-                    "frequency",
-                    "",
-                ),
-                "Description": exercise.get(
-                    "description",
-                    "",
-                ),
-            }
-        )
-
-    exercise_df = pd.DataFrame(
-        exercise_data
-    )
-
-    st.dataframe(
-        exercise_df,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-else:
-
-    st.info(
-        "No exercise recommendations available."
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# Medication Guidance
-# ==========================================================
-
-st.subheader(
-    "💊 Medication Guidance"
-)
-
-
-if medication:
-
-    for item in medication:
-
-        title = item.get(
-            "title",
-            "Medication Guidance",
-        )
-
-        description = item.get(
-            "description",
-            "",
-        )
-
-        st.write(
-            f"**{title}**"
-        )
-
-        st.info(
-            description
-        )
-
-else:
-
-    st.info(
-        "No medication guidance available."
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# Follow-up Plan
-# ==========================================================
-
-st.subheader(
-    "📅 Follow-up Plan"
-)
-
-
-follow_left, follow_right = st.columns(2)
-
-
-with follow_left:
-
-    st.write(
-        f"**Next Visit:** "
-        f"{follow_up.get('next_visit', 'Not available')}"
-    )
-
-    st.write(
-        f"**Specialist:** "
-        f"{follow_up.get('specialist', 'Not available')}"
-    )
-
-
-with follow_right:
-
-    st.write(
-        f"**Notes:** "
-        f"{follow_up.get('notes', 'Not available')}"
-    )
-
-
-# ==========================================================
-# Doctor Notes
-# ==========================================================
-
-if doctor_notes:
-
-    st.divider()
-
-    st.subheader(
-        "📝 Doctor Notes"
-    )
-
-    st.info(
-        doctor_notes
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# Download Report
+# Download Information
 # ==========================================================
 
 st.subheader(
     "⬇ Download Report"
 )
 
-
-download_response = download_report(
-    selected_report_id
+report_id = report.get(
+    "report_id",
+    report.get(
+        "id"
+    ),
 )
 
 
-if isinstance(
-    download_response,
-    bytes,
-):
+if report_id:
 
-    patient_name = str(
-        patient.get(
-            "full_name",
-            "Patient",
+    download_info = download_report(
+        int(report_id)
+    )
+
+    if isinstance(
+        download_info,
+        bytes,
+    ):
+
+        st.download_button(
+            label="📄 Download PDF",
+            data=download_info,
+            file_name=(
+                f"{report.get('patient_name', 'Patient')}"
+                "_Report.pdf"
+            ),
+            mime="application/pdf",
+            use_container_width=True,
         )
-    )
 
-    safe_patient_name = (
-        patient_name
-        .replace("/", "_")
-        .replace("\\", "_")
-        .replace(" ", "_")
-    )
-
-    st.download_button(
-        label="📄 Download PDF",
-
-        data=download_response,
-
-        file_name=(
-            f"{safe_patient_name}_Report.pdf"
-        ),
-
-        mime="application/pdf",
-
-        use_container_width=True,
-    )
-
-elif isinstance(
-    download_response,
-    dict,
-):
-
-    download_url = download_response.get(
-        "download_url"
-    )
-
-    if download_url:
+    elif isinstance(
+        download_info,
+        dict,
+    ):
 
         st.info(
-            "The report download endpoint is available, "
-            "but the backend currently returns download "
-            "information rather than PDF file data."
+            "The backend currently provides "
+            "download metadata. Actual PDF generation "
+            "will be implemented later."
         )
 
     else:
 
         st.warning(
-            "PDF report is not available."
+            "PDF report is not currently available."
         )
-
-else:
-
-    st.warning(
-        "PDF report is not available."
-    )
 
 
 st.divider()
 
 
 # ==========================================================
-# Export Reports CSV
+# CSV Export
 # ==========================================================
 
-st.subheader(
-    "⬇ Export Reports"
-)
-
-
-csv = df.to_csv(
+csv_data = filtered_df.to_csv(
     index=False
 )
 
-
 st.download_button(
     label="⬇ Export Reports (CSV)",
-
-    data=csv,
-
+    data=csv_data,
     file_name="reports.csv",
-
     mime="text/csv",
-
     use_container_width=True,
 )
