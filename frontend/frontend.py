@@ -196,7 +196,7 @@ with st.sidebar:
         )
 
     st.title(
-        "🧠 PD Detection Agent"
+        "🧠 Parkinson Disease Detection Agent"
     )
 
     st.caption(
