@@ -7,7 +7,6 @@ from utils.api_client import (
     get_patients,
     delete_user,
     delete_patient,
-    check_backend,
 )
 
 from utils.session import (
@@ -23,7 +22,7 @@ from utils.session import (
 
 st.set_page_config(
     page_title="Admin Dashboard",
-    page_icon="🛠",
+    page_icon="🛠️",
     layout="wide",
 )
 
@@ -36,7 +35,7 @@ initialize_session()
 
 
 # ==========================================================
-# Authentication Check
+# Authentication
 # ==========================================================
 
 if not is_logged_in():
@@ -55,16 +54,148 @@ if not is_logged_in():
 if not is_admin():
 
     st.error(
-        "🚫 Access Denied! "
-        "Administrator privileges required."
+        "🚫 Access Denied"
     )
 
     st.info(
-        f"Current role: "
-        f"{st.session_state.get('role', 'User')}"
+        "Administrator privileges are required."
     )
 
     st.stop()
+
+
+# ==========================================================
+# Helper Functions
+# ==========================================================
+
+def normalize_list(
+    data,
+    keys=None,
+):
+    """
+    Convert different API response formats into a list.
+    """
+
+    if data is None:
+        return []
+
+    if isinstance(
+        data,
+        list,
+    ):
+        return data
+
+    if isinstance(
+        data,
+        dict,
+    ):
+
+        if keys:
+
+            for key in keys:
+
+                value = data.get(
+                    key
+                )
+
+                if isinstance(
+                    value,
+                    list,
+                ):
+                    return value
+
+        return []
+
+    return []
+
+
+def get_value(
+    record,
+    keys,
+    default=None,
+):
+    """
+    Return first available field.
+    """
+
+    if not isinstance(
+        record,
+        dict,
+    ):
+        return default
+
+    for key in keys:
+
+        value = record.get(
+            key
+        )
+
+        if value is not None:
+            return value
+
+    return default
+
+
+def get_patient_name(
+    patient,
+):
+    """
+    Safely construct patient name.
+    """
+
+    name = get_value(
+        patient,
+        [
+            "patient_name",
+            "name",
+            "full_name",
+        ],
+        None,
+    )
+
+    if name:
+        return str(name)
+
+    first_name = get_value(
+        patient,
+        [
+            "first_name",
+            "firstName",
+        ],
+        "",
+    )
+
+    last_name = get_value(
+        patient,
+        [
+            "last_name",
+            "lastName",
+        ],
+        "",
+    )
+
+    combined = (
+        f"{first_name} {last_name}"
+    ).strip()
+
+    return combined or "Unknown"
+
+
+def get_role(
+    user,
+):
+    role = get_value(
+        user,
+        [
+            "role",
+            "user_role",
+        ],
+        "user",
+    )
+
+    return str(
+        role
+    )
 
 
 # ==========================================================
@@ -72,62 +203,59 @@ if not is_admin():
 # ==========================================================
 
 st.title(
-    "🛠 Admin Dashboard"
+    "🛠️ Admin Dashboard"
 )
 
 st.write(
     """
-    Manage users, patients, and monitor the
-    overall health of the system.
-    """
-)
-
-admin_username = st.session_state.get(
-    "username",
-    "Administrator",
+Manage users, patients, and monitor the
+overall health of the system.
+"""
 )
 
 st.success(
     f"Administrator access granted: "
-    f"{admin_username}"
+    f"{st.session_state.get('username', 'Administrator')}"
 )
-
-
-# ==========================================================
-# Refresh
-# ==========================================================
-
-refresh_col1, refresh_col2 = st.columns(
-    [5, 1]
-)
-
-with refresh_col2:
-
-    if st.button(
-        "🔄 Refresh",
-        width="stretch",
-    ):
-
-        st.rerun()
-
 
 st.divider()
 
 
 # ==========================================================
-# Load Dashboard
+# Load Data
 # ==========================================================
 
 with st.spinner(
-    "Loading administrator dashboard..."
+    "Loading administrator data..."
 ):
 
     dashboard = get_admin_dashboard()
+    users_response = get_users()
+    patients_response = get_patients()
 
 
 # ==========================================================
-# Safe Dashboard
+# Normalize Data
 # ==========================================================
+
+users = normalize_list(
+    users_response,
+    [
+        "users",
+        "data",
+        "records",
+    ],
+)
+
+patients = normalize_list(
+    patients_response,
+    [
+        "patients",
+        "data",
+        "records",
+    ],
+)
+
 
 if not isinstance(
     dashboard,
@@ -138,36 +266,105 @@ if not isinstance(
 
 
 # ==========================================================
-# Dashboard Statistics
+# Calculate Real Counts
 # ==========================================================
 
-total_users = dashboard.get(
-    "total_users",
-    0,
+# Prefer actual returned records.
+
+total_users = len(
+    users
 )
 
-total_patients = dashboard.get(
-    "total_patients",
-    0,
-)
-
-total_predictions = dashboard.get(
-    "total_predictions",
-    0,
-)
-
-total_reports = dashboard.get(
-    "total_reports",
-    0,
+total_patients = len(
+    patients
 )
 
 
-col1, col2, col3, col4 = (
+# Fallback to dashboard values if list endpoint
+# did not return records.
+
+if total_users == 0:
+
+    total_users = int(
+        dashboard.get(
+            "total_users",
+            0,
+        )
+        or 0
+    )
+
+
+if total_patients == 0:
+
+    total_patients = int(
+        dashboard.get(
+            "total_patients",
+            0,
+        )
+        or 0
+    )
+
+
+total_predictions = int(
+    dashboard.get(
+        "total_predictions",
+        0,
+    )
+    or 0
+)
+
+
+total_reports = int(
+    dashboard.get(
+        "total_reports",
+        0,
+    )
+    or 0
+)
+
+
+# ==========================================================
+# User Role Counts
+# ==========================================================
+
+admin_count = 0
+doctor_count = 0
+normal_count = 0
+
+
+for user in users:
+
+    role = get_role(
+        user
+    ).lower().strip()
+
+    if role == "admin":
+
+        admin_count += 1
+
+    elif role == "doctor":
+
+        doctor_count += 1
+
+    else:
+
+        normal_count += 1
+
+
+# ==========================================================
+# Dashboard Metrics
+# ==========================================================
+
+st.subheader(
+    "📊 System Overview"
+)
+
+metric1, metric2, metric3, metric4 = (
     st.columns(4)
 )
 
 
-with col1:
+with metric1:
 
     st.metric(
         "👥 Users",
@@ -175,7 +372,7 @@ with col1:
     )
 
 
-with col2:
+with metric2:
 
     st.metric(
         "🩺 Patients",
@@ -183,7 +380,7 @@ with col2:
     )
 
 
-with col3:
+with metric3:
 
     st.metric(
         "🧠 Predictions",
@@ -191,73 +388,11 @@ with col3:
     )
 
 
-with col4:
+with metric4:
 
     st.metric(
         "📄 Reports",
         total_reports,
-    )
-
-
-st.divider()
-
-
-# ==========================================================
-# User Role Statistics
-# ==========================================================
-
-st.subheader(
-    "👥 User Roles"
-)
-
-roles = dashboard.get(
-    "user_roles",
-    {},
-)
-
-if not isinstance(
-    roles,
-    dict,
-):
-
-    roles = {}
-
-
-role_col1, role_col2, role_col3 = (
-    st.columns(3)
-)
-
-
-with role_col1:
-
-    st.metric(
-        "🛡 Administrators",
-        roles.get(
-            "admins",
-            0,
-        ),
-    )
-
-
-with role_col2:
-
-    st.metric(
-        "🩺 Doctors",
-        roles.get(
-            "doctors",
-            0,
-        ),
-    )
-
-
-with role_col3:
-
-    st.metric(
-        "👤 Users",
-        roles.get(
-            "users",
-            0,
-        ),
     )
 
 
@@ -273,330 +408,244 @@ st.subheader(
 )
 
 
-with st.spinner(
-    "Loading users..."
-):
+if users:
 
-    users = get_users()
+    user_rows = []
 
+    for user in users:
 
-if not isinstance(
-    users,
-    list,
-):
+        user_rows.append(
+            {
+                "ID":
+                    get_value(
+                        user,
+                        ["id", "user_id"],
+                        "N/A",
+                    ),
 
-    users = []
+                "Username":
+                    get_value(
+                        user,
+                        ["username"],
+                        "N/A",
+                    ),
 
+                "Full Name":
+                    get_value(
+                        user,
+                        [
+                            "full_name",
+                            "name",
+                        ],
+                        "N/A",
+                    ),
 
-# ----------------------------------------------------------
-# User Search
-# ----------------------------------------------------------
+                "Email":
+                    get_value(
+                        user,
+                        ["email"],
+                        "N/A",
+                    ),
 
-user_search = st.text_input(
-    "🔍 Search Users",
-    placeholder=(
-        "Search by username, name, "
-        "email, or role..."
-    ),
-)
+                "Role":
+                    get_role(
+                        user
+                    ),
 
+                "Active":
+                    get_value(
+                        user,
+                        [
+                            "is_active",
+                            "active",
+                        ],
+                        True,
+                    ),
 
-filtered_users = users.copy()
-
-
-if user_search:
-
-    search_text = (
-        user_search
-        .strip()
-        .lower()
-    )
-
-    filtered_users = [
-
-        user
-
-        for user in users
-
-        if isinstance(
-            user,
-            dict,
+                "Created":
+                    get_value(
+                        user,
+                        [
+                            "created_at",
+                            "created",
+                        ],
+                        "N/A",
+                    ),
+            }
         )
-        and search_text
-        in (
-            f"{user.get('username', '')} "
-            f"{user.get('full_name', '')} "
-            f"{user.get('email', '')} "
-            f"{user.get('role', '')}"
-        ).lower()
-    ]
 
-
-if filtered_users:
 
     users_df = pd.DataFrame(
-        filtered_users
-    )
-
-
-    # ------------------------------------------------------
-    # Display Columns
-    # ------------------------------------------------------
-
-    user_columns = [
-        "id",
-        "username",
-        "full_name",
-        "email",
-        "role",
-        "is_active",
-        "created_at",
-    ]
-
-
-    available_user_columns = [
-        column
-        for column in user_columns
-        if column
-        in users_df.columns
-    ]
-
-
-    if available_user_columns:
-
-        display_users = users_df[
-            available_user_columns
-        ].copy()
-
-    else:
-
-        display_users = users_df.copy()
-
-
-    display_users = display_users.rename(
-        columns={
-            "id": "ID",
-            "username": "Username",
-            "full_name": "Full Name",
-            "email": "Email",
-            "role": "Role",
-            "is_active": "Active",
-            "created_at": "Created",
-        }
+        user_rows
     )
 
 
     st.dataframe(
-        display_users,
-        width="stretch",
+        users_df,
+        use_container_width=True,
         hide_index=True,
     )
 
 
     # ------------------------------------------------------
-    # Select User
+    # User Summary
     # ------------------------------------------------------
 
-    user_options = []
+    role1, role2, role3 = (
+        st.columns(3)
+    )
 
-    for user in filtered_users:
 
-        if not isinstance(
-            user,
-            dict,
-        ):
-            continue
+    with role1:
 
-        user_id = user.get(
-            "id"
+        st.metric(
+            "Administrators",
+            admin_count,
         )
 
-        username = user.get(
-            "username",
-            "Unknown",
+
+    with role2:
+
+        st.metric(
+            "Doctors",
+            doctor_count,
+        )
+
+
+    with role3:
+
+        st.metric(
+            "Users",
+            normal_count,
+        )
+
+
+    # ------------------------------------------------------
+    # Delete User
+    # ------------------------------------------------------
+
+    st.write(
+        "### 🗑️ User Management"
+    )
+
+
+    selectable_users = []
+
+    for user in users:
+
+        user_id = get_value(
+            user,
+            [
+                "id",
+                "user_id",
+            ],
+            None,
+        )
+
+        username = get_value(
+            user,
+            [
+                "username",
+            ],
+            f"User {user_id}",
         )
 
         if user_id is not None:
 
-            user_options.append(
+            selectable_users.append(
                 (
+                    str(username),
                     user_id,
-                    username,
                 )
             )
 
 
-    if user_options:
+    if selectable_users:
 
-        selected_user_id = st.selectbox(
+        user_labels = [
+            item[0]
+            for item in selectable_users
+        ]
+
+
+        selected_username = st.selectbox(
             "Select User",
-            [
-                item[0]
-                for item in user_options
-            ],
-            format_func=lambda user_id: next(
-                (
-                    username
-                    for uid, username
-                    in user_options
-                    if uid == user_id
-                ),
-                f"User {user_id}",
-            ),
+            user_labels,
+            key="admin_selected_user",
         )
 
 
-        selected_user = next(
-            (
-                user
-                for user in filtered_users
-                if isinstance(
-                    user,
-                    dict,
-                )
-                and user.get("id")
-                == selected_user_id
-            ),
-            None,
+        selected_user_id = next(
+            user_id
+            for username, user_id
+            in selectable_users
+            if username == selected_username
         )
 
 
-        # --------------------------------------------------
-        # Selected User Details
-        # --------------------------------------------------
-
-        if selected_user:
-
-            detail_col1, detail_col2 = (
-                st.columns(2)
-            )
+        confirm_user_delete = st.checkbox(
+            "I understand that deleting this user cannot be undone.",
+            key="confirm_user_delete",
+        )
 
 
-            with detail_col1:
+        if st.button(
+            "❌ Delete Selected User",
+            disabled=not confirm_user_delete,
+            use_container_width=True,
+        ):
 
-                st.write(
-                    f"**Username:** "
-                    f"{selected_user.get('username', 'N/A')}"
-                )
+            # Safety: prevent accidental deletion
+            # of the currently logged-in administrator.
 
-                st.write(
-                    f"**Full Name:** "
-                    f"{selected_user.get('full_name', 'N/A')}"
-                )
-
-                st.write(
-                    f"**Email:** "
-                    f"{selected_user.get('email', 'N/A')}"
-                )
-
-
-            with detail_col2:
-
-                st.write(
-                    f"**Role:** "
-                    f"{selected_user.get('role', 'N/A')}"
-                )
-
-                st.write(
-                    f"**Active:** "
-                    f"{selected_user.get('is_active', 'N/A')}"
-                )
-
-                st.write(
-                    f"**ID:** "
-                    f"{selected_user.get('id', 'N/A')}"
-                )
-
-
-            # ------------------------------------------------
-            # Prevent Self Deletion
-            # ------------------------------------------------
-
-            current_user_id = (
+            current_username = (
                 st.session_state.get(
-                    "user_id"
+                    "username"
                 )
             )
 
 
-            is_current_user = (
-                current_user_id is not None
-                and str(
-                    current_user_id
-                )
-                == str(
-                    selected_user.get(
-                        "id"
-                    )
-                )
-            )
+            if (
+                selected_username
+                == current_username
+            ):
 
-
-            if is_current_user:
-
-                st.warning(
-                    "⚠️ You cannot delete your "
-                    "own administrator account."
+                st.error(
+                    "You cannot delete the currently logged-in administrator."
                 )
 
             else:
 
-                confirm_user_delete = (
-                    st.checkbox(
-                        "I understand that deleting "
-                        "this user cannot be undone.",
-                        key=(
-                            f"confirm_user_delete_"
-                            f"{selected_user_id}"
-                        ),
+                try:
+
+                    success = delete_user(
+                        selected_user_id
                     )
-                )
+
+                except Exception:
+
+                    success = False
 
 
-                if st.button(
-                    "❌ Delete Selected User",
-                    disabled=(
-                        not confirm_user_delete
-                    ),
-                    width="stretch",
-                ):
+                if success:
 
-                    with st.spinner(
-                        "Deleting user..."
-                    ):
+                    st.success(
+                        "User deleted successfully."
+                    )
 
-                        success = delete_user(
-                            selected_user_id
-                        )
+                    st.rerun()
 
+                else:
 
-                    if success:
-
-                        st.success(
-                            "User deleted successfully."
-                        )
-
-                        st.rerun()
-
-                    else:
-
-                        st.error(
-                            "Unable to delete user."
-                        )
+                    st.error(
+                        "Unable to delete user."
+                    )
 
 else:
 
-    if user_search:
-
-        st.info(
-            "No users match your search."
-        )
-
-    else:
-
-        st.info(
-            "No users found."
-        )
+    st.info(
+        "No users were returned by the backend."
+    )
 
 
 st.divider()
@@ -611,311 +660,176 @@ st.subheader(
 )
 
 
-with st.spinner(
-    "Loading patients..."
-):
+if patients:
 
-    patients = get_patients()
+    patient_rows = []
 
+    for patient in patients:
 
-if not isinstance(
-    patients,
-    list,
-):
+        patient_rows.append(
+            {
+                "ID":
+                    get_value(
+                        patient,
+                        [
+                            "id",
+                            "patient_id",
+                        ],
+                        "N/A",
+                    ),
 
-    patients = []
+                "Patient Name":
+                    get_patient_name(
+                        patient
+                    ),
 
+                "Age":
+                    get_value(
+                        patient,
+                        ["age"],
+                        "N/A",
+                    ),
 
-# ----------------------------------------------------------
-# Patient Search
-# ----------------------------------------------------------
+                "Gender":
+                    get_value(
+                        patient,
+                        ["gender"],
+                        "N/A",
+                    ),
 
-patient_search = st.text_input(
-    "🔍 Search Patients",
-    placeholder=(
-        "Search by patient name, "
-        "email, phone, or ID..."
-    ),
-)
+                "Email":
+                    get_value(
+                        patient,
+                        ["email"],
+                        "N/A",
+                    ),
 
-
-filtered_patients = patients.copy()
-
-
-if patient_search:
-
-    search_text = (
-        patient_search
-        .strip()
-        .lower()
-    )
-
-
-    filtered_patients = [
-
-        patient
-
-        for patient in patients
-
-        if isinstance(
-            patient,
-            dict,
+                "Phone":
+                    get_value(
+                        patient,
+                        ["phone"],
+                        "N/A",
+                    ),
+            }
         )
-        and search_text
-        in (
-            f"{patient.get('patient_name', '')} "
-            f"{patient.get('first_name', '')} "
-            f"{patient.get('last_name', '')} "
-            f"{patient.get('email', '')} "
-            f"{patient.get('phone', '')} "
-            f"{patient.get('id', '')}"
-        ).lower()
-    ]
 
 
-if filtered_patients:
-
-    patient_df = pd.DataFrame(
-        filtered_patients
-    )
-
-
-    patient_columns = [
-        "id",
-        "patient_name",
-        "first_name",
-        "last_name",
-        "age",
-        "gender",
-        "email",
-        "phone",
-    ]
-
-
-    available_patient_columns = [
-        column
-        for column in patient_columns
-        if column
-        in patient_df.columns
-    ]
-
-
-    if available_patient_columns:
-
-        display_patients = patient_df[
-            available_patient_columns
-        ].copy()
-
-    else:
-
-        display_patients = patient_df.copy()
-
-
-    display_patients = display_patients.rename(
-        columns={
-            "id": "ID",
-            "patient_name": "Patient",
-            "first_name": "First Name",
-            "last_name": "Last Name",
-            "age": "Age",
-            "gender": "Gender",
-            "email": "Email",
-            "phone": "Phone",
-        }
+    patients_df = pd.DataFrame(
+        patient_rows
     )
 
 
     st.dataframe(
-        display_patients,
-        width="stretch",
+        patients_df,
+        use_container_width=True,
         hide_index=True,
     )
 
 
     # ------------------------------------------------------
-    # Select Patient
+    # Delete Patient
     # ------------------------------------------------------
 
-    patient_options = []
+    st.write(
+        "### 🗑️ Patient Management"
+    )
 
 
-    for patient in filtered_patients:
+    selectable_patients = []
 
-        if not isinstance(
+
+    for patient in patients:
+
+        patient_id = get_value(
             patient,
-            dict,
-        ):
-            continue
-
-
-        patient_id = patient.get(
-            "id"
+            [
+                "id",
+                "patient_id",
+            ],
+            None,
         )
 
-
-        patient_name = (
-            patient.get(
-                "patient_name"
-            )
-            or (
-                f"{patient.get('first_name', '')} "
-                f"{patient.get('last_name', '')}"
-            ).strip()
-            or f"Patient {patient_id}"
+        patient_name = get_patient_name(
+            patient
         )
 
 
         if patient_id is not None:
 
-            patient_options.append(
+            selectable_patients.append(
                 (
+                    f"{patient_name} "
+                    f"(ID: {patient_id})",
                     patient_id,
-                    patient_name,
                 )
             )
 
 
-    if patient_options:
+    if selectable_patients:
 
-        selected_patient_id = st.selectbox(
+        patient_labels = [
+            item[0]
+            for item in selectable_patients
+        ]
+
+
+        selected_patient = st.selectbox(
             "Select Patient",
-            [
-                item[0]
-                for item in patient_options
-            ],
-            format_func=lambda patient_id: next(
-                (
-                    name
-                    for pid, name
-                    in patient_options
-                    if pid == patient_id
-                ),
-                f"Patient {patient_id}",
-            ),
+            patient_labels,
+            key="admin_selected_patient",
         )
 
 
-        selected_patient = next(
-            (
-                patient
-                for patient in filtered_patients
-                if isinstance(
-                    patient,
-                    dict,
-                )
-                and patient.get("id")
-                == selected_patient_id
-            ),
-            None,
+        selected_patient_id = next(
+            patient_id
+            for label, patient_id
+            in selectable_patients
+            if label == selected_patient
         )
 
 
-        if selected_patient:
-
-            st.write(
-                "### 👤 Patient Details"
-            )
-
-
-            patient_detail_col1, patient_detail_col2 = (
-                st.columns(2)
-            )
+        confirm_patient_delete = st.checkbox(
+            "I understand that deleting this patient cannot be undone.",
+            key="confirm_patient_delete",
+        )
 
 
-            with patient_detail_col1:
+        if st.button(
+            "🗑️ Delete Selected Patient",
+            disabled=not confirm_patient_delete,
+            use_container_width=True,
+        ):
 
-                st.write(
-                    f"**Name:** "
-                    f"{selected_patient.get('patient_name') or 'N/A'}"
+            try:
+
+                success = delete_patient(
+                    selected_patient_id
                 )
 
-                st.write(
-                    f"**Age:** "
-                    f"{selected_patient.get('age', 'N/A')}"
+            except Exception:
+
+                success = False
+
+
+            if success:
+
+                st.success(
+                    "Patient deleted successfully."
                 )
 
-                st.write(
-                    f"**Gender:** "
-                    f"{selected_patient.get('gender', 'N/A')}"
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "Unable to delete patient."
                 )
-
-
-            with patient_detail_col2:
-
-                st.write(
-                    f"**Email:** "
-                    f"{selected_patient.get('email', 'N/A')}"
-                )
-
-                st.write(
-                    f"**Phone:** "
-                    f"{selected_patient.get('phone', 'N/A')}"
-                )
-
-                st.write(
-                    f"**Patient ID:** "
-                    f"{selected_patient.get('id', 'N/A')}"
-                )
-
-
-            # ------------------------------------------------
-            # Delete Patient
-            # ------------------------------------------------
-
-            confirm_patient_delete = st.checkbox(
-                "I understand that deleting this patient "
-                "cannot be undone.",
-                key=(
-                    f"confirm_patient_delete_"
-                    f"{selected_patient_id}"
-                ),
-            )
-
-
-            if st.button(
-                "🗑 Delete Selected Patient",
-                disabled=(
-                    not confirm_patient_delete
-                ),
-                width="stretch",
-            ):
-
-                with st.spinner(
-                    "Deleting patient..."
-                ):
-
-                    success = delete_patient(
-                        selected_patient_id
-                    )
-
-
-                if success:
-
-                    st.success(
-                        "Patient deleted successfully."
-                    )
-
-                    st.rerun()
-
-                else:
-
-                    st.error(
-                        "Unable to delete patient."
-                    )
 
 else:
 
-    if patient_search:
-
-        st.info(
-            "No patients match your search."
-        )
-
-    else:
-
-        st.info(
-            "No patient records available."
-        )
+    st.info(
+        "No patient records were returned by the backend."
+    )
 
 
 st.divider()
@@ -941,16 +855,63 @@ if isinstance(
     list,
 ) and activity:
 
-    activity_df = pd.DataFrame(
-        activity
-    )
+    activity_rows = []
+
+    for item in activity:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        activity_rows.append(
+            {
+                "Type":
+                    get_value(
+                        item,
+                        ["type"],
+                        "Activity",
+                    ),
+
+                "Description":
+                    get_value(
+                        item,
+                        [
+                            "description",
+                            "message",
+                        ],
+                        "",
+                    ),
+
+                "Created":
+                    get_value(
+                        item,
+                        [
+                            "created_at",
+                            "timestamp",
+                        ],
+                        "N/A",
+                    ),
+            }
+        )
 
 
-    st.dataframe(
-        activity_df,
-        width="stretch",
-        hide_index=True,
-    )
+    if activity_rows:
+
+        st.dataframe(
+            pd.DataFrame(
+                activity_rows
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No recent activity available."
+        )
 
 else:
 
@@ -971,27 +932,18 @@ st.subheader(
 )
 
 
-health_col1, health_col2 = (
+health1, health2 = (
     st.columns(2)
 )
 
 
-# ----------------------------------------------------------
-# Backend
-# ----------------------------------------------------------
+with health1:
 
-with health_col1:
-
-    try:
-
-        backend_online = check_backend()
-
-    except Exception:
-
-        backend_online = True
-
-
-    if backend_online:
+    if (
+        dashboard
+        or users
+        or patients
+    ):
 
         st.success(
             "🟢 FastAPI Backend"
@@ -1009,13 +961,9 @@ with health_col1:
     )
 
 
-# ----------------------------------------------------------
-# Services
-# ----------------------------------------------------------
+with health2:
 
-with health_col2:
-
-    if dashboard:
+    if patients is not None:
 
         st.success(
             "🟢 Database"
@@ -1024,7 +972,7 @@ with health_col2:
     else:
 
         st.warning(
-            "🟡 Database status unavailable"
+            "🟡 Database"
         )
 
 
@@ -1037,53 +985,15 @@ st.divider()
 
 
 # ==========================================================
-# Admin Information
+# Refresh
 # ==========================================================
 
-st.subheader(
-    "ℹ️ Administrator Information"
-)
+if st.button(
+    "🔄 Refresh Dashboard",
+    use_container_width=True,
+):
 
-
-info_col1, info_col2, info_col3 = (
-    st.columns(3)
-)
-
-
-with info_col1:
-
-    st.info(
-        f"""
-        **Administrator**
-
-        {admin_username}
-        """
-    )
-
-
-with info_col2:
-
-    st.info(
-        f"""
-        **Users**
-
-        {total_users}
-        """
-    )
-
-
-with info_col3:
-
-    st.info(
-        f"""
-        **Patients**
-
-        {total_patients}
-        """
-    )
-
-
-st.divider()
+    st.rerun()
 
 
 # ==========================================================
