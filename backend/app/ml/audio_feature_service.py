@@ -243,78 +243,78 @@ class AudioFeatureService:
 # Validate Audio
 # ==========================================================
 
-def validate_audio(
-    self,
-    audio: np.ndarray,
-    sample_rate: int,
-) -> bool:
-    """
-    Validate an audio waveform before feature extraction.
-    """
+    def validate_audio(
+        self,
+        audio: np.ndarray,
+        sample_rate: int,
+    ) -> bool:
+        """
+        Validate an audio waveform before feature extraction.
+        """
 
-    if not isinstance(
-        audio,
-        np.ndarray,
-    ):
+        if not isinstance(
+            audio,
+            np.ndarray,
+        ):
 
-        raise ValueError(
-            "Audio waveform must be a NumPy array."
+            raise ValueError(
+                "Audio waveform must be a NumPy array."
+            )
+
+        if audio.size == 0:
+
+            raise ValueError(
+                "Audio file contains no samples."
+            )
+
+        if sample_rate <= 0:
+
+            raise ValueError(
+                "Invalid audio sample rate."
+            )
+
+        if not np.isfinite(
+            audio
+        ).all():
+
+            raise ValueError(
+                "Audio contains invalid numeric values."
+            )
+
+        duration = (
+            len(audio)
+            / float(sample_rate)
         )
 
-    if audio.size == 0:
+        if duration < self.min_duration:
 
-        raise ValueError(
-            "Audio file contains no samples."
+            raise ValueError(
+                "Audio recording is too short. "
+                f"Minimum duration is "
+                f"{self.min_duration:.1f} seconds."
+            )
+
+        if duration > self.max_duration:
+
+            raise ValueError(
+                "Audio recording is too long. "
+                f"Maximum duration is "
+                f"{self.max_duration:.1f} seconds."
+            )
+
+        peak = float(
+            np.max(
+                np.abs(audio)
+            )
         )
 
-    if sample_rate <= 0:
+        if peak <= 0:
 
-        raise ValueError(
-            "Invalid audio sample rate."
-        )
+            raise ValueError(
+                "Audio recording is silent."
+            )
 
-    if not np.isfinite(
-        audio
-    ).all():
-
-        raise ValueError(
-            "Audio contains invalid numeric values."
-        )
-
-    duration = (
-        len(audio)
-        / float(sample_rate)
-    )
-
-    if duration < self.min_duration:
-
-        raise ValueError(
-            "Audio recording is too short. "
-            f"Minimum duration is "
-            f"{self.min_duration:.1f} seconds."
-        )
-
-    if duration > self.max_duration:
-
-        raise ValueError(
-            "Audio recording is too long. "
-            f"Maximum duration is "
-            f"{self.max_duration:.1f} seconds."
-        )
-
-    peak = float(
-        np.max(
-            np.abs(audio)
-        )
-    )
-
-    if peak <= 0:
-
-        raise ValueError(
-            "Audio recording is silent."
-        )
-
-    return True
+        return True
 
 
 # ==========================================================
