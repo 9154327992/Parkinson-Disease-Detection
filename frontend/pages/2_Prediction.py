@@ -83,6 +83,37 @@ with col3:
 
 st.divider()
 
+# ==========================================================
+# Voice Audio Upload
+# ==========================================================
+
+st.subheader(
+    "🎵 Voice Audio"
+)
+
+st.caption(
+    "Upload a WAV recording to automatically extract "
+    "the 22 voice measurements."
+)
+
+audio_file = st.file_uploader(
+    "Upload WAV audio",
+    type=["wav"],
+    help="Upload a WAV voice recording between 2 and 30 seconds.",
+)
+
+if audio_file is not None:
+
+    st.audio(
+        audio_file,
+        format="audio/wav",
+    )
+
+    st.success(
+        f"Audio file ready: {audio_file.name}"
+    )
+
+st.divider()
 
 # ==========================================================
 # Voice Measurements
