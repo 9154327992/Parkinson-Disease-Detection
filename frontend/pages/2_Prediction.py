@@ -1,6 +1,9 @@
 import streamlit as st
 
-from utils.api_client import predict_patient
+from utils.api_client import (
+    predict_patient,
+    predict_audio,
+)
 
 
 # ==========================================================
@@ -266,9 +269,9 @@ analyze = st.button(
 
 if analyze:
 
-    # ------------------------------------------------------
+    # --------------------------------------------------
     # Patient Name
-    # ------------------------------------------------------
+    # --------------------------------------------------
 
     if not patient_name.strip():
 
@@ -279,90 +282,93 @@ if analyze:
         st.stop()
 
 
-    # ------------------------------------------------------
-    # Feature Count
-    # ------------------------------------------------------
+    # --------------------------------------------------
+    # Audio Prediction
+    # --------------------------------------------------
 
-    if len(values) != 22:
+    if audio_file is not None:
 
-        st.error(
-            "Exactly 22 voice measurements are required."
-        )
+        with st.spinner(
+            "🧠 Extracting voice features and analyzing patient..."
+        ):
 
-        st.stop()
-
-
-    # ------------------------------------------------------
-    # Missing Measurements
-    # ------------------------------------------------------
-
-    if missing_features:
-
-        missing_text = ", ".join(
-            str(number)
-            for number in missing_features
-        )
-
-        st.error(
-            "Please enter all 22 voice measurements "
-            f"before analyzing the patient. "
-            f"Missing feature(s): {missing_text}"
-        )
-
-        st.stop()
+            result = predict_audio(
+                patient_name.strip(),
+                int(patient_age),
+                patient_gender,
+                audio_file,
+            )
 
 
-    # ------------------------------------------------------
-    # Convert to float
-    # ------------------------------------------------------
+    # --------------------------------------------------
+    # Manual Feature Prediction
+    # --------------------------------------------------
 
-    try:
+    else:
 
-        numeric_values = [
-            float(value)
-            for value in values
-        ]
+        if len(values) != 22:
 
-    except (
-        TypeError,
-        ValueError,
-    ):
+            st.error(
+                "Exactly 22 voice measurements are required."
+            )
 
-        st.error(
-            "All voice measurements must be valid numbers."
-        )
-
-        st.stop()
+            st.stop()
 
 
-    # ------------------------------------------------------
-    # Final Validation
-    # ------------------------------------------------------
+        if missing_features:
 
-    if len(numeric_values) != 22:
+            missing_text = ", ".join(
+                str(number)
+                for number in missing_features
+            )
 
-        st.error(
-            "The prediction requires exactly 22 measurements."
-        )
+            st.error(
+                "Please upload a WAV file or enter all "
+                f"22 voice measurements. "
+                f"Missing feature(s): {missing_text}"
+            )
 
-        st.stop()
+            st.stop()
 
 
-    # ------------------------------------------------------
-    # Prediction
-    # ------------------------------------------------------
+        try:
 
-    with st.spinner(
-        "🧠 Analyzing patient..."
-    ):
+            numeric_values = [
+                float(value)
+                for value in values
+            ]
 
-        result = predict_patient(
-            patient_name.strip(),
-            int(patient_age),
-            patient_gender,
-            numeric_values,
-        )
+        except (
+            TypeError,
+            ValueError,
+        ):
 
+            st.error(
+                "All voice measurements must be valid numbers."
+            )
+
+            st.stop()
+
+
+        if len(numeric_values) != 22:
+
+            st.error(
+                "The prediction requires exactly 22 measurements."
+            )
+
+            st.stop()
+
+
+        with st.spinner(
+            "🧠 Analyzing patient..."
+        ):
+
+            result = predict_patient(
+                patient_name.strip(),
+                int(patient_age),
+                patient_gender,
+                numeric_values,
+            )
 
     # ------------------------------------------------------
     # Backend Error
