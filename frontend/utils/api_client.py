@@ -903,6 +903,70 @@ def predict_patient(
 
     return None
 
+# ==========================================================
+# Predict From Audio File
+# ==========================================================
+
+def predict_audio(
+    patient_name: str,
+    age: int,
+    gender: str,
+    audio_file,
+) -> Optional[Dict[str, Any]]:
+    """
+    Upload a WAV audio file and run voice-based prediction.
+
+    The backend automatically extracts the 22 voice features
+    before running the prediction model.
+    """
+
+    endpoint = (
+        f"{BASE_URL}/prediction/predict-audio"
+    )
+
+    params = {
+        "patient_name": patient_name,
+        "age": int(age),
+        "gender": gender,
+    }
+
+    files = {
+        "file": (
+            audio_file.name,
+            audio_file.getvalue(),
+            "audio/wav",
+        )
+    }
+
+    headers = {
+        "Accept": "application/json",
+    }
+
+    token = _get_token()
+
+    if token:
+
+        headers[
+            "Authorization"
+        ] = f"Bearer {token}"
+
+    try:
+
+        response = requests.post(
+            endpoint,
+            params=params,
+            files=files,
+            headers=headers,
+            timeout=60,
+        )
+
+        return _handle_response(
+            response
+        )
+
+    except requests.RequestException:
+
+        return None
 
 # ==========================================================
 # Prediction History
