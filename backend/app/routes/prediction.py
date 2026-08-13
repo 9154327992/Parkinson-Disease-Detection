@@ -1,4 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 
 from app.schemas.prediction import (
     PredictionRequest,
@@ -7,6 +14,10 @@ from app.schemas.prediction import (
 
 from app.services.prediction_service import PredictionService
 from app.services.report_service import report_service
+
+from app.ml.audio_feature_service import (
+    audio_feature_service,
+)
 
 from app.dependencies import get_current_user
 
