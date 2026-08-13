@@ -96,6 +96,148 @@ def predict(
             detail=f"Prediction failed: {str(e)}",
         )
 
+# ==========================================================
+# Predict From Audio File
+# ==========================================================
+
+@router.post(
+    "/predict-audio",
+    status_code=status.HTTP_200_OK,
+)
+async def predict_audio(
+    patient_name: str,
+    age: int,
+    gender: str,
+    file: UploadFile = File(...),
+):
+    """
+    Upload a WAV audio file, extract the 22 voice features,
+    and run the existing prediction pipeline.
+    """
+
+    try:
+
+        # --------------------------------------------------
+        # Validate file
+        # --------------------------------------------------
+
+        if not file.filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Audio file is required.",
+            )
+
+        filename = file.filename.lower()
+
+        if not filename.endswith(".wav"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only WAV audio files are supported.",
+            )
+
+        # --------------------------------------------------
+        # Read uploaded audio
+        # --------------------------------------------------
+
+        audio_bytes = await file.read()
+
+        if not audio_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded audio file is empty.",
+            )
+
+        # --------------------------------------------------
+        # Save temporary audio file
+        # --------------------------------------------------
+
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(
+            suffix=".wav",
+            delete=False,
+        ) as temporary_file:
+
+            temporary_file.write(
+                audio_bytes
+            )
+
+            temporary_path = (
+                temporary_file.name
+            )
+
+        # --------------------------------------------------
+        # Extract 22 model features
+        # --------------------------------------------------
+
+        features_dict = (
+            audio_feature_service.extract_features_from_file(
+                temporary_path
+            )
+        )
+
+        # --------------------------------------------------
+        # Convert to model vector
+        # --------------------------------------------------
+
+        feature_vector = (
+            audio_feature_service.to_feature_vector(
+                features_dict
+            )
+        )
+
+        # --------------------------------------------------
+        # Build existing prediction request
+        # --------------------------------------------------
+
+        request = PredictionRequest(
+            patient_name=patient_name,
+            age=age,
+            gender=gender,
+            features=feature_vector,
+        )
+
+        # --------------------------------------------------
+        # Run existing prediction pipeline
+        # --------------------------------------------------
+
+        result = prediction_service.predict(
+            request
+        )
+
+        # --------------------------------------------------
+        # Generate report
+        # --------------------------------------------------
+
+        report_service.generate_from_prediction(
+            request=request,
+            prediction=result,
+        )
+
+        return {
+            "prediction": result,
+            "features": features_dict,
+            "feature_count": len(
+                feature_vector
+            ),
+        }
+
+    except ValueError as e:
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Audio prediction failed: {str(e)}",
+        )
 
 # ==========================================================
 # Model Information
