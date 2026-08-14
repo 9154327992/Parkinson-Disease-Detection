@@ -45,17 +45,59 @@ def get_value(
 ):
     """
     Safely get the first available value from a record.
+
+    Supports values stored at the top level as well as
+    inside common nested objects such as:
+        prediction
+        patient
+        user
     """
 
-    if not isinstance(record, dict):
+    if not isinstance(
+        record,
+        dict,
+    ):
         return default
+
+    # ------------------------------------------------------
+    # Check top-level record first
+    # ------------------------------------------------------
 
     for key in keys:
 
-        value = record.get(key)
+        value = record.get(
+            key
+        )
 
         if value is not None:
             return value
+
+    # ------------------------------------------------------
+    # Check nested objects
+    # ------------------------------------------------------
+
+    nested_objects = [
+        record.get("prediction"),
+        record.get("patient"),
+        record.get("user"),
+    ]
+
+    for nested in nested_objects:
+
+        if not isinstance(
+            nested,
+            dict,
+        ):
+            continue
+
+        for key in keys:
+
+            value = nested.get(
+                key
+            )
+
+            if value is not None:
+                return value
 
     return default
 
