@@ -960,13 +960,39 @@ def predict_audio(
             timeout=60,
         )
 
+        if not response.ok:
+
+            st.error(
+                f"Audio prediction failed "
+                f"(HTTP {response.status_code})."
+            )
+
+            try:
+
+                st.json(
+                    response.json()
+                )
+
+            except ValueError:
+
+                st.code(
+                    response.text
+                )
+
+            return None
+
         return _handle_response(
             response
         )
 
-    except requests.RequestException:
+    except requests.RequestException as exc:
+
+        st.error(
+            f"Audio prediction request failed: {exc}"
+        )
 
         return None
+
 
 # ==========================================================
 # Prediction History
