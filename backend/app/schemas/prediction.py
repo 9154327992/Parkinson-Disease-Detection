@@ -1,7 +1,3 @@
-"""
-Prediction Schemas
-"""
-
 from datetime import datetime
 from typing import List, Optional
 
@@ -142,9 +138,6 @@ class PredictionResponse(PredictionResult):
 # ==========================================================
 
 class PredictionHistory(BaseModel):
-    """
-    Historical prediction record.
-    """
 
     prediction_id: int
 
@@ -152,14 +145,19 @@ class PredictionHistory(BaseModel):
 
     patient_name: str
 
+    age: int
+
+    gender: str
+
     prediction: str
 
     confidence: float
 
+    risk_score: float
+
     risk_level: str
 
     created_at: datetime
-
 
 # ==========================================================
 # Prediction Statistics
