@@ -151,7 +151,9 @@ def get_patient_name(
     return combined or "Unknown"
 
 
-def get_risk_level(record):
+def get_risk_level(
+    record,
+):
     """
     Normalize risk level.
     """
@@ -166,7 +168,10 @@ def get_risk_level(record):
         "",
     )
 
-    if isinstance(risk, dict):
+    if isinstance(
+        risk,
+        dict,
+    ):
 
         risk = (
             risk.get("risk_level")
@@ -191,7 +196,9 @@ def get_risk_level(record):
     return risk or "Unknown"
 
 
-def get_diagnosis(record):
+def get_diagnosis(
+    record,
+):
     """
     Normalize diagnosis/prediction field.
     """
@@ -207,7 +214,10 @@ def get_diagnosis(record):
         "Unknown",
     )
 
-    if isinstance(value, dict):
+    if isinstance(
+        value,
+        dict,
+    ):
 
         value = (
             value.get("diagnosis")
@@ -216,10 +226,14 @@ def get_diagnosis(record):
             or "Unknown"
         )
 
-    return str(value)
+    return str(
+        value
+    )
 
 
-def get_prediction_id(record):
+def get_prediction_id(
+    record,
+):
     """
     Normalize prediction ID.
     """
@@ -289,7 +303,9 @@ def get_risk_score(
     return value
 
 
-def format_risk_score(value):
+def format_risk_score(
+    value,
+):
     """
     Format risk score safely.
     """
@@ -299,7 +315,9 @@ def format_risk_score(value):
 
     try:
 
-        number = float(value)
+        number = float(
+            value
+        )
 
         return f"{number:.2f}%"
 
@@ -308,7 +326,9 @@ def format_risk_score(value):
         ValueError,
     ):
 
-        return str(value)
+        return str(
+            value
+        )
 
 
 # ==========================================================
