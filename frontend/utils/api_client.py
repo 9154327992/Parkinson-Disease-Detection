@@ -925,9 +925,17 @@ def predict_audio(
     )
 
     params = {
-        "patient_name": patient_name,
-        "age": int(age),
-        "gender": gender,
+        "patient_name": str(
+            patient_name
+        ).strip(),
+
+        "age": int(
+            age
+        ),
+
+        "gender": str(
+            gender
+        ),
     }
 
     files = {
@@ -960,17 +968,23 @@ def predict_audio(
             timeout=60,
         )
 
+        # --------------------------------------------------
+        # HTTP Error
+        # --------------------------------------------------
+
         if not response.ok:
 
             st.error(
-                f"Audio prediction failed "
+                "Audio prediction failed "
                 f"(HTTP {response.status_code})."
             )
 
             try:
 
+                error_data = response.json()
+
                 st.json(
-                    response.json()
+                    error_data
                 )
 
             except ValueError:
@@ -981,14 +995,66 @@ def predict_audio(
 
             return None
 
-        return _handle_response(
+        # --------------------------------------------------
+        # Parse Response
+        # --------------------------------------------------
+
+        result = _handle_response(
             response
         )
+
+        if not isinstance(
+            result,
+            dict,
+        ):
+
+            st.error(
+                "Invalid response received "
+                "from the audio prediction endpoint."
+            )
+
+            return None
+
+        # --------------------------------------------------
+        # Backend response structure:
+        #
+        # {
+        #     "prediction": {
+        #         ...
+        #     },
+        #     "features": {
+        #         ...
+        #     },
+        #     "feature_count": 22
+        # }
+        #
+        # Return only the prediction object because
+        # the existing Prediction page expects the
+        # prediction fields at the top level.
+        # --------------------------------------------------
+
+        prediction_result = result.get(
+            "prediction"
+        )
+
+        if isinstance(
+            prediction_result,
+            dict,
+        ):
+
+            return prediction_result
+
+        # --------------------------------------------------
+        # Fallback
+        # --------------------------------------------------
+
+        return result
 
     except requests.RequestException as exc:
 
         st.error(
-            f"Audio prediction request failed: {exc}"
+            "Audio prediction request failed: "
+            f"{exc}"
         )
 
         return None
@@ -997,7 +1063,6 @@ def predict_audio(
 # ==========================================================
 # Prediction History
 # ==========================================================
-
 def get_patient_history():
     """
     Get patient/prediction history.
