@@ -1,5 +1,14 @@
 from datetime import datetime
 from typing import Dict, List, Optional
+from io import BytesIO
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+)
 
 from app.schemas.report import (
     ReportRequest,
@@ -387,31 +396,222 @@ class ReportService:
         return reports
 
     # ==========================================================
-    # Download Report Information
+    # Download Report
     # ==========================================================
 
     def download_report(
         self,
         report_id: int,
-    ) -> Optional[ReportDownload]:
+    ):
         """
-        Return download information for a report.
+        Generate and return the PDF for a report.
 
-        Actual PDF generation is not implemented yet.
+        Returns:
+            tuple:
+                (
+                    PDF bytes,
+                    filename,
+                )
+
+        Returns None when the report does not exist.
         """
 
-        if report_id not in self._reports:
+        # ------------------------------------------------------
+        # Find report
+        # ------------------------------------------------------
 
+        report = self._reports.get(
+            report_id
+        )
+
+        if report is None:
             return None
 
-        return ReportDownload(
-            report_id=report_id,
-            filename=f"report_{report_id}.pdf",
-            download_url=(
-                f"/reports/{report_id}/download"
-            ),
-            file_type="pdf",
-            file_size="Not generated",
+        # ------------------------------------------------------
+        # Create PDF in memory
+        # ------------------------------------------------------
+
+        buffer = BytesIO()
+
+        document = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            title="Parkinson Disease Assessment Report",
+        )
+
+        styles = getSampleStyleSheet()
+
+        story = []
+
+        # ------------------------------------------------------
+        # Title
+        # ------------------------------------------------------
+
+        story.append(
+            Paragraph(
+                "Parkinson Disease Assessment Report",
+                styles["Title"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                20,
+            )
+        )
+
+        # ------------------------------------------------------
+        # Report Information
+        # ------------------------------------------------------
+
+        metadata = report.metadata
+
+        story.append(
+            Paragraph(
+                f"<b>Report ID:</b> "
+                f"{metadata.report_id}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Generated:</b> "
+                f"{metadata.generated_at}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Version:</b> "
+                f"{metadata.version}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        # ------------------------------------------------------
+        # Patient Information
+        # ------------------------------------------------------
+
+        patient = report.patient
+
+        story.append(
+            Paragraph(
+                "Patient Information",
+                styles["Heading2"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Patient:</b> "
+                f"{patient.full_name}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Patient ID:</b> "
+                f"{patient.patient_id}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        # ------------------------------------------------------
+        # Prediction Information
+        # ------------------------------------------------------
+
+        prediction = report.prediction
+
+        story.append(
+            Paragraph(
+                "Prediction Result",
+                styles["Heading2"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Prediction:</b> "
+                f"{prediction.prediction}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Confidence:</b> "
+                f"{prediction.confidence}%",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Risk Level:</b> "
+                f"{prediction.risk_level}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        # ------------------------------------------------------
+        # Medical Disclaimer
+        # ------------------------------------------------------
+
+        story.append(
+            Paragraph(
+                "<b>Medical Disclaimer:</b> "
+                "This report provides AI-assisted screening "
+                "information. It does not diagnose Parkinson's "
+                "disease and should not replace evaluation by "
+                "a qualified healthcare professional.",
+                styles["Normal"],
+            )
+        )
+
+        # ------------------------------------------------------
+        # Build PDF
+        # ------------------------------------------------------
+
+        document.build(
+            story
+        )
+
+        pdf_bytes = buffer.getvalue()
+
+        buffer.close()
+
+        filename = (
+            f"report_{report_id}.pdf"
+        )
+
+        return (
+            pdf_bytes,
+            filename,
         )
 
     # ==========================================================
