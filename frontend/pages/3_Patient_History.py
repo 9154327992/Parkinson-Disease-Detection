@@ -4,6 +4,7 @@ import pandas as pd
 from utils.api_client import (
     get_patient_history,
     delete_prediction,
+    debug_patient_history,
 )
 
 
@@ -340,6 +341,8 @@ with st.spinner(
 ):
 
     history = get_patient_history()
+
+debug_patient_history()
 
 
 # ==========================================================
