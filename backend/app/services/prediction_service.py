@@ -696,10 +696,23 @@ class PredictionService:
 
             patient_name=patient_name,
 
-            prediction=prediction,
+            age=int(
+                request.age
+            ),
 
+            gender=str(
+                request.gender
+            ),
+
+            prediction=prediction,
+    
             confidence=round(
                 confidence,
+                2,
+            ),
+
+            risk_score=round(
+                risk_score,
                 2,
             ),
 
@@ -712,7 +725,6 @@ class PredictionService:
         PredictionService.history.append(
             history_item
         )
-
 
         # ==================================================
         # Save Complete Prediction
