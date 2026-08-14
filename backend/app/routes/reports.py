@@ -1,5 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Response,
+    status,
+)
 from app.dependencies import get_current_user
 
 from app.schemas.report import (
@@ -108,21 +113,30 @@ def download_report(
     current_user=Depends(get_current_user),
 ):
     """
-    Return report download information.
+    Generate and download the report PDF.
     """
 
-    report = report_service.download_report(
+    result = report_service.download_report(
         report_id=report_id
     )
 
-    if report is None:
+    if result is None:
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Report not found.",
         )
 
-    return report
+    pdf_bytes, filename = result
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="{filename}"'
+        },
+    )
 
 
 # ==========================================================
