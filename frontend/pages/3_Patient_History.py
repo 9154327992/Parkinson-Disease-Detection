@@ -102,9 +102,12 @@ def get_value(
     return default
 
 
-def get_patient_name(record):
+def get_patient_name(
+    record,
+):
     """
-    Support multiple backend patient-name formats.
+    Support multiple backend patient-name formats,
+    including nested patient objects.
     """
 
     name = get_value(
@@ -113,12 +116,15 @@ def get_patient_name(record):
             "patient_name",
             "name",
             "full_name",
+            "patientName",
         ],
         "",
     )
 
     if name:
-        return str(name)
+        return str(
+            name
+        )
 
     first_name = get_value(
         record,
@@ -228,20 +234,59 @@ def get_prediction_id(record):
     )
 
 
-def get_risk_score(record):
+def get_risk_score(
+    record,
+):
     """
     Normalize risk score.
+
+    Supports risk score stored directly on the
+    history record or inside the nested prediction object.
     """
 
-    return get_value(
+    value = get_value(
         record,
         [
             "risk_score",
             "risk_percentage",
             "score",
+            "riskScore",
+            "probability",
         ],
         None,
     )
+
+    # ------------------------------------------------------
+    # Nested prediction fallback
+    # ------------------------------------------------------
+
+    if value is None:
+
+        prediction = record.get(
+            "prediction"
+        )
+
+        if isinstance(
+            prediction,
+            dict,
+        ):
+
+            value = (
+                prediction.get(
+                    "risk_score"
+                )
+                or prediction.get(
+                    "risk_percentage"
+                )
+                or prediction.get(
+                    "score"
+                )
+                or prediction.get(
+                    "riskScore"
+                )
+            )
+
+    return value
 
 
 def format_risk_score(value):
