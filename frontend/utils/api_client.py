@@ -1119,6 +1119,28 @@ def get_patient_history():
 
     return []
 
+# ==========================================================
+# Debug Patient History
+# ==========================================================
+
+def debug_patient_history():
+    """
+    Temporarily display the raw patient history response.
+    """
+
+    result = get(
+        "/prediction/history"
+    )
+
+    st.write(
+        "RAW HISTORY RESPONSE:"
+    )
+
+    st.json(
+        result
+    )
+
+    return result
 
 # ==========================================================
 # Patients
