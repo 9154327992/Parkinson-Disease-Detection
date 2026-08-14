@@ -341,6 +341,22 @@ def delete(
 
 
 # ==========================================================
+# Delete Prediction
+# ==========================================================
+
+def delete_prediction(
+    prediction_id: int,
+) -> Any:
+    """
+    Delete a prediction by ID.
+    """
+
+    return delete(
+        f"/prediction/{int(prediction_id)}"
+    )
+
+
+# ==========================================================
 # Generic List Normalizer
 # ==========================================================
 
