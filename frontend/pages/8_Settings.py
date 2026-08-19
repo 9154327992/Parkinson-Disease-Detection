@@ -2,7 +2,6 @@ import streamlit as st
 
 from utils.api_client import (
     get_user_settings,
-    change_password,
     health_check,
 )
 
@@ -19,36 +18,54 @@ st.set_page_config(
 
 
 # ==========================================================
+# Session Defaults
+# ==========================================================
+
+if "prediction_display" not in st.session_state:
+
+    st.session_state.prediction_display = "Detailed"
+
+
+if "auto_refresh_history" not in st.session_state:
+
+    st.session_state.auto_refresh_history = True
+
+
+if "show_disclaimer" not in st.session_state:
+
+    st.session_state.show_disclaimer = True
+
+
+if "save_chat_history" not in st.session_state:
+
+    st.session_state.save_chat_history = True
+
+
+# ==========================================================
 # Header
 # ==========================================================
 
-st.title(
-    "⚙️ Settings"
-)
+st.title("⚙️ Settings")
 
 st.write(
-    "Manage your account security and application status."
+    "Customize how the Parkinson Disease Detection "
+    "application works."
 )
 
 st.divider()
 
 
 # ==========================================================
-# Account Security
+# Account
 # ==========================================================
 
-st.subheader(
-    "🔐 Security"
-)
+st.subheader("👤 Account")
 
 
 user = get_user_settings()
 
 
-if isinstance(
-    user,
-    dict,
-):
+if isinstance(user, dict):
 
     username = (
         user.get("username")
@@ -79,18 +96,14 @@ else:
     )
 
 
-col1, col2 = st.columns(
-    2
-)
+col1, col2 = st.columns(2)
 
 
 with col1:
 
     st.text_input(
         "Username",
-        value=str(
-            username
-        ),
+        value=str(username),
         disabled=True,
     )
 
@@ -99,137 +112,111 @@ with col2:
 
     st.text_input(
         "Role",
-        value=str(
-            role
-        ),
+        value=str(role),
         disabled=True,
     )
 
 
 # ==========================================================
-# Change Password
+# Application Preferences
 # ==========================================================
 
-with st.form(
-    "change_password_form"
+st.divider()
+
+st.subheader("🎛️ Application Preferences")
+
+
+prediction_display = st.selectbox(
+    "Prediction Display",
+    options=[
+        "Detailed",
+        "Simple",
+    ],
+    index=(
+        0
+        if st.session_state.prediction_display
+        == "Detailed"
+        else 1
+    ),
+    help=(
+        "Choose how prediction results are "
+        "displayed."
+    ),
+)
+
+
+auto_refresh_history = st.toggle(
+    "Auto-refresh Prediction History",
+    value=st.session_state.auto_refresh_history,
+)
+
+
+show_disclaimer = st.toggle(
+    "Show Medical Disclaimer",
+    value=st.session_state.show_disclaimer,
+)
+
+
+save_chat_history = st.toggle(
+    "Save AI Chat History",
+    value=st.session_state.save_chat_history,
+)
+
+
+# ==========================================================
+# Save Settings
+# ==========================================================
+
+if st.button(
+    "💾 Save Settings",
+    width="stretch",
 ):
 
-    current_password = st.text_input(
-        "Current Password",
-        type="password",
+    st.session_state.prediction_display = (
+        prediction_display
     )
 
-    new_password = st.text_input(
-        "New Password",
-        type="password",
+    st.session_state.auto_refresh_history = (
+        auto_refresh_history
     )
 
-    confirm_password = st.text_input(
-        "Confirm New Password",
-        type="password",
+    st.session_state.show_disclaimer = (
+        show_disclaimer
+    )
+
+    st.session_state.save_chat_history = (
+        save_chat_history
+    )
+
+    st.success(
+        "✅ Settings saved successfully."
     )
 
 
-    submitted = st.form_submit_button(
-        "🔐 Update Password",
-        width="stretch",
+# ==========================================================
+# Reset Settings
+# ==========================================================
+
+if st.button(
+    "↩️ Reset to Default",
+    width="stretch",
+):
+
+    st.session_state.prediction_display = (
+        "Detailed"
     )
 
+    st.session_state.auto_refresh_history = True
 
-    if submitted:
+    st.session_state.show_disclaimer = True
 
-        # --------------------------------------------------
-        # Validation
-        # --------------------------------------------------
+    st.session_state.save_chat_history = True
 
-        if not current_password:
+    st.success(
+        "Settings restored to default."
+    )
 
-            st.error(
-                "Please enter your current password."
-            )
-
-        elif not new_password:
-
-            st.error(
-                "Please enter a new password."
-            )
-
-        elif not confirm_password:
-
-            st.error(
-                "Please confirm your new password."
-            )
-
-        elif new_password != confirm_password:
-
-            st.error(
-                "New passwords do not match."
-            )
-
-        elif current_password == new_password:
-
-            st.error(
-                "New password must be different "
-                "from your current password."
-            )
-
-        else:
-
-            # ----------------------------------------------
-            # Change Password
-            # ----------------------------------------------
-
-            with st.spinner(
-                "Updating password..."
-            ):
-
-                result = change_password(
-                    current_password,
-                    new_password,
-                )
-
-
-            if isinstance(
-                result,
-                dict,
-            ):
-
-                success = result.get(
-                    "success",
-                    True,
-                )
-
-                message = (
-                    result.get(
-                        "message"
-                    )
-                    or "Password updated successfully."
-                )
-
-                if success:
-
-                    st.success(
-                        message
-                    )
-
-                else:
-
-                    st.error(
-                        message
-                    )
-
-            elif result is True:
-
-                st.success(
-                    "Password updated successfully."
-                )
-
-            else:
-
-                st.error(
-                    "Unable to update password. "
-                    "Please check your current password."
-                )
+    st.rerun()
 
 
 # ==========================================================
@@ -238,17 +225,13 @@ with st.form(
 
 st.divider()
 
-st.subheader(
-    "🖥️ System"
-)
+st.subheader("🖥️ System Status")
 
 
 backend_status = health_check()
 
 
-col1, col2, col3 = st.columns(
-    3
-)
+col1, col2, col3 = st.columns(3)
 
 
 with col1:
@@ -268,12 +251,6 @@ with col1:
 
 with col2:
 
-    # ------------------------------------------------------
-    # Database
-    #
-    # Database connectivity is handled by the backend.
-    # ------------------------------------------------------
-
     if backend_status:
 
         st.success(
@@ -288,12 +265,6 @@ with col2:
 
 
 with col3:
-
-    # ------------------------------------------------------
-    # AI Assistant
-    #
-    # The AI Assistant uses the FastAPI backend.
-    # ------------------------------------------------------
 
     if backend_status:
 
@@ -314,10 +285,7 @@ with col3:
 
 st.divider()
 
-st.subheader(
-    "ℹ️ About"
-)
-
+st.subheader("ℹ️ About")
 
 st.write(
     "**Parkinson Disease Detection**"
@@ -337,11 +305,34 @@ st.caption(
 
 
 # ==========================================================
+# Medical Disclaimer
+# ==========================================================
+
+if st.session_state.show_disclaimer:
+
+    st.divider()
+
+    st.info(
+        """
+        **Medical Disclaimer**
+
+        This application provides AI-assisted
+        screening information for educational and
+        research purposes.
+
+        It does not provide a medical diagnosis and
+        should not replace evaluation by a qualified
+        healthcare professional.
+        """
+    )
+
+
+# ==========================================================
 # Footer
 # ==========================================================
 
 st.divider()
 
 st.caption(
-    "© 2026 Parkinson Disease Detection Agent"
+    "Parkinson Disease Detection Agent"
 )
