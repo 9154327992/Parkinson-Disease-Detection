@@ -1544,7 +1544,23 @@ def ask_ai_assistant(
     question: str,
 ) -> Optional[Dict[str, Any]]:
     """
-    Ask the AI Health Assistant a question.
+    Ask the FastAPI AI Health Assistant.
+
+    Backend endpoint:
+
+        POST /chatbot/
+
+    Backend request field:
+
+        message
+
+    Backend response contains:
+
+        response
+        conversation_id
+        sources
+        suggestions
+        timestamp
     """
 
     question = str(
@@ -1558,60 +1574,47 @@ def ask_ai_assistant(
 
 
     payload = {
-        "question":
+        "message":
             question,
     }
 
 
     # ------------------------------------------------------
-    # Primary endpoint
+    # FastAPI Chatbot Endpoint
     # ------------------------------------------------------
 
     result = post(
-        "/ai/ask",
+        "/chatbot/",
         json=payload,
         timeout=120,
     )
 
+
+    # ------------------------------------------------------
+    # Return Backend Response
+    # ------------------------------------------------------
 
     if isinstance(
         result,
         dict,
     ):
 
-        return result
+        # --------------------------------------------------
+        # Normalize backend "response" into "answer"
+        # so the Streamlit page can use it.
+        # --------------------------------------------------
 
+        if (
+            "answer" not in result
+            and "response" in result
+        ):
 
-    # ------------------------------------------------------
-    # Compatibility endpoints
-    # ------------------------------------------------------
+            result["answer"] = (
+                result.get(
+                    "response"
+                )
+            )
 
-    result = post(
-        "/assistant/ask",
-        json=payload,
-        timeout=120,
-    )
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
-
-        return result
-
-
-    result = post(
-        "/ai-assistant",
-        json=payload,
-        timeout=120,
-    )
-
-
-    if isinstance(
-        result,
-        dict,
-    ):
 
         return result
 
