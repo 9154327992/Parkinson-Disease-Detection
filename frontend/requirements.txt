@@ -1,0 +1,4 @@
+streamlit
+pandas
+requests
+audio-recorder-streamlit==0.0.10
