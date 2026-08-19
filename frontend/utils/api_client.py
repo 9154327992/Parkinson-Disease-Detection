@@ -623,7 +623,8 @@ def get_current_user() -> Optional[Dict[str, Any]]:
     """
     Retrieve the currently authenticated user.
 
-    Uses the JWT stored in Streamlit session state.
+    The FastAPI /auth/me endpoint requires user_id
+    as a query parameter.
     """
 
     token = _get_token()
@@ -637,14 +638,34 @@ def get_current_user() -> Optional[Dict[str, Any]]:
         return None
 
 
+    user_id = st.session_state.get(
+        "user_id"
+    )
+
+    if user_id is None:
+
+        st.warning(
+            "No user ID found in the current session."
+        )
+
+        return None
+
+
     endpoint = (
         f"{BASE_URL}/auth/me"
     )
 
 
+    params = {
+        "user_id": int(user_id),
+    }
+
+
     headers = {
         "Accept": "application/json",
-        "Authorization": f"Bearer {token}",
+        "Authorization": (
+            f"Bearer {token}"
+        ),
     }
 
 
@@ -652,13 +673,14 @@ def get_current_user() -> Optional[Dict[str, Any]]:
 
         response = requests.get(
             endpoint,
+            params=params,
             headers=headers,
             timeout=30,
         )
 
 
         # --------------------------------------------------
-        # Debug HTTP response
+        # Handle HTTP errors
         # --------------------------------------------------
 
         if not response.ok:
@@ -684,7 +706,7 @@ def get_current_user() -> Optional[Dict[str, Any]]:
 
 
         # --------------------------------------------------
-        # Parse response
+        # Parse JSON
         # --------------------------------------------------
 
         try:
@@ -706,7 +728,7 @@ def get_current_user() -> Optional[Dict[str, Any]]:
 
 
         # --------------------------------------------------
-        # Nested user response
+        # Nested user object
         # --------------------------------------------------
 
         if isinstance(
@@ -727,7 +749,7 @@ def get_current_user() -> Optional[Dict[str, Any]]:
 
 
             # ------------------------------------------------
-            # Direct user response
+            # Direct user object
             # ------------------------------------------------
 
             return result
@@ -744,6 +766,7 @@ def get_current_user() -> Optional[Dict[str, Any]]:
         )
 
         return None
+        
 # ==========================================================
 # User Settings
 # ==========================================================
