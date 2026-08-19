@@ -623,35 +623,127 @@ def get_current_user() -> Optional[Dict[str, Any]]:
     """
     Retrieve the currently authenticated user.
 
-    Tries the common /auth/me endpoint.
+    Uses the JWT stored in Streamlit session state.
     """
 
-    result = get(
-        "/auth/me"
+    token = _get_token()
+
+    if not token:
+
+        st.warning(
+            "No authentication token found in the current session."
+        )
+
+        return None
+
+
+    endpoint = (
+        f"{BASE_URL}/auth/me"
     )
 
 
-    if isinstance(
-        result,
-        dict,
-    ):
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}",
+    }
 
-        user = result.get(
-            "user"
+
+    try:
+
+        response = requests.get(
+            endpoint,
+            headers=headers,
+            timeout=30,
         )
 
+
+        # --------------------------------------------------
+        # Debug HTTP response
+        # --------------------------------------------------
+
+        if not response.ok:
+
+            st.error(
+                "Current-user request failed "
+                f"(HTTP {response.status_code})."
+            )
+
+            try:
+
+                st.json(
+                    response.json()
+                )
+
+            except ValueError:
+
+                st.code(
+                    response.text
+                )
+
+            return None
+
+
+        # --------------------------------------------------
+        # Parse response
+        # --------------------------------------------------
+
+        try:
+
+            result = response.json()
+
+        except ValueError:
+
+            st.error(
+                "The FastAPI backend returned "
+                "an invalid JSON response."
+            )
+
+            st.code(
+                response.text
+            )
+
+            return None
+
+
+        # --------------------------------------------------
+        # Nested user response
+        # --------------------------------------------------
+
         if isinstance(
-            user,
+            result,
             dict,
         ):
 
-            return user
+            user = result.get(
+                "user"
+            )
 
-        return result
+            if isinstance(
+                user,
+                dict,
+            ):
+
+                return user
 
 
-    return None
+            # ------------------------------------------------
+            # Direct user response
+            # ------------------------------------------------
 
+            return result
+
+
+        return None
+
+
+    except requests.RequestException as exc:
+
+        st.error(
+            "Unable to connect to FastAPI backend: "
+            f"{exc}"
+        )
+
+        return None
 # ==========================================================
 # User Settings
 # ==========================================================
