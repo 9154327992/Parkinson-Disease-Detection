@@ -874,143 +874,91 @@ def change_password(
     new_password: str,
 ) -> bool:
     """
-    Change the current user's password.
-
-    FastAPI backend expects:
-
-        POST /auth/change-password
-
-    Query parameters:
-
-        old_password
-        new_password
+    Change the logged-in user's password.
     """
-
-    current_password = str(
-        current_password
-    )
-
-    new_password = str(
-        new_password
-    )
-
-
-    # ------------------------------------------------------
-    # Validation
-    # ------------------------------------------------------
 
     if not current_password:
 
-        st.error(
-            "Please enter your current password."
-        )
-
         return False
-
 
     if not new_password:
 
-        st.error(
-            "Please enter your new password."
-        )
-
         return False
-
-
-    # ------------------------------------------------------
-    # Backend Request
-    # ------------------------------------------------------
-
-    endpoint = (
-        "/auth/change-password"
-    )
-
-
-    params = {
-        "old_password":
-            current_password,
-
-        "new_password":
-            new_password,
-    }
 
 
     try:
 
         response = requests.post(
-            f"{BASE_URL}{endpoint}",
-            params=params,
+            f"{BASE_URL}/auth/change-password",
+            params={
+                "old_password":
+                    current_password,
+
+                "new_password":
+                    new_password,
+            },
             headers=_headers(),
             timeout=30,
         )
 
 
-        # --------------------------------------------------
-        # Successful password change
-        # --------------------------------------------------
-
-        if response.ok:
+        if response.status_code == 200:
 
             return True
 
 
         # --------------------------------------------------
-        # Backend error
+        # Display backend error
         # --------------------------------------------------
 
         try:
 
-            error_data = response.json()
+            error = response.json()
 
         except ValueError:
 
-            error_data = None
+            error = None
 
 
         if isinstance(
-            error_data,
+            error,
             dict,
         ):
 
-            detail = error_data.get(
+            detail = error.get(
                 "detail"
             )
 
+            if isinstance(
+                detail,
+                list,
+            ):
 
-            if detail:
+                for item in detail:
 
-                if isinstance(
-                    detail,
-                    list,
-                ):
+                    if isinstance(
+                        item,
+                        dict,
+                    ):
 
-                    for item in detail:
-
-                        if isinstance(
-                            item,
-                            dict,
-                        ):
-
-                            st.error(
-                                str(
-                                    item.get(
-                                        "msg",
-                                        item,
-                                    )
-                                )
+                        st.error(
+                            item.get(
+                                "msg",
+                                "Validation error.",
                             )
+                        )
 
-                        else:
+                    else:
 
-                            st.error(
-                                str(item)
-                            )
+                        st.error(
+                            str(item)
+                        )
 
-                else:
+            elif detail:
 
-                    st.error(
-                        str(detail)
-                    )
+                st.error(
+                    str(detail)
+                )
 
             else:
 
@@ -1033,12 +981,10 @@ def change_password(
     except requests.RequestException as exc:
 
         st.error(
-            "Unable to connect to FastAPI backend: "
-            f"{exc}"
+            f"Password request failed: {exc}"
         )
 
         return False
-
 
 # ==========================================================
 # Prediction
