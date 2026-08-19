@@ -876,8 +876,14 @@ def change_password(
     """
     Change the current user's password.
 
-    Backend endpoint:
+    FastAPI backend expects:
+
         POST /auth/change-password
+
+    Query parameters:
+
+        old_password
+        new_password
     """
 
     current_password = str(
@@ -888,6 +894,10 @@ def change_password(
         new_password
     )
 
+
+    # ------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------
 
     if not current_password:
 
@@ -901,14 +911,23 @@ def change_password(
     if not new_password:
 
         st.error(
-            "Please enter a new password."
+            "Please enter your new password."
         )
 
         return False
 
 
-    payload = {
-        "current_password":
+    # ------------------------------------------------------
+    # Backend Request
+    # ------------------------------------------------------
+
+    endpoint = (
+        "/auth/change-password"
+    )
+
+
+    params = {
+        "old_password":
             current_password,
 
         "new_password":
@@ -916,23 +935,18 @@ def change_password(
     }
 
 
-    endpoint = (
-        f"{BASE_URL}/auth/change-password"
-    )
-
-
     try:
 
         response = requests.post(
-            endpoint,
-            json=payload,
+            f"{BASE_URL}{endpoint}",
+            params=params,
             headers=_headers(),
             timeout=30,
         )
 
 
         # --------------------------------------------------
-        # Success
+        # Successful password change
         # --------------------------------------------------
 
         if response.ok:
@@ -941,7 +955,7 @@ def change_password(
 
 
         # --------------------------------------------------
-        # Show actual FastAPI error
+        # Backend error
         # --------------------------------------------------
 
         try:
@@ -962,6 +976,7 @@ def change_password(
                 "detail"
             )
 
+
             if detail:
 
                 if isinstance(
@@ -976,15 +991,13 @@ def change_password(
                             dict,
                         ):
 
-                            message = (
-                                item.get(
-                                    "msg"
-                                )
-                                or str(item)
-                            )
-
                             st.error(
-                                str(message)
+                                str(
+                                    item.get(
+                                        "msg",
+                                        item,
+                                    )
+                                )
                             )
 
                         else:
