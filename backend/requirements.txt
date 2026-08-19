@@ -45,6 +45,7 @@ joblib>=1.4.2
 
 librosa>=1.0.0
 soundfile>=0.14.0
+audio-recorder-streamlit>=0.0.10
 
 # ==========================================
 # Visualization
