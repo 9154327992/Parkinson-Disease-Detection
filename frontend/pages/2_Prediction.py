@@ -87,7 +87,7 @@ with col3:
 st.divider()
 
 # ==========================================================
-# Voice Audio Upload
+# Voice Audio
 # ==========================================================
 
 st.subheader(
@@ -95,28 +95,100 @@ st.subheader(
 )
 
 st.caption(
-    "Upload a WAV recording to automatically extract "
-    "the 22 voice measurements."
+    "Upload a WAV recording or record your voice directly."
 )
 
-audio_file = st.file_uploader(
-    "Upload WAV audio",
-    type=["wav"],
-    help="Upload a WAV voice recording between 2 and 30 seconds.",
+
+audio_mode = st.radio(
+    "Choose audio input",
+    [
+        "Upload WAV",
+        "Record Audio",
+    ],
+    horizontal=True,
 )
 
-if audio_file is not None:
 
-    st.audio(
-        audio_file,
-        format="audio/wav",
+audio_file = None
+
+
+# ==========================================================
+# Upload WAV
+# ==========================================================
+
+if audio_mode == "Upload WAV":
+
+    audio_file = st.file_uploader(
+        "Upload WAV audio",
+        type=["wav"],
+        help=(
+            "Upload a WAV voice recording "
+            "between 2 and 30 seconds."
+        ),
     )
 
-    st.success(
-        f"Audio file ready: {audio_file.name}"
+
+    if audio_file is not None:
+
+        st.audio(
+            audio_file,
+            format="audio/wav",
+        )
+
+        st.success(
+            f"Audio file ready: {audio_file.name}"
+        )
+
+
+# ==========================================================
+# Record Audio
+# ==========================================================
+
+else:
+
+    from audio_recorder_streamlit import (
+        audio_recorder,
     )
 
-st.divider()
+
+    st.write(
+        "🎙️ Record the patient's voice:"
+    )
+
+
+    recorded_audio = audio_recorder(
+        text="🎙️ Start / Stop Recording",
+        recording_color="#e63946",
+        neutral_color="#6c757d",
+        icon_name="microphone",
+        icon_size="2x",
+    )
+
+
+    if recorded_audio:
+
+        st.audio(
+            recorded_audio,
+            format="audio/wav",
+        )
+
+
+        st.success(
+            "Voice recording captured successfully."
+        )
+
+
+        class RecordedAudio:
+
+            name = "recorded_voice.wav"
+
+
+            def getvalue(self):
+
+                return recorded_audio
+
+
+        audio_file = RecordedAudio()
 
 # ==========================================================
 # Voice Measurements
