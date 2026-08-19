@@ -1,9 +1,10 @@
 import streamlit as st
 
+
 from utils.api_client import (
     ask_ai_assistant,
-    get_chatbot_suggestions,
 )
+
 
 # ==========================================================
 # Page Configuration
@@ -15,14 +16,18 @@ st.set_page_config(
     layout="wide",
 )
 
+
 # ==========================================================
 # Session State
 # ==========================================================
 
 if "chat_history" not in st.session_state:
+
     st.session_state.chat_history = []
 
+
 if "ai_error" not in st.session_state:
+
     st.session_state.ai_error = None
 
 
@@ -30,7 +35,10 @@ if "ai_error" not in st.session_state:
 # Header
 # ==========================================================
 
-st.title("🤖 AI Health Assistant")
+st.title(
+    "🤖 AI Health Assistant"
+)
+
 
 st.write(
     """
@@ -40,6 +48,7 @@ st.write(
     """
 )
 
+
 st.divider()
 
 
@@ -47,7 +56,9 @@ st.divider()
 # Ask AI
 # ==========================================================
 
-def ask_question(question: str):
+def ask_question(
+    question: str,
+):
     """
     Send a question to the FastAPI chatbot.
 
@@ -59,8 +70,11 @@ def ask_question(question: str):
         question
     ).strip()
 
+
     if not question:
+
         return
+
 
     # ------------------------------------------------------
     # Add User Message
@@ -73,7 +87,9 @@ def ask_question(question: str):
         }
     )
 
+
     st.session_state.ai_error = None
+
 
     # ------------------------------------------------------
     # Ask Backend
@@ -83,9 +99,20 @@ def ask_question(question: str):
         "🤖 AI is thinking..."
     ):
 
-        response = ask_ai_assistant(
-            question
-        )
+        try:
+
+            response = ask_ai_assistant(
+                question
+            )
+
+        except Exception as exc:
+
+            response = None
+
+            st.session_state.ai_error = (
+                f"AI Assistant request failed: {exc}"
+            )
+
 
     # ------------------------------------------------------
     # Handle No Response
@@ -98,9 +125,13 @@ def ask_question(question: str):
             "Assistant. Please try again."
         )
 
-        st.session_state.ai_error = (
-            "The backend did not return a response."
-        )
+
+        if not st.session_state.ai_error:
+
+            st.session_state.ai_error = (
+                "The backend did not return a response."
+            )
+
 
     # ------------------------------------------------------
     # Dictionary Response
@@ -111,14 +142,16 @@ def ask_question(question: str):
         dict,
     ):
 
-        # Our api_client returns "answer".
-        # The backend itself returns "response".
+        # Our api_client may return "answer".
+        # The backend may return "response".
+
         answer = (
             response.get("answer")
             or response.get("response")
             or response.get("message")
             or ""
         )
+
 
         if not answer:
 
@@ -127,11 +160,16 @@ def ask_question(question: str):
                 "empty response."
             )
 
+
             st.session_state.ai_error = (
                 "The AI Assistant returned no answer."
             )
 
-        # Backend may explicitly report failure.
+
+        # --------------------------------------------------
+        # Backend failure
+        # --------------------------------------------------
+
         if response.get(
             "success"
         ) is False:
@@ -146,6 +184,7 @@ def ask_question(question: str):
                 or "AI Assistant request failed."
             )
 
+
     # ------------------------------------------------------
     # Plain Text Response
     # ------------------------------------------------------
@@ -157,12 +196,14 @@ def ask_question(question: str):
 
         answer = response.strip()
 
+
         if not answer:
 
             answer = (
                 "The AI Assistant returned "
                 "an empty response."
             )
+
 
     # ------------------------------------------------------
     # Unexpected Response
@@ -175,10 +216,12 @@ def ask_question(question: str):
             "unexpected response."
         )
 
+
         st.session_state.ai_error = (
             f"Unexpected response type: "
             f"{type(response).__name__}"
         )
+
 
     # ------------------------------------------------------
     # Save AI Response
@@ -203,27 +246,11 @@ st.subheader(
 )
 
 
-# Try loading suggestions from backend.
-backend_suggestions = []
+# ==========================================================
+# Default Questions
+# ==========================================================
 
-try:
-
-    backend_suggestions = (
-        get_chatbot_suggestions()
-    )
-
-except Exception as exc:
-
-    print(
-        f"Unable to load chatbot suggestions: {exc}"
-    )
-
-
-# ----------------------------------------------------------
-# Fallback Questions
-# ----------------------------------------------------------
-
-default_questions = [
+suggested_questions = [
     "What is Parkinson's Disease?",
     "What causes hand tremors?",
     "What are the early symptoms?",
@@ -237,61 +264,10 @@ default_questions = [
 ]
 
 
-if isinstance(
-    backend_suggestions,
-    list,
-) and backend_suggestions:
+# ----------------------------------------------------------
+# Limit displayed questions
+# ----------------------------------------------------------
 
-    suggested_questions = []
-
-    for item in backend_suggestions:
-
-        if isinstance(
-            item,
-            str,
-        ):
-
-            suggested_questions.append(
-                item
-            )
-
-        elif isinstance(
-            item,
-            dict,
-        ):
-
-            question_text = (
-                item.get(
-                    "question"
-                )
-                or item.get(
-                    "text"
-                )
-                or item.get(
-                    "message"
-                )
-            )
-
-            if question_text:
-
-                suggested_questions.append(
-                    str(question_text)
-                )
-
-    if not suggested_questions:
-
-        suggested_questions = (
-            default_questions
-        )
-
-else:
-
-    suggested_questions = (
-        default_questions
-    )
-
-
-# Limit displayed questions.
 suggested_questions = (
     suggested_questions[:10]
 )
@@ -301,7 +277,9 @@ suggested_questions = (
 # Suggested Question Buttons
 # ==========================================================
 
-col1, col2 = st.columns(2)
+col1, col2 = st.columns(
+    2
+)
 
 
 for index, question in enumerate(
@@ -313,6 +291,7 @@ for index, question in enumerate(
         if index % 2 == 0
         else col2
     )
+
 
     with column:
 
@@ -367,6 +346,7 @@ if not st.session_state.chat_history:
         """
     )
 
+
 else:
 
     for message in (
@@ -377,17 +357,21 @@ else:
             message,
             dict,
         ):
+
             continue
+
 
         role = message.get(
             "role",
             "assistant",
         )
 
+
         content = message.get(
             "content",
             "",
         )
+
 
         if role not in (
             "user",
@@ -395,6 +379,7 @@ else:
         ):
 
             role = "assistant"
+
 
         with st.chat_message(
             role
@@ -453,6 +438,7 @@ if st.button(
 # ==========================================================
 
 st.divider()
+
 
 st.warning(
     """
