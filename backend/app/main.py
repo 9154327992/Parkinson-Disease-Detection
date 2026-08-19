@@ -139,6 +139,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ==========================================================
+# Health Check
+# ==========================================================
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "Parkinson Disease Detection API",
+    }
 
 # ==========================================================
 # CORS
