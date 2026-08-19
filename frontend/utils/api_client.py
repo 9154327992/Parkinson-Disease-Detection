@@ -865,20 +865,44 @@ def update_user_settings(
     return None
 
 
+# ==========================================================
+# Change Password
+# ==========================================================
+
 def change_password(
     current_password: str,
     new_password: str,
 ) -> bool:
     """
     Change the current user's password.
+
+    Backend endpoint:
+        POST /auth/change-password
     """
 
+    current_password = str(
+        current_password
+    )
+
+    new_password = str(
+        new_password
+    )
+
+
     if not current_password:
+
+        st.error(
+            "Please enter your current password."
+        )
 
         return False
 
 
     if not new_password:
+
+        st.error(
+            "Please enter a new password."
+        )
 
         return False
 
@@ -892,26 +916,115 @@ def change_password(
     }
 
 
-    result = post(
-        "/auth/change-password",
-        json=payload,
+    endpoint = (
+        f"{BASE_URL}/auth/change-password"
     )
 
 
-    if result is not None:
+    try:
 
-        return True
-
-
-    # Fallback endpoint
-
-    result = put(
-        "/users/password",
-        json=payload,
-    )
+        response = requests.post(
+            endpoint,
+            json=payload,
+            headers=_headers(),
+            timeout=30,
+        )
 
 
-    return result is not None
+        # --------------------------------------------------
+        # Success
+        # --------------------------------------------------
+
+        if response.ok:
+
+            return True
+
+
+        # --------------------------------------------------
+        # Show actual FastAPI error
+        # --------------------------------------------------
+
+        try:
+
+            error_data = response.json()
+
+        except ValueError:
+
+            error_data = None
+
+
+        if isinstance(
+            error_data,
+            dict,
+        ):
+
+            detail = error_data.get(
+                "detail"
+            )
+
+            if detail:
+
+                if isinstance(
+                    detail,
+                    list,
+                ):
+
+                    for item in detail:
+
+                        if isinstance(
+                            item,
+                            dict,
+                        ):
+
+                            message = (
+                                item.get(
+                                    "msg"
+                                )
+                                or str(item)
+                            )
+
+                            st.error(
+                                str(message)
+                            )
+
+                        else:
+
+                            st.error(
+                                str(item)
+                            )
+
+                else:
+
+                    st.error(
+                        str(detail)
+                    )
+
+            else:
+
+                st.error(
+                    f"Password update failed "
+                    f"(HTTP {response.status_code})."
+                )
+
+        else:
+
+            st.error(
+                f"Password update failed "
+                f"(HTTP {response.status_code})."
+            )
+
+
+        return False
+
+
+    except requests.RequestException as exc:
+
+        st.error(
+            "Unable to connect to FastAPI backend: "
+            f"{exc}"
+        )
+
+        return False
 
 
 # ==========================================================
