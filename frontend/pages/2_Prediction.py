@@ -146,49 +146,34 @@ if audio_mode == "Upload WAV":
 
 else:
 
-    from audio_recorder_streamlit import (
-        audio_recorder,
-    )
-
+    # ======================================================
+    # Native Streamlit Audio Recorder
+    # ======================================================
 
     st.write(
         "🎙️ Record the patient's voice:"
     )
 
-
-    recorded_audio = audio_recorder(
-        text="🎙️ Start / Stop Recording",
-        recording_color="#e63946",
-        neutral_color="#6c757d",
-        icon_name="microphone",
-        icon_size="2x",
+    st.caption(
+        "Use your microphone to record the patient's voice."
     )
 
 
-    if recorded_audio:
+    audio_file = st.audio_input(
+        "🎙️ Record voice"
+    )
+
+
+    if audio_file is not None:
 
         st.audio(
-            recorded_audio,
+            audio_file,
             format="audio/wav",
         )
 
-
         st.success(
-            "Voice recording captured successfully."
+            "✅ Voice recording captured successfully."
         )
-
-
-        class RecordedAudio:
-
-            name = "recorded_voice.wav"
-
-
-            def getvalue(self):
-
-                return recorded_audio
-
-
-        audio_file = RecordedAudio()
 
 # ==========================================================
 # Voice Measurements
@@ -205,28 +190,28 @@ st.caption(
 
 
 feature_names = [
-    "MDVP:Fo(Hz)",
-    "MDVP:Fhi(Hz)",
-    "MDVP:Flo(Hz)",
-    "MDVP:Jitter(%)",
-    "MDVP:Jitter(Abs)",
-    "MDVP:RAP",
-    "MDVP:PPQ",
-    "Jitter:DDP",
-    "MDVP:Shimmer",
-    "MDVP:Shimmer(dB)",
-    "Shimmer:APQ3",
-    "Shimmer:APQ5",
-    "MDVP:APQ",
-    "Shimmer:DDA",
-    "NHR",
-    "HNR",
-    "RPDE",
-    "DFA",
-    "spread1",
-    "spread2",
-    "D2",
-    "PPE",
+    "MDVP:Fo(Hz) - Average Fundamental Frequency",
+    "MDVP:Fhi(Hz) - Maximum Fundamental Frequency",
+    "MDVP:Flo(Hz) - Minimum Fundamental Frequency",
+    "MDVP:Jitter(%) - Percentage of Cycle-to-Cycle Frequency Variation",
+    "MDVP:Jitter(Abs) - Absolute Cycle-to-Cycle Frequency Variation",
+    "MDVP:RAP - Relative Average Perturbation",
+    "MDVP:PPQ - Five-Point Period Perturbation Quotient",
+    "Jitter:DDP - Average Absolute Difference of Consecutive Period Differences",
+    "MDVP:Shimmer - Cycle-to-Cycle Amplitude Variation",
+    "MDVP:Shimmer(dB) - Shimmer in Decibels",
+    "Shimmer:APQ3 - Three-Point Amplitude Perturbation Quotient",
+    "Shimmer:APQ5 - Five-Point Amplitude Perturbation Quotient",
+    "MDVP:APQ - Eleven-Point Amplitude Perturbation Quotient",
+    "Shimmer:DDA - Average Absolute Difference of Consecutive Amplitude Differences",
+    "NHR - Noise-to-Harmonics Ratio",
+    "HNR - Harmonics-to-Noise Ratio",
+    "RPDE - Recurrence Period Density Entropy",
+    "DFA - Detrended Fluctuation Analysis",
+    "spread1 - Fundamental Frequency Variation Measure 1",
+    "spread2 - Fundamental Frequency Variation Measure 2",
+    "D2 - Correlation Dimension",
+    "PPE - Pitch Period Entropy",
 ]
 
 # ==========================================================
