@@ -414,7 +414,7 @@ Backend URL (FastAPI Backend): https://parkinson-disease-detection-qy5l.onrender
 
 Platform: Streamlit Community Cloud
 
-Frontend URL (Streamlit Web Application): https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/
+Frontend URL (Streamlit Web Application): [https://parkinson-disease-detection-lwmcky8dmcjtmip8fb43gy.streamlit.app/](https://parkinson-disease-detection-4urcqma9somixvjnn8wtuv.streamlit.app/)
 
 -----------------------------------------------------------------------------------------------------------------------------------
 
