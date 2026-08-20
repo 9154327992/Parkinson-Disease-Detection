@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import Dict, List, Optional
 
 from app.schemas.patient import (
     PatientCreate,
@@ -13,18 +13,15 @@ from app.schemas.patient import (
 
 class PatientService:
     """
-    Handles patient management operations.
+    Patient management service.
+
+    Stores patients in memory for the current application session.
     """
 
+    _patients: Dict[int, PatientResponse] = {}
+    _next_patient_id: int = 1
+
     def __init__(self):
-        """
-        Initialize patient service.
-
-        Later this will initialize the database repository.
-
-        Example:
-            self.patient_repository = PatientRepository()
-        """
         pass
 
     # =====================================================
@@ -36,30 +33,52 @@ class PatientService:
         patient: PatientCreate,
         created_by: int,
     ) -> PatientResponse:
-        """
-        Create a new patient.
-        """
 
-        # TODO:
-        # Validate duplicate patient
-        # Save to database
+        patient_id = (
+            PatientService._next_patient_id
+        )
 
-        return PatientResponse(
-            id=1,
-            full_name=f"{patient.first_name} {patient.last_name}",
+        PatientService._next_patient_id += 1
+
+        now = datetime.utcnow()
+
+        new_patient = PatientResponse(
+            id=patient_id,
+
+            full_name=(
+                f"{patient.first_name} "
+                f"{patient.last_name}"
+            ).strip(),
+
             first_name=patient.first_name,
             last_name=patient.last_name,
+
             age=patient.age,
             gender=patient.gender,
+
             phone=patient.phone,
             email=patient.email,
             address=patient.address,
-            emergency_contact=patient.emergency_contact,
-            medical_history=patient.medical_history,
+
+            emergency_contact=(
+                patient.emergency_contact
+            ),
+
+            medical_history=(
+                patient.medical_history
+            ),
+
             created_by=created_by,
-            created_at=datetime.utcnow(),
+
+            created_at=now,
             updated_at=None,
         )
+
+        PatientService._patients[
+            patient_id
+        ] = new_patient
+
+        return new_patient
 
     # =====================================================
     # Get Patient
@@ -68,26 +87,10 @@ class PatientService:
     def get_patient(
         self,
         patient_id: int,
-    ) -> PatientResponse:
-        """
-        Retrieve a patient by ID.
-        """
+    ) -> Optional[PatientResponse]:
 
-        return PatientResponse(
-            id=patient_id,
-            full_name="John Doe",
-            first_name="John",
-            last_name="Doe",
-            age=67,
-            gender="Male",
-            phone="+1-555-123456",
-            email="john@example.com",
-            address="New York",
-            emergency_contact="Jane Doe",
-            medical_history="Hypertension",
-            created_by=1,
-            created_at=datetime.utcnow(),
-            updated_at=None,
+        return PatientService._patients.get(
+            patient_id
         )
 
     # =====================================================
@@ -100,29 +103,38 @@ class PatientService:
         limit: int = 20,
         search: str | None = None,
     ) -> List[PatientSummary]:
-        patients = [
-            PatientSummary(
-                id=1,
-                full_name="John Doe",
-                age=67,
-                gender="Male",
-            ),
-            PatientSummary(
-                id=2,
-                full_name="Jane Smith",
-                age=61,
-                gender="Female",
-            ),
-        ]
+
+        patients = list(
+            PatientService._patients.values()
+        )
 
         if search:
+
+            keyword = search.lower()
+
             patients = [
                 patient
                 for patient in patients
-                if search.lower() in patient.full_name.lower()
+                if keyword
+                in patient.full_name.lower()
             ]
 
-        return patients[skip:skip + limit]
+        patients = patients[
+            skip:skip + limit
+        ]
+
+        return [
+            PatientSummary(
+                id=patient.id,
+
+                full_name=patient.full_name,
+
+                age=patient.age,
+
+                gender=patient.gender,
+            )
+            for patient in patients
+        ]
 
     # =====================================================
     # Update Patient
@@ -132,30 +144,67 @@ class PatientService:
         self,
         patient_id: int,
         patient: PatientUpdate,
-    ) -> PatientResponse:
-        """
-        Update patient information.
-        """
+    ) -> Optional[PatientResponse]:
 
-        # TODO:
-        # Update database
-
-        return PatientResponse(
-            id=patient_id,
-            full_name="John Doe",
-            first_name=patient.first_name or "John",
-            last_name=patient.last_name or "Doe",
-            age=patient.age or 67,
-            gender=patient.gender or "Male",
-            phone=patient.phone,
-            email=patient.email,
-            address=patient.address,
-            emergency_contact=patient.emergency_contact,
-            medical_history=patient.medical_history,
-            created_by=1,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+        existing = PatientService._patients.get(
+            patient_id
         )
+
+        if existing is None:
+            return None
+
+        first_name = (
+            patient.first_name
+            or existing.first_name
+        )
+
+        last_name = (
+            patient.last_name
+            or existing.last_name
+        )
+
+        updated = existing.model_copy(
+            update={
+                "first_name": first_name,
+                "last_name": last_name,
+
+                "full_name": (
+                    f"{first_name} "
+                    f"{last_name}"
+                ).strip(),
+
+                "age": (
+                    patient.age
+                    if patient.age is not None
+                    else existing.age
+                ),
+
+                "gender": (
+                    patient.gender
+                    if patient.gender is not None
+                    else existing.gender
+                ),
+
+                "phone": patient.phone,
+                "email": patient.email,
+                "address": patient.address,
+
+                "emergency_contact":
+                    patient.emergency_contact,
+
+                "medical_history":
+                    patient.medical_history,
+
+                "updated_at":
+                    datetime.utcnow(),
+            }
+        )
+
+        PatientService._patients[
+            patient_id
+        ] = updated
+
+        return updated
 
     # =====================================================
     # Delete Patient
@@ -165,12 +214,20 @@ class PatientService:
         self,
         patient_id: int,
     ) -> dict:
-        """
-        Delete patient.
-        """
+
+        if patient_id not in PatientService._patients:
+
+            return {
+                "message": "Patient not found."
+            }
+
+        del PatientService._patients[
+            patient_id
+        ]
 
         return {
-            "message": f"Patient {patient_id} deleted successfully."
+            "message":
+                f"Patient {patient_id} deleted successfully."
         }
 
     # =====================================================
@@ -181,18 +238,10 @@ class PatientService:
         self,
         keyword: str,
     ) -> List[PatientSummary]:
-        """
-        Search patients by name.
-        """
 
-        return [
-            PatientSummary(
-                id=1,
-                full_name="John Doe",
-                age=67,
-                gender="Male",
-            )
-        ]
+        return self.get_patients(
+            search=keyword
+        )
 
     # =====================================================
     # Patient History
@@ -202,34 +251,72 @@ class PatientService:
         self,
         patient_id: int,
     ) -> List[PatientHistory]:
-        """
-        Return prediction history for a patient.
-        """
 
-        return [
-            PatientHistory(
-                patient_id=patient_id,
-                prediction_id=10,
-                prediction="Parkinson Detected",
-                confidence=96.4,
-                risk_level="High Risk",
-                prediction_date=datetime.utcnow(),
-            )
-        ]
+        return []
 
     # =====================================================
     # Statistics
     # =====================================================
 
-    def statistics(self) -> PatientStatistics:
-        """
-        Patient statistics.
-        """
+    def statistics(
+        self,
+    ) -> PatientStatistics:
+
+        patients = list(
+            PatientService._patients.values()
+        )
+
+        total_patients = len(
+            patients
+        )
+
+        male_patients = sum(
+            1
+            for patient in patients
+            if str(
+                patient.gender
+            ).lower()
+            == "male"
+        )
+
+        female_patients = sum(
+            1
+            for patient in patients
+            if str(
+                patient.gender
+            ).lower()
+            == "female"
+        )
+
+        other_patients = (
+            total_patients
+            - male_patients
+            - female_patients
+        )
+
+        ages = [
+            patient.age
+            for patient in patients
+            if patient.age is not None
+        ]
+
+        average_age = (
+            sum(ages) / len(ages)
+            if ages
+            else 0.0
+        )
 
         return PatientStatistics(
-            total_patients=250,
-            male_patients=145,
-            female_patients=100,
-            other_patients=5,
-            average_age=63.8,
+            total_patients=total_patients,
+
+            male_patients=male_patients,
+
+            female_patients=female_patients,
+
+            other_patients=other_patients,
+
+            average_age=round(
+                average_age,
+                2,
+            ),
         )
