@@ -32,9 +32,9 @@ st.write(
     """
 Welcome to the **Parkinson Disease Detection Agent**.
 
-This platform uses machine learning and AI to assist with
-Parkinson's disease prediction, patient management,
-analytics, reports, and health recommendations.
+This platform uses machine learning and AI-assisted tools
+for Parkinson's disease prediction, patient management,
+analytics, reports, and health education.
 """
 )
 
@@ -45,43 +45,44 @@ st.divider()
 # Load Data
 # ==========================================================
 
-analytics = get_analytics()
-reports = get_reports()
-patients = get_patients()
-history = get_patient_history()
+analytics_response = get_analytics()
+reports_response = get_reports()
+patients_response = get_patients()
+history_response = get_patient_history()
 
 
 # ==========================================================
-# Safe List Helpers
+# Validate Responses
 # ==========================================================
 
-if not isinstance(
-    patients,
-    list,
-):
-    patients = []
-
-
-if not isinstance(
-    reports,
-    list,
-):
-    reports = []
-
-
-if not isinstance(
-    history,
-    list,
-):
-    history = []
-
-
-if not isinstance(
-    analytics,
+analytics_available = isinstance(
+    analytics_response,
     dict,
-):
+)
 
-    analytics = {}
+reports = (
+    reports_response
+    if isinstance(reports_response, list)
+    else []
+)
+
+patients = (
+    patients_response
+    if isinstance(patients_response, list)
+    else []
+)
+
+history = (
+    history_response
+    if isinstance(history_response, list)
+    else []
+)
+
+analytics = (
+    analytics_response
+    if analytics_available
+    else {}
+)
 
 
 # ==========================================================
@@ -94,7 +95,7 @@ def first_value(
     default=None,
 ):
     """
-    Return the first available value from a record.
+    Return the first available value from a dictionary.
     """
 
     if not isinstance(
@@ -119,8 +120,7 @@ def normalize_patient_name(
     patient,
 ):
     """
-    Safely determine patient name from different
-    possible backend response formats.
+    Safely determine patient name.
     """
 
     name = first_value(
@@ -169,17 +169,14 @@ def normalize_patient_name(
         f"{first_name} {last_name}"
     ).strip()
 
-    if full_name:
-        return full_name
-
-    return "Unknown"
+    return full_name or "Unknown"
 
 
 def normalize_risk_level(
     record,
 ):
     """
-    Safely extract risk level from prediction/history.
+    Safely extract risk level.
     """
 
     risk = first_value(
@@ -218,14 +215,14 @@ def normalize_risk_level(
     if "low" in risk:
         return "Low Risk"
 
-    return None
+    return str(risk).title()
 
 
 def normalize_diagnosis(
     record,
 ):
     """
-    Safely extract diagnosis/prediction.
+    Safely extract prediction/diagnosis.
     """
 
     diagnosis = first_value(
@@ -275,7 +272,7 @@ def normalize_patient_id(
 
 
 # ==========================================================
-# Analytics Sections
+# Analytics Data
 # ==========================================================
 
 dashboard_data = analytics.get(
@@ -288,176 +285,96 @@ prediction_data = analytics.get(
     {},
 )
 
-
 if not isinstance(
     dashboard_data,
     dict,
 ):
-
     dashboard_data = {}
-
 
 if not isinstance(
     prediction_data,
     dict,
 ):
-
     prediction_data = {}
 
 
 # ==========================================================
-# Patient Count
+# Dashboard Statistics
+#
+# IMPORTANT:
+# All dashboard totals come from Analytics.
+# This prevents Home from displaying numbers that
+# disagree with the backend dashboard statistics.
 # ==========================================================
 
-# Prefer actual patient records.
-total_patients = len(
-    patients
-)
-
-# If the patient endpoint returned no records,
-# use analytics as fallback.
-
-if total_patients == 0:
-
-    total_patients = int(
-        dashboard_data.get(
+total_patients = int(
+    dashboard_data.get(
+        "total_patients",
+        analytics.get(
             "total_patients",
-            analytics.get(
-                "total_patients",
-                0,
-            ),
-        )
-        or 0
+            0,
+        ),
     )
-
-
-# ==========================================================
-# Prediction Count
-# ==========================================================
-
-# Prefer actual prediction history.
-
-total_predictions = len(
-    history
+    or 0
 )
 
-if total_predictions == 0:
-
-    total_predictions = int(
-        prediction_data.get(
+total_predictions = int(
+    prediction_data.get(
+        "total_predictions",
+        dashboard_data.get(
             "total_predictions",
-            dashboard_data.get(
+            analytics.get(
                 "total_predictions",
-                analytics.get(
-                    "total_predictions",
-                    0,
-                ),
-            ),
-        )
-        or 0
-    )
-
-
-# ==========================================================
-# Risk Calculation From History
-# ==========================================================
-
-high_risk_cases = 0
-medium_risk_cases = 0
-low_risk_cases = 0
-
-
-for record in history:
-
-    risk = normalize_risk_level(
-        record
-    )
-
-    if risk == "High Risk":
-
-        high_risk_cases += 1
-
-    elif risk == "Medium Risk":
-
-        medium_risk_cases += 1
-
-    elif risk == "Low Risk":
-
-        low_risk_cases += 1
-
-
-# ==========================================================
-# Analytics Risk Fallback
-# ==========================================================
-
-if (
-    high_risk_cases
-    + medium_risk_cases
-    + low_risk_cases
-    == 0
-):
-
-    high_risk_cases = int(
-        dashboard_data.get(
-            "high_risk_cases",
-            analytics.get(
-                "high_risk_cases",
                 0,
             ),
-        )
-        or 0
+        ),
     )
-
-    medium_risk_cases = int(
-        dashboard_data.get(
-            "medium_risk_cases",
-            analytics.get(
-                "medium_risk_cases",
-                0,
-            ),
-        )
-        or 0
-    )
-
-    low_risk_cases = int(
-        dashboard_data.get(
-            "low_risk_cases",
-            analytics.get(
-                "low_risk_cases",
-                0,
-            ),
-        )
-        or 0
-    )
-
-
-# ==========================================================
-# High Risk Count
-# ==========================================================
-
-# This value must reflect the same source as the
-# Risk Summary below.
-
-high_risk_display = high_risk_cases
-
-
-# ==========================================================
-# Reports
-# ==========================================================
-
-total_reports = len(
-    reports
+    or 0
 )
 
-if total_reports == 0:
-
-    total_reports = int(
+total_reports = int(
+    dashboard_data.get(
+        "total_reports",
         analytics.get(
             "total_reports",
             0,
-        )
-        or 0
+        ),
     )
+    or 0
+)
+
+high_risk_cases = int(
+    dashboard_data.get(
+        "high_risk_cases",
+        analytics.get(
+            "high_risk_cases",
+            0,
+        ),
+    )
+    or 0
+)
+
+medium_risk_cases = int(
+    dashboard_data.get(
+        "medium_risk_cases",
+        analytics.get(
+            "medium_risk_cases",
+            0,
+        ),
+    )
+    or 0
+)
+
+low_risk_cases = int(
+    dashboard_data.get(
+        "low_risk_cases",
+        analytics.get(
+            "low_risk_cases",
+            0,
+        ),
+    )
+    or 0
+)
 
 
 # ==========================================================
@@ -491,7 +408,7 @@ with col3:
 
     st.metric(
         "⚠️ High Risk Cases",
-        high_risk_display,
+        high_risk_cases,
     )
 
 
@@ -583,7 +500,6 @@ if patients:
 
     patient_rows = []
 
-
     for patient in patients:
 
         patient_rows.append(
@@ -619,32 +535,12 @@ if patients:
                         ],
                         "N/A",
                     ),
-
-                "Email":
-                    first_value(
-                        patient,
-                        [
-                            "email",
-                        ],
-                        "N/A",
-                    ),
-
-                "Phone":
-                    first_value(
-                        patient,
-                        [
-                            "phone",
-                        ],
-                        "N/A",
-                    ),
             }
         )
-
 
     patient_df = pd.DataFrame(
         patient_rows
     )
-
 
     st.dataframe(
         patient_df.head(5),
@@ -674,7 +570,6 @@ st.subheader(
 if history:
 
     prediction_rows = []
-
 
     for record in history[:10]:
 
@@ -711,7 +606,6 @@ if history:
                         record,
                         [
                             "risk_score",
-                            "risk",
                         ],
                         "N/A",
                     ),
@@ -729,11 +623,9 @@ if history:
             }
         )
 
-
     prediction_df = pd.DataFrame(
         prediction_rows
     )
-
 
     st.dataframe(
         prediction_df,
@@ -758,7 +650,6 @@ st.divider()
 st.subheader(
     "⚠️ Risk Summary"
 )
-
 
 risk_col1, risk_col2, risk_col3 = (
     st.columns(3)
@@ -818,17 +709,17 @@ st.markdown(
 
 **2.** Enter patient information
 
-**3.** Enter all 22 voice measurements
+**3.** Enter the required voice measurements or provide an audio recording
 
 **4.** Analyze the patient
 
-**5.** Review diagnosis and risk score
+**5.** Review the prediction and risk information
 
-**6.** View the prediction in Patient History
+**6.** View the prediction in **Patient History**
 
-**7.** Review generated reports
+**7.** Review generated **Reports**
 
-**8.** Monitor trends in Analytics
+**8.** Monitor trends in **Analytics**
 """
 )
 
@@ -844,23 +735,14 @@ st.subheader(
     "💻 System Status"
 )
 
-
 status_col1, status_col2 = (
     st.columns(2)
 )
 
 
-backend_available = (
-    analytics != {}
-    or bool(patients)
-    or bool(history)
-    or bool(reports)
-)
-
-
 with status_col1:
 
-    if backend_available:
+    if analytics_available:
 
         st.success(
             "🟢 FastAPI Backend Connected"
@@ -875,7 +757,7 @@ with status_col1:
 
 with status_col2:
 
-    if analytics:
+    if analytics_available:
 
         st.success(
             "🟢 Analytics Service Available"
