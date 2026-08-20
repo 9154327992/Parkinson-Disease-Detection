@@ -408,7 +408,7 @@ streamlit run frontend.py
 
 Platform: Render
 
-Backend URL (FastAPI Backend): https://parkinson-disease-detection-qy5l.onrender.com/
+Backend URL (FastAPI Backend): [https://parkinson-disease-detection-qy5l.onrender.com/](https://parkinson-disease-detection-wced.onrender.com)
 
 🌐Frontend
 
