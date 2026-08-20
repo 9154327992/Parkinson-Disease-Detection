@@ -1042,10 +1042,20 @@ st.subheader(
     "💻 System Health"
 )
 
-from utils.api_client import check_backend
+try:
 
+    health_response = requests.get(
+        f"{get_api_url()}/health",
+        timeout=10,
+    )
 
-backend_ok = check_backend()
+    backend_ok = (
+        health_response.status_code == 200
+    )
+
+except Exception:
+
+    backend_ok = False
 
 
 health1, health2 = st.columns(2)
@@ -1112,7 +1122,6 @@ with health4:
         st.error(
             "🔴 AI Assistant: Unavailable"
         )
-
 
 # ==========================================================
 # Refresh
