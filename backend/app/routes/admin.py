@@ -1,14 +1,4 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    status,
-)
-
-from fastapi.security import (
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
-)
+from fastapi import APIRouter, HTTPException, status
 
 from app.database.database import SessionLocal
 
@@ -17,11 +7,6 @@ from app.database.models import (
     Patient,
     Prediction,
     Report,
-)
-
-from app.utils.security import (
-    decode_token,
-    is_admin,
 )
 
 
@@ -33,214 +18,6 @@ router = APIRouter()
 
 
 # ==========================================================
-# HTTP Bearer Authentication
-# ==========================================================
-
-bearer_scheme = HTTPBearer(
-    auto_error=False
-)
-
-
-# ==========================================================
-# Get Current User
-# ==========================================================
-
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(
-        bearer_scheme
-    ),
-):
-    """
-    Resolve the currently authenticated user from
-    the JWT Authorization header.
-
-    This function is local to the Admin router and uses
-    the existing security.py implementation.
-    """
-
-    # ------------------------------------------------------
-    # Check Authorization Header
-    # ------------------------------------------------------
-
-    if credentials is None:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required.",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
-
-
-    token = credentials.credentials
-
-
-    if not token:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token.",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
-
-
-    # ------------------------------------------------------
-    # Decode JWT
-    # ------------------------------------------------------
-
-    payload = decode_token(
-        token
-    )
-
-
-    if payload is None:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
-
-
-    # ------------------------------------------------------
-    # Only Access Tokens Allowed
-    # ------------------------------------------------------
-
-    token_type = payload.get(
-        "type"
-    )
-
-
-    if token_type != "access":
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid access token.",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
-
-
-    # ------------------------------------------------------
-    # Extract Subject
-    # ------------------------------------------------------
-
-    subject = payload.get(
-        "sub"
-    )
-
-
-    if subject is None:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token does not contain a user ID.",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
-
-    try:
-
-        user_id = int(
-            subject
-        )
-
-    except (
-        TypeError,
-        ValueError,
-    ):
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID in token.",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
-
-
-    # ------------------------------------------------------
-    # Load User
-    # ------------------------------------------------------
-
-    db = SessionLocal()
-
-    try:
-
-        user = (
-            db.query(User)
-            .filter(
-                User.id == user_id
-            )
-            .first()
-        )
-
-
-        if user is None:
-
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found.",
-            )
-
-
-        if not user.is_active:
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User account is inactive.",
-            )
-
-
-        return user
-
-    finally:
-
-        db.close()
-
-
-# ==========================================================
-# Admin Authorization
-# ==========================================================
-
-def require_admin(
-    current_user,
-):
-    """
-    Verify that the authenticated user is an administrator.
-    """
-
-    if current_user is None:
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required.",
-        )
-
-
-    if not is_admin(
-        current_user.role
-    ):
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Administrator privileges required."
-            ),
-        )
-
-
-    return current_user
-
-
-# ==========================================================
 # Admin Dashboard
 # ==========================================================
 
@@ -248,19 +25,12 @@ def require_admin(
     "/dashboard",
     tags=["Admin"],
 )
-def admin_dashboard(
-    current_user=Depends(
-        get_current_user
-    ),
-):
+def admin_dashboard():
     """
     Return administrator dashboard statistics.
+
+    Authentication is disabled for this application.
     """
-
-    admin = require_admin(
-        current_user
-    )
-
 
     db = SessionLocal()
 
@@ -274,21 +44,17 @@ def admin_dashboard(
             db.query(User).count()
         )
 
-
         total_patients = (
             db.query(Patient).count()
         )
-
 
         total_predictions = (
             db.query(Prediction).count()
         )
 
-
         total_reports = (
             db.query(Report).count()
         )
-
 
         # --------------------------------------------------
         # User Roles
@@ -302,7 +68,6 @@ def admin_dashboard(
             .count()
         )
 
-
         doctor_users = (
             db.query(User)
             .filter(
@@ -311,7 +76,6 @@ def admin_dashboard(
             .count()
         )
 
-
         normal_users = (
             db.query(User)
             .filter(
@@ -319,7 +83,6 @@ def admin_dashboard(
             )
             .count()
         )
-
 
         # --------------------------------------------------
         # Recent Users
@@ -334,31 +97,23 @@ def admin_dashboard(
             .all()
         )
 
-
         recent_users = []
-
 
         for user in users:
 
             recent_users.append(
                 {
-                    "id":
-                        user.id,
+                    "id": user.id,
 
-                    "username":
-                        user.username,
+                    "username": user.username,
 
-                    "full_name":
-                        user.full_name,
+                    "full_name": user.full_name,
 
-                    "email":
-                        user.email,
+                    "email": user.email,
 
-                    "role":
-                        user.role,
+                    "role": user.role,
 
-                    "is_active":
-                        user.is_active,
+                    "is_active": user.is_active,
 
                     "created_at": (
                         user.created_at.isoformat()
@@ -367,7 +122,6 @@ def admin_dashboard(
                     ),
                 }
             )
-
 
         # --------------------------------------------------
         # Recent Activity
@@ -375,19 +129,16 @@ def admin_dashboard(
 
         recent_activity = []
 
-
         for user in users:
 
             recent_activity.append(
                 {
-                    "type":
-                        "User",
+                    "type": "User",
 
-                    "description":
-                        (
-                            f"User '{user.username}' "
-                            "registered."
-                        ),
+                    "description": (
+                        f"User '{user.username}' "
+                        "registered."
+                    ),
 
                     "created_at": (
                         user.created_at.isoformat()
@@ -397,24 +148,17 @@ def admin_dashboard(
                 }
             )
 
-
         # --------------------------------------------------
         # Response
         # --------------------------------------------------
 
         return {
-            "status":
-                "success",
+            "status": "success",
 
             "administrator": {
-                "id":
-                    admin.id,
-
-                "username":
-                    admin.username,
-
-                "role":
-                    admin.role,
+                "id": None,
+                "username": "Administrator",
+                "role": "Administrator",
             },
 
             "total_users":
@@ -460,21 +204,12 @@ def admin_dashboard(
     "/users",
     tags=["Admin"],
 )
-def admin_users(
-    current_user=Depends(
-        get_current_user
-    ),
-):
+def admin_users():
     """
     Return all users.
 
-    Administrator access required.
+    Authentication is disabled.
     """
-
-    require_admin(
-        current_user
-    )
-
 
     db = SessionLocal()
 
@@ -487,7 +222,6 @@ def admin_users(
             )
             .all()
         )
-
 
         return [
             {
@@ -532,21 +266,13 @@ def admin_users(
     "/patients",
     tags=["Admin"],
 )
-def admin_patients(
-    current_user=Depends(
-        get_current_user
-    ),
-):
+def admin_patients():
     """
     Return all patients.
 
-    Administrator access required.
+    Only basic patient information is returned.
+    Email and phone are intentionally excluded.
     """
-
-    require_admin(
-        current_user
-    )
-
 
     db = SessionLocal()
 
@@ -560,9 +286,7 @@ def admin_patients(
             .all()
         )
 
-
         result = []
-
 
         for patient in patients:
 
@@ -571,18 +295,15 @@ def admin_patients(
                 or ""
             )
 
-
             last_name = (
                 patient.last_name
                 or ""
             )
 
-
             full_patient_name = (
                 f"{first_name} "
                 f"{last_name}"
             ).strip()
-
 
             result.append(
                 {
@@ -606,15 +327,8 @@ def admin_patients(
 
                     "age":
                         patient.age,
-
-                    "email":
-                        patient.email,
-
-                    "phone":
-                        patient.phone,
                 }
             )
-
 
         return result
 
