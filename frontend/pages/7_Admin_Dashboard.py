@@ -4,6 +4,7 @@ import pandas as pd
 from utils.api_client import (
     get_admin_dashboard,
     get_users,
+    health_check,
     get_admin_patients,
     delete_user,
     delete_patient,
@@ -1042,20 +1043,7 @@ st.subheader(
     "💻 System Health"
 )
 
-try:
-
-    health_response = requests.get(
-        f"{get_api_url()}/health",
-        timeout=10,
-    )
-
-    backend_ok = (
-        health_response.status_code == 200
-    )
-
-except Exception:
-
-    backend_ok = False
+backend_ok = health_check()
 
 
 health1, health2 = st.columns(2)
@@ -1064,13 +1052,10 @@ health1, health2 = st.columns(2)
 with health1:
 
     if backend_ok:
-
         st.success(
             "🟢 FastAPI Backend: Connected"
         )
-
     else:
-
         st.error(
             "🔴 FastAPI Backend: Unavailable"
         )
@@ -1079,13 +1064,10 @@ with health1:
 with health2:
 
     if backend_ok:
-
         st.success(
             "🟢 Database: Connected"
         )
-
     else:
-
         st.error(
             "🔴 Database: Unavailable"
         )
@@ -1097,13 +1079,10 @@ health3, health4 = st.columns(2)
 with health3:
 
     if backend_ok:
-
         st.success(
             "🟢 Machine Learning Model: Available"
         )
-
     else:
-
         st.error(
             "🔴 Machine Learning Model: Unavailable"
         )
@@ -1112,17 +1091,14 @@ with health3:
 with health4:
 
     if backend_ok:
-
         st.success(
             "🟢 AI Assistant: Available"
         )
-
     else:
-
         st.error(
             "🔴 AI Assistant: Unavailable"
         )
-
+        
 # ==========================================================
 # Refresh
 # ==========================================================
