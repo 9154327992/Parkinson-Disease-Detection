@@ -12,7 +12,7 @@ from app.schemas.prediction import (
     PredictionStatistics,
     ModelInformation,
 )
-
+from app.services.patient_service import PatientService
 
 # ==========================================================
 # Model Paths
@@ -632,13 +632,71 @@ class PredictionService:
         # Patient ID
         # --------------------------------------------------
 
-        # The current PredictionRequest schema contains
-        # patient_name, age, gender and features.
-        #
-        # Until patient_id is added to the schema/database
-        # workflow, retain the existing compatibility value.
+        patient_service = PatientService()
 
-        patient_id = 1
+        patient_id = None
+
+        patients = patient_service.get_patients(
+            skip=0,
+            limit=1000,
+        )
+
+        for patient in patients:
+
+            existing_name = (
+                getattr(
+                    patient,
+                    "full_name",
+                    None,
+                )
+                or ""
+            ).strip().lower()
+
+            if existing_name == patient_name.lower():
+
+                patient_id = getattr(
+                    patient,
+                    "id",
+                    None,
+                )
+
+                break
+
+
+        # --------------------------------------------------
+        # Create Patient When Not Found
+        # --------------------------------------------------
+
+        if patient_id is None:
+
+            name_parts = patient_name.split(
+                " ",
+                1,
+            )
+
+            first_name = name_parts[0]
+
+            last_name = (
+                name_parts[1]
+                if len(name_parts) > 1
+                else ""
+            )
+
+            patient_create = PatientCreate(
+                first_name=first_name,
+                last_name=last_name,
+                age=int(request.age),
+                gender=str(request.gender),
+            )
+
+            created_patient = (
+                patient_service.create_patient(
+                    patient=patient_create,
+                    created_by=0,
+                )
+            )
+
+            patient_id = created_patient.id
 
 
         # --------------------------------------------------
