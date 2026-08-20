@@ -13,6 +13,11 @@ from app.schemas.prediction import (
     ModelInformation,
 )
 from app.services.patient_service import PatientService
+from sqlalchemy import or_
+from app.database.database import SessionLocal
+from app.database.models import (
+    Patient,
+)
 
 # ==========================================================
 # Model Paths
@@ -632,71 +637,86 @@ class PredictionService:
         # Patient ID
         # --------------------------------------------------
 
-        patient_service = PatientService()
+        db = SessionLocal()
 
-        patient_id = None
-
-        patients = patient_service.get_patients(
-            skip=0,
-            limit=1000,
-        )
-
-        for patient in patients:
-
-            existing_name = (
-                getattr(
-                    patient,
-                    "full_name",
-                    None,
-                )
-                or ""
-            ).strip().lower()
-
-            if existing_name == patient_name.lower():
-
-                patient_id = getattr(
-                    patient,
-                    "id",
-                    None,
-                )
-
-                break
-
-
-        # --------------------------------------------------
-        # Create Patient When Not Found
-        # --------------------------------------------------
-
-        if patient_id is None:
+        try:
 
             name_parts = patient_name.split(
                 " ",
                 1,
             )
 
-            first_name = name_parts[0]
+            first_name = (
+                name_parts[0].strip()
+            )
 
             last_name = (
-                name_parts[1]
+                name_parts[1].strip()
                 if len(name_parts) > 1
-                else ""
+                and name_parts[1].strip()
+                else "Patient"
             )
 
-            patient_create = PatientCreate(
-                first_name=first_name,
-                last_name=last_name,
-                age=int(request.age),
-                gender=str(request.gender),
-            )
+            # --------------------------------------------------
+            # Find Existing Patient
+            # --------------------------------------------------
 
-            created_patient = (
-                patient_service.create_patient(
-                    patient=patient_create,
-                    created_by=0,
+            patient = (
+                db.query(Patient)
+                .filter(
+                    Patient.first_name.ilike(
+                        first_name
+                    ),
+                    Patient.last_name.ilike(
+                        last_name
+                    ),
+                    Patient.age == int(
+                        request.age
+                    ),
+                    Patient.gender == str(
+                        request.gender
+                    ),
                 )
+                .first()
             )
 
-            patient_id = created_patient.id
+            # --------------------------------------------------
+            # Create Patient When Not Found
+            # --------------------------------------------------
+
+            if patient is None:
+
+                patient = Patient(
+                    first_name=first_name,
+
+                    last_name=last_name,
+
+                    age=int(
+                        request.age
+                    ),
+
+                    gender=str(
+                        request.gender
+                    ),
+
+                    owner_id=None,
+                )
+
+                db.add(
+                    patient
+                )
+
+                db.commit()
+
+                db.refresh(
+                    patient
+                )
+
+            patient_id = patient.id
+
+        finally:
+
+            db.close()
 
 
         # --------------------------------------------------
