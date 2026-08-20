@@ -73,13 +73,14 @@ def safe_list(
     keys=None,
 ):
     """
-    Normalize API list responses.
+    Normalize common API list responses.
     """
 
     if isinstance(
         value,
         list,
     ):
+
         return value
 
 
@@ -88,13 +89,16 @@ def safe_list(
         dict,
     ):
 
-        search_keys = keys or [
-            "data",
-            "items",
-            "records",
-            "users",
-            "patients",
-        ]
+        search_keys = (
+            keys
+            or [
+                "data",
+                "items",
+                "records",
+                "users",
+                "patients",
+            ]
+        )
 
 
         for key in search_keys:
@@ -120,13 +124,14 @@ def get_value(
     default=None,
 ):
     """
-    Return first available field.
+    Return the first available field.
     """
 
     if not isinstance(
         record,
         dict,
     ):
+
         return default
 
 
@@ -148,7 +153,7 @@ def patient_name(
     patient,
 ):
     """
-    Build patient display name safely.
+    Safely build patient display name.
     """
 
     name = get_value(
@@ -208,8 +213,8 @@ st.title(
 
 st.write(
     """
-Manage users, patients, and monitor the
-overall health of the system.
+Manage users and patients and monitor the overall
+system status.
 """
 )
 
@@ -224,7 +229,7 @@ st.divider()
 
 
 # ==========================================================
-# Load Admin Dashboard
+# Load Dashboard
 # ==========================================================
 
 with st.spinner(
@@ -235,7 +240,7 @@ with st.spinner(
 
 
 # ==========================================================
-# Dashboard Validation
+# Validate Dashboard
 # ==========================================================
 
 if dashboard is None:
@@ -250,7 +255,7 @@ The backend rejected the administrator request
 or the Admin API is unavailable.
 
 Make sure you are logged in with an administrator
-account and that the backend has been redeployed.
+account and that the backend is available.
 """
     )
 
@@ -295,7 +300,7 @@ total_reports = dashboard.get(
 
 
 # ==========================================================
-# Overview
+# System Overview
 # ==========================================================
 
 st.subheader(
@@ -485,15 +490,6 @@ if users:
                         "N/A",
                     ),
 
-                "Email":
-                    get_value(
-                        user,
-                        [
-                            "email",
-                        ],
-                        "N/A",
-                    ),
-
                 "Role":
                     get_value(
                         user,
@@ -582,9 +578,7 @@ if users:
 
             selectable_users.append(
                 (
-                    str(
-                        username
-                    ),
+                    str(username),
                     user_id,
                 )
             )
@@ -757,24 +751,6 @@ if patients:
                         ],
                         "N/A",
                     ),
-
-                "Email":
-                    get_value(
-                        patient,
-                        [
-                            "email",
-                        ],
-                        "N/A",
-                    ),
-
-                "Phone":
-                    get_value(
-                        patient,
-                        [
-                            "phone",
-                        ],
-                        "N/A",
-                    ),
             }
         )
 
@@ -915,10 +891,13 @@ recent_users = dashboard.get(
 )
 
 
-if isinstance(
-    recent_users,
-    list,
-) and recent_users:
+if (
+    isinstance(
+        recent_users,
+        list,
+    )
+    and recent_users
+):
 
     recent_rows = []
 
@@ -929,6 +908,7 @@ if isinstance(
             user,
             dict,
         ):
+
             continue
 
 
@@ -1002,10 +982,13 @@ activity = dashboard.get(
 )
 
 
-if isinstance(
-    activity,
-    list,
-) and activity:
+if (
+    isinstance(
+        activity,
+        list,
+    )
+    and activity
+):
 
     activity_rows = []
 
@@ -1016,6 +999,7 @@ if isinstance(
             item,
             dict,
         ):
+
             continue
 
 
@@ -1083,30 +1067,137 @@ st.subheader(
 )
 
 
-health1, health2 = (
+health_col1, health_col2 = (
     st.columns(2)
 )
 
 
-with health1:
+backend_status = dashboard.get(
+    "backend_status",
+    dashboard.get(
+        "api_status",
+        None,
+    ),
+)
 
-    st.success(
-        "🟢 FastAPI Backend"
+database_status = dashboard.get(
+    "database_status",
+    None,
+)
+
+ml_status = dashboard.get(
+    "ml_status",
+    dashboard.get(
+        "model_status",
+        None,
+    ),
+)
+
+ai_status = dashboard.get(
+    "ai_status",
+    dashboard.get(
+        "assistant_status",
+        None,
+    ),
+)
+
+
+def display_health(
+    label,
+    value,
+):
+
+    if value is None:
+
+        st.info(
+            f"⚪ {label}: Status unavailable"
+        )
+
+        return
+
+
+    if isinstance(
+        value,
+        bool,
+    ):
+
+        if value:
+
+            st.success(
+                f"🟢 {label}: Available"
+            )
+
+        else:
+
+            st.error(
+                f"🔴 {label}: Unavailable"
+            )
+
+        return
+
+
+    status = str(
+        value
+    ).strip().lower()
+
+
+    if status in {
+        "healthy",
+        "available",
+        "online",
+        "ok",
+        "connected",
+        "true",
+        "running",
+    }:
+
+        st.success(
+            f"🟢 {label}: Available"
+        )
+
+    elif status in {
+        "unhealthy",
+        "unavailable",
+        "offline",
+        "error",
+        "false",
+        "stopped",
+    }:
+
+        st.error(
+            f"🔴 {label}: Unavailable"
+        )
+
+    else:
+
+        st.info(
+            f"⚪ {label}: {value}"
+        )
+
+
+with health_col1:
+
+    display_health(
+        "FastAPI Backend",
+        backend_status,
     )
 
-    st.success(
-        "🟢 Machine Learning Model"
+    display_health(
+        "Machine Learning Model",
+        ml_status,
     )
 
 
-with health2:
+with health_col2:
 
-    st.success(
-        "🟢 Database"
+    display_health(
+        "Database",
+        database_status,
     )
 
-    st.success(
-        "🟢 AI Assistant"
+    display_health(
+        "AI Assistant",
+        ai_status,
     )
 
 
