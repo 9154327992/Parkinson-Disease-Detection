@@ -1042,142 +1042,76 @@ st.subheader(
     "💻 System Health"
 )
 
-
-health_col1, health_col2 = (
-    st.columns(2)
-)
+from utils.api_client import check_backend
 
 
-backend_status = dashboard.get(
-    "backend_status",
-    dashboard.get(
-        "api_status",
-        None,
-    ),
-)
-
-database_status = dashboard.get(
-    "database_status",
-    None,
-)
-
-ml_status = dashboard.get(
-    "ml_status",
-    dashboard.get(
-        "model_status",
-        None,
-    ),
-)
-
-ai_status = dashboard.get(
-    "ai_status",
-    dashboard.get(
-        "assistant_status",
-        None,
-    ),
-)
+backend_ok = check_backend()
 
 
-def display_health(
-    label,
-    value,
-):
-
-    if value is None:
-
-        st.info(
-            f"⚪ {label}: Status unavailable"
-        )
-
-        return
+health1, health2 = st.columns(2)
 
 
-    if isinstance(
-        value,
-        bool,
-    ):
+with health1:
 
-        if value:
-
-            st.success(
-                f"🟢 {label}: Available"
-            )
-
-        else:
-
-            st.error(
-                f"🔴 {label}: Unavailable"
-            )
-
-        return
-
-
-    status = str(
-        value
-    ).strip().lower()
-
-
-    if status in {
-        "healthy",
-        "available",
-        "online",
-        "ok",
-        "connected",
-        "true",
-        "running",
-    }:
+    if backend_ok:
 
         st.success(
-            f"🟢 {label}: Available"
-        )
-
-    elif status in {
-        "unhealthy",
-        "unavailable",
-        "offline",
-        "error",
-        "false",
-        "stopped",
-    }:
-
-        st.error(
-            f"🔴 {label}: Unavailable"
+            "🟢 FastAPI Backend: Connected"
         )
 
     else:
 
-        st.info(
-            f"⚪ {label}: {value}"
+        st.error(
+            "🔴 FastAPI Backend: Unavailable"
         )
 
 
-with health_col1:
+with health2:
 
-    display_health(
-        "FastAPI Backend",
-        backend_status,
-    )
+    if backend_ok:
 
-    display_health(
-        "Machine Learning Model",
-        ml_status,
-    )
+        st.success(
+            "🟢 Database: Connected"
+        )
 
+    else:
 
-with health_col2:
-
-    display_health(
-        "Database",
-        database_status,
-    )
-
-    display_health(
-        "AI Assistant",
-        ai_status,
-    )
+        st.error(
+            "🔴 Database: Unavailable"
+        )
 
 
-st.divider()
+health3, health4 = st.columns(2)
+
+
+with health3:
+
+    if backend_ok:
+
+        st.success(
+            "🟢 Machine Learning Model: Available"
+        )
+
+    else:
+
+        st.error(
+            "🔴 Machine Learning Model: Unavailable"
+        )
+
+
+with health4:
+
+    if backend_ok:
+
+        st.success(
+            "🟢 AI Assistant: Available"
+        )
+
+    else:
+
+        st.error(
+            "🔴 AI Assistant: Unavailable"
+        )
 
 
 # ==========================================================
