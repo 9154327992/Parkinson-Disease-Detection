@@ -38,7 +38,6 @@ initialize_session()
 # ==========================================================
 
 st.session_state["logged_in"] = True
-st.session_state["role"] = "Administrator"
 
 
 # ==========================================================
@@ -57,9 +56,7 @@ def safe_list(
         value,
         list,
     ):
-
         return value
-
 
     if isinstance(
         value,
@@ -77,7 +74,6 @@ def safe_list(
             ]
         )
 
-
         for key in search_keys:
 
             result = value.get(
@@ -88,9 +84,7 @@ def safe_list(
                 result,
                 list,
             ):
-
                 return result
-
 
     return []
 
@@ -108,9 +102,7 @@ def get_value(
         record,
         dict,
     ):
-
         return default
-
 
     for key in keys:
 
@@ -119,9 +111,7 @@ def get_value(
         )
 
         if value is not None:
-
             return value
-
 
     return default
 
@@ -143,13 +133,8 @@ def patient_name(
         None,
     )
 
-
     if name:
-
-        return str(
-            name
-        )
-
+        return str(name)
 
     first_name = get_value(
         patient,
@@ -160,7 +145,6 @@ def patient_name(
         "",
     )
 
-
     last_name = get_value(
         patient,
         [
@@ -170,12 +154,10 @@ def patient_name(
         "",
     )
 
-
     result = (
         f"{first_name} "
         f"{last_name}"
     ).strip()
-
 
     return result or "Unknown"
 
@@ -195,13 +177,6 @@ system status.
 """
 )
 
-
-st.success(
-    "Administrator access granted: "
-    f"{st.session_state.get('username', 'Administrator')}"
-)
-
-
 st.divider()
 
 
@@ -210,7 +185,7 @@ st.divider()
 # ==========================================================
 
 with st.spinner(
-    "Loading administrator dashboard..."
+    "Loading dashboard..."
 ):
 
     dashboard = get_admin_dashboard()
@@ -223,16 +198,15 @@ with st.spinner(
 if dashboard is None:
 
     st.error(
-        "Unable to load the administrator dashboard."
+        "Unable to load the dashboard."
     )
 
     st.warning(
         """
-The backend rejected the administrator request
-or the Admin API is unavailable.
+The backend rejected the request or the Admin API
+is unavailable.
 
-Make sure you are logged in with an administrator
-account and that the backend is available.
+Please make sure the backend is available.
 """
     )
 
@@ -284,7 +258,6 @@ st.subheader(
     "📊 System Overview"
 )
 
-
 col1, col2, col3, col4 = (
     st.columns(4)
 )
@@ -326,77 +299,12 @@ st.divider()
 
 
 # ==========================================================
-# User Roles
-# ==========================================================
-
-st.subheader(
-    "👥 User Roles"
-)
-
-
-user_roles = dashboard.get(
-    "user_roles",
-    {},
-)
-
-
-if not isinstance(
-    user_roles,
-    dict,
-):
-
-    user_roles = {}
-
-
-role1, role2, role3 = (
-    st.columns(3)
-)
-
-
-with role1:
-
-    st.metric(
-        "🛡️ Administrators",
-        user_roles.get(
-            "admins",
-            0,
-        ),
-    )
-
-
-with role2:
-
-    st.metric(
-        "👨‍⚕️ Doctors",
-        user_roles.get(
-            "doctors",
-            0,
-        ),
-    )
-
-
-with role3:
-
-    st.metric(
-        "👤 Users",
-        user_roles.get(
-            "users",
-            0,
-        ),
-    )
-
-
-st.divider()
-
-
-# ==========================================================
 # User Management
 # ==========================================================
 
 st.subheader(
     "👥 User Management"
 )
-
 
 with st.spinner(
     "Loading users..."
@@ -433,7 +341,6 @@ if users:
 
     user_rows = []
 
-
     for user in users:
 
         user_rows.append(
@@ -467,16 +374,6 @@ if users:
                         "N/A",
                     ),
 
-                "Role":
-                    get_value(
-                        user,
-                        [
-                            "role",
-                            "user_role",
-                        ],
-                        "User",
-                    ),
-
                 "Active":
                     get_value(
                         user,
@@ -499,7 +396,6 @@ if users:
             }
         )
 
-
     st.dataframe(
         pd.DataFrame(
             user_rows
@@ -507,7 +403,6 @@ if users:
         use_container_width=True,
         hide_index=True,
     )
-
 
 else:
 
@@ -526,9 +421,7 @@ if users:
         "### 🗑️ Delete User"
     )
 
-
     selectable_users = []
-
 
     for user in users:
 
@@ -541,7 +434,6 @@ if users:
             None,
         )
 
-
         username = get_value(
             user,
             [
@@ -549,7 +441,6 @@ if users:
             ],
             f"User {user_id}",
         )
-
 
         if user_id is not None:
 
@@ -560,7 +451,6 @@ if users:
                 )
             )
 
-
     if selectable_users:
 
         labels = [
@@ -568,13 +458,11 @@ if users:
             for item in selectable_users
         ]
 
-
         selected_username = st.selectbox(
             "Select User",
             labels,
             key="admin_delete_user",
         )
-
 
         selected_user_id = next(
             user_id
@@ -584,37 +472,14 @@ if users:
             == selected_username
         )
 
-
-        current_username = (
-            st.session_state.get(
-                "username"
-            )
-        )
-
-
-        if (
-            selected_username
-            == current_username
-        ):
-
-            st.warning(
-                "You cannot delete the currently logged-in administrator."
-            )
-
-
         confirm = st.checkbox(
             "I understand this action cannot be undone.",
             key="confirm_delete_user",
         )
 
-
         if st.button(
             "❌ Delete Selected User",
-            disabled=(
-                not confirm
-                or selected_username
-                == current_username
-            ),
+            disabled=not confirm,
             use_container_width=True,
         ):
 
@@ -625,7 +490,6 @@ if users:
                 success = delete_user(
                     selected_user_id
                 )
-
 
             if success:
 
@@ -653,7 +517,6 @@ st.subheader(
     "🩺 Patient Management"
 )
 
-
 with st.spinner(
     "Loading patients..."
 ):
@@ -666,7 +529,7 @@ with st.spinner(
 if patients_response is None:
 
     st.error(
-        "Unable to load administrator patients."
+        "Unable to load patients."
     )
 
     patients = []
@@ -690,7 +553,6 @@ else:
 if patients:
 
     patient_rows = []
-
 
     for patient in patients:
 
@@ -731,7 +593,6 @@ if patients:
             }
         )
 
-
     st.dataframe(
         pd.DataFrame(
             patient_rows
@@ -739,7 +600,6 @@ if patients:
         use_container_width=True,
         hide_index=True,
     )
-
 
 else:
 
@@ -758,9 +618,7 @@ if patients:
         "### 🗑️ Delete Patient"
     )
 
-
     selectable_patients = []
-
 
     for patient in patients:
 
@@ -773,11 +631,9 @@ if patients:
             None,
         )
 
-
         name = patient_name(
             patient
         )
-
 
         if patient_id is not None:
 
@@ -789,7 +645,6 @@ if patients:
                 )
             )
 
-
     if selectable_patients:
 
         labels = [
@@ -797,13 +652,11 @@ if patients:
             for item in selectable_patients
         ]
 
-
         selected_patient = st.selectbox(
             "Select Patient",
             labels,
             key="admin_delete_patient",
         )
-
 
         selected_patient_id = next(
             patient_id
@@ -813,12 +666,10 @@ if patients:
             == selected_patient
         )
 
-
         confirm_patient = st.checkbox(
             "I understand this action cannot be undone.",
             key="confirm_delete_patient",
         )
-
 
         if st.button(
             "🗑️ Delete Selected Patient",
@@ -833,7 +684,6 @@ if patients:
                 success = delete_patient(
                     selected_patient_id
                 )
-
 
             if success:
 
@@ -861,7 +711,6 @@ st.subheader(
     "📝 Recent Users"
 )
 
-
 recent_users = dashboard.get(
     "recent_users",
     [],
@@ -878,16 +727,13 @@ if (
 
     recent_rows = []
 
-
     for user in recent_users:
 
         if not isinstance(
             user,
             dict,
         ):
-
             continue
-
 
         recent_rows.append(
             {
@@ -903,12 +749,6 @@ if (
                         "N/A",
                     ),
 
-                "Role":
-                    user.get(
-                        "role",
-                        "N/A",
-                    ),
-
                 "Created":
                     user.get(
                         "created_at",
@@ -916,7 +756,6 @@ if (
                     ),
             }
         )
-
 
     if recent_rows:
 
@@ -952,7 +791,6 @@ st.subheader(
     "📝 Recent Activity"
 )
 
-
 activity = dashboard.get(
     "recent_activity",
     [],
@@ -969,16 +807,13 @@ if (
 
     activity_rows = []
 
-
     for item in activity:
 
         if not isinstance(
             item,
             dict,
         ):
-
             continue
-
 
         activity_rows.append(
             {
@@ -1007,7 +842,6 @@ if (
                     ),
             }
         )
-
 
     if activity_rows:
 
@@ -1052,10 +886,13 @@ health1, health2 = st.columns(2)
 with health1:
 
     if backend_ok:
+
         st.success(
             "🟢 FastAPI Backend: Connected"
         )
+
     else:
+
         st.error(
             "🔴 FastAPI Backend: Unavailable"
         )
@@ -1064,10 +901,13 @@ with health1:
 with health2:
 
     if backend_ok:
+
         st.success(
             "🟢 Database: Connected"
         )
+
     else:
+
         st.error(
             "🔴 Database: Unavailable"
         )
@@ -1079,10 +919,13 @@ health3, health4 = st.columns(2)
 with health3:
 
     if backend_ok:
+
         st.success(
             "🟢 Machine Learning Model: Available"
         )
+
     else:
+
         st.error(
             "🔴 Machine Learning Model: Unavailable"
         )
@@ -1091,14 +934,18 @@ with health3:
 with health4:
 
     if backend_ok:
+
         st.success(
             "🟢 AI Assistant: Available"
         )
+
     else:
+
         st.error(
             "🔴 AI Assistant: Unavailable"
         )
-        
+
+
 # ==========================================================
 # Refresh
 # ==========================================================
