@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.utils.security import hash_password
+
 from app.database.database import (
     SessionLocal,
     create_tables,
@@ -18,7 +19,10 @@ from app.database.models import (
 
 class DatabaseSeeder:
     """
-    Seed and repair database sample data.
+    Initialize required database users.
+
+    No sample patients, predictions, reports,
+    reminders, or chat history are created.
     """
 
     # ==========================================================
@@ -26,7 +30,6 @@ class DatabaseSeeder:
     # ==========================================================
 
     def __init__(self):
-
         self.db = SessionLocal()
 
     # ==========================================================
@@ -39,20 +42,12 @@ class DatabaseSeeder:
 
             create_tables()
 
+            # Only default application users are created.
+            # No fake/sample patient data is inserted.
             self.seed_users()
 
-            self.seed_patients()
-
-            self.seed_predictions()
-
-            self.seed_reports()
-
-            self.seed_reminders()
-
-            self.seed_chat_history()
-
             print(
-                "Database seeded successfully."
+                "Database initialized successfully."
             )
 
         except Exception as e:
@@ -60,7 +55,7 @@ class DatabaseSeeder:
             self.db.rollback()
 
             print(
-                f"Database seeding failed: {e}"
+                f"Database initialization failed: {e}"
             )
 
             raise
@@ -71,13 +66,9 @@ class DatabaseSeeder:
 
     def seed_users(self):
         """
-        Create default users if missing.
+        Create or repair the default application users.
 
-        If a default user already exists, repair/update
-        the account instead of skipping it.
-
-        This is important because an existing admin account
-        may have the wrong role.
+        These are application accounts, not patient records.
         """
 
         # ======================================================
@@ -133,7 +124,9 @@ class DatabaseSeeder:
                 is_active=True,
             )
 
-            self.db.add(admin)
+            self.db.add(
+                admin
+            )
 
             print(
                 "Created admin user."
@@ -188,17 +181,19 @@ class DatabaseSeeder:
                 is_active=True,
             )
 
-            self.db.add(doctor)
+            self.db.add(
+                doctor
+            )
 
             print(
                 "Created doctor user."
             )
 
         # ======================================================
-        # Patient
+        # Regular User
         # ======================================================
 
-        patient = (
+        user = (
             self.db.query(User)
             .filter(
                 User.username == "patient"
@@ -206,27 +201,27 @@ class DatabaseSeeder:
             .first()
         )
 
-        if patient:
+        if user:
 
-            patient.email = "patient@example.com"
+            user.email = "patient@example.com"
 
-            patient.password = hash_password(
+            user.password = hash_password(
                 "patient123"
             )
 
-            patient.full_name = "John Smith"
+            user.full_name = "User"
 
-            patient.role = "user"
+            user.role = "user"
 
-            patient.is_active = True
+            user.is_active = True
 
             print(
-                "Updated existing patient user."
+                "Updated existing regular user."
             )
 
         else:
 
-            patient = User(
+            user = User(
 
                 username="patient",
 
@@ -236,17 +231,19 @@ class DatabaseSeeder:
                     "patient123"
                 ),
 
-                full_name="John Smith",
+                full_name="User",
 
                 role="user",
 
                 is_active=True,
             )
 
-            self.db.add(patient)
+            self.db.add(
+                user
+            )
 
             print(
-                "Created patient user."
+                "Created regular user."
             )
 
         # ======================================================
@@ -260,373 +257,229 @@ class DatabaseSeeder:
         )
 
     # ==========================================================
-    # Patients
+    # Patient Seeding Disabled
     # ==========================================================
 
     def seed_patients(self):
         """
-        Create sample patient if no patient exists.
+        Sample patient creation is intentionally disabled.
+
+        Patients must only be created through the
+        actual Prediction workflow.
         """
 
-        existing_patient = (
-            self.db.query(Patient)
-            .first()
-        )
-
-        if existing_patient:
-
-            print(
-                "Patient data already exists. "
-                "Skipping sample patient."
-            )
-
-            return
-
-        # ------------------------------------------------------
-        # Find patient owner
-        # ------------------------------------------------------
-
-        user = (
-            self.db.query(User)
-            .filter(
-                User.username == "patient"
-            )
-            .first()
-        )
-
-        if not user:
-
-            print(
-                "Patient user not found. "
-                "Skipping patient seed."
-            )
-
-            return
-
-        patient = Patient(
-
-            owner_id=user.id,
-
-            first_name="John",
-
-            last_name="Smith",
-
-            gender="Male",
-
-            age=64,
-
-            phone="1234567890",
-
-            email="john@example.com",
-
-            address="Sample Address",
-        )
-
-        self.db.add(
-            patient
-        )
-
-        self.db.commit()
-
         print(
-            "Sample patient created."
+            "Sample patient seeding disabled."
         )
 
     # ==========================================================
-    # Predictions
+    # Prediction Seeding Disabled
     # ==========================================================
 
     def seed_predictions(self):
         """
-        Create one sample prediction if none exists.
+        Sample prediction creation is intentionally disabled.
+
+        Predictions must only be created after an actual
+        prediction request.
         """
 
-        existing_prediction = (
-            self.db.query(Prediction)
-            .first()
-        )
-
-        if existing_prediction:
-
-            print(
-                "Prediction data already exists. "
-                "Skipping sample prediction."
-            )
-
-            return
-
-        patient = (
-            self.db.query(Patient)
-            .first()
-        )
-
-        if not patient:
-
-            print(
-                "No patient found. "
-                "Skipping prediction seed."
-            )
-
-            return
-
-        prediction = Prediction(
-
-            patient_id=patient.id,
-
-            prediction="Parkinson Detected",
-
-            probability=0.94,
-
-            confidence=94.0,
-
-            risk_level="High Risk",
-
-            features="[sample features]",
-        )
-
-        self.db.add(
-            prediction
-        )
-
-        self.db.commit()
-
         print(
-            "Sample prediction created."
+            "Sample prediction seeding disabled."
         )
 
     # ==========================================================
-    # Reports
+    # Report Seeding Disabled
     # ==========================================================
 
     def seed_reports(self):
         """
-        Create one sample report if none exists.
+        Sample report creation is intentionally disabled.
+
+        Reports must only be generated from actual
+        patient predictions.
         """
 
-        existing_report = (
-            self.db.query(Report)
-            .first()
-        )
-
-        if existing_report:
-
-            print(
-                "Report data already exists. "
-                "Skipping sample report."
-            )
-
-            return
-
-        patient = (
-            self.db.query(Patient)
-            .first()
-        )
-
-        if not patient:
-
-            print(
-                "No patient found. "
-                "Skipping report seed."
-            )
-
-            return
-
-        report = Report(
-
-            patient_id=patient.id,
-
-            report_name="Initial Assessment",
-
-            report_path="reports/report1.pdf",
-
-            generated_at=datetime.utcnow(),
-        )
-
-        self.db.add(
-            report
-        )
-
-        self.db.commit()
-
         print(
-            "Sample report created."
+            "Sample report seeding disabled."
         )
 
     # ==========================================================
-    # Medication Reminders
+    # Medication Reminder Seeding Disabled
     # ==========================================================
 
     def seed_reminders(self):
         """
-        Create sample medication reminders if none exist.
+        Sample medication reminders are disabled.
+
+        Reminders must belong to actual patients.
         """
 
-        existing_reminder = (
-            self.db.query(
-                MedicationReminder
-            ).first()
-        )
-
-        if existing_reminder:
-
-            print(
-                "Medication reminders already exist. "
-                "Skipping reminder seed."
-            )
-
-            return
-
-        patient = (
-            self.db.query(Patient)
-            .first()
-        )
-
-        if not patient:
-
-            print(
-                "No patient found. "
-                "Skipping reminder seed."
-            )
-
-            return
-
-        reminders = [
-
-            MedicationReminder(
-
-                patient_id=patient.id,
-
-                medication_name="Levodopa",
-
-                reminder_time="08:00",
-
-                frequency="Daily",
-            ),
-
-            MedicationReminder(
-
-                patient_id=patient.id,
-
-                medication_name="Levodopa",
-
-                reminder_time="20:00",
-
-                frequency="Daily",
-            ),
-        ]
-
-        self.db.add_all(
-            reminders
-        )
-
-        self.db.commit()
-
         print(
-            "Medication reminders created."
+            "Sample medication reminder seeding disabled."
         )
 
     # ==========================================================
-    # Chat History
+    # Chat History Seeding Disabled
     # ==========================================================
 
     def seed_chat_history(self):
         """
-        Create sample chat history if none exists.
+        Sample chat history is disabled.
+
+        Chat history must belong to actual patients.
         """
 
-        existing_chat = (
-            self.db.query(
-                ChatHistory
-            ).first()
+        print(
+            "Sample chat history seeding disabled."
         )
 
-        if existing_chat:
+    # ==========================================================
+    # Remove Sample Data
+    # ==========================================================
 
-            print(
-                "Chat history already exists. "
-                "Skipping chat seed."
-            )
+    def remove_sample_data(self):
+        """
+        Remove the previously seeded John Smith sample
+        and its sample prediction/report.
 
-            return
+        This does NOT delete users.
+        """
 
-        patient = (
+        # ------------------------------------------------------
+        # Find sample patient
+        # ------------------------------------------------------
+
+        sample_patient = (
             self.db.query(Patient)
+            .filter(
+                Patient.first_name == "John",
+                Patient.last_name == "Smith",
+                Patient.email == "john@example.com",
+            )
             .first()
         )
 
-        if not patient:
+        if sample_patient:
 
-            print(
-                "No patient found. "
-                "Skipping chat history seed."
+            # --------------------------------------------------
+            # Delete sample chat history
+            # --------------------------------------------------
+
+            self.db.query(
+                ChatHistory
+            ).filter(
+                ChatHistory.patient_id
+                == sample_patient.id
+            ).delete(
+                synchronize_session=False
             )
 
-            return
+            # --------------------------------------------------
+            # Delete sample reminders
+            # --------------------------------------------------
 
-        history = ChatHistory(
+            self.db.query(
+                MedicationReminder
+            ).filter(
+                MedicationReminder.patient_id
+                == sample_patient.id
+            ).delete(
+                synchronize_session=False
+            )
 
-            patient_id=patient.id,
+            # --------------------------------------------------
+            # Delete sample reports
+            # --------------------------------------------------
 
-            question=(
-                "What does my prediction mean?"
-            ),
+            self.db.query(
+                Report
+            ).filter(
+                Report.patient_id
+                == sample_patient.id
+            ).delete(
+                synchronize_session=False
+            )
 
-            answer=(
-                "Your prediction indicates that "
-                "the model detected patterns associated "
-                "with Parkinson disease. This is not a "
-                "diagnosis and should be discussed with "
-                "a healthcare professional."
-            ),
-        )
+            # --------------------------------------------------
+            # Delete sample predictions
+            # --------------------------------------------------
 
-        self.db.add(
-            history
-        )
+            self.db.query(
+                Prediction
+            ).filter(
+                Prediction.patient_id
+                == sample_patient.id
+            ).delete(
+                synchronize_session=False
+            )
 
-        self.db.commit()
+            # --------------------------------------------------
+            # Delete sample patient
+            # --------------------------------------------------
 
-        print(
-            "Sample chat history created."
-        )
+            self.db.delete(
+                sample_patient
+            )
+
+            self.db.commit()
+
+            print(
+                "Sample John Smith patient data removed."
+            )
+
+        else:
+
+            print(
+                "Sample John Smith patient not found."
+            )
 
     # ==========================================================
-    # Clear Database
+    # Clear Application Data
     # ==========================================================
 
-    def clear(self):
+    def clear_patient_data(self):
         """
-        Delete all seeded/application data.
+        Delete patient-related application data.
+
+        Users are NOT deleted.
         """
 
         self.db.query(
             ChatHistory
-        ).delete()
+        ).delete(
+            synchronize_session=False
+        )
 
         self.db.query(
             MedicationReminder
-        ).delete()
+        ).delete(
+            synchronize_session=False
+        )
 
         self.db.query(
             Report
-        ).delete()
+        ).delete(
+            synchronize_session=False
+        )
 
         self.db.query(
             Prediction
-        ).delete()
+        ).delete(
+            synchronize_session=False
+        )
 
         self.db.query(
             Patient
-        ).delete()
-
-        self.db.query(
-            User
-        ).delete()
+        ).delete(
+            synchronize_session=False
+        )
 
         self.db.commit()
 
         print(
-            "Database cleared."
+            "Patient, prediction, report, reminder, "
+            "and chat data cleared."
         )
 
     # ==========================================================
@@ -648,7 +501,12 @@ if __name__ == "__main__":
 
     try:
 
+        # Initialize database and default users.
         seeder.seed()
+
+        # Remove the previously created sample
+        # John Smith patient and related sample data.
+        seeder.remove_sample_data()
 
     finally:
 
