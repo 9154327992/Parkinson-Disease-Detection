@@ -10,9 +10,6 @@ from utils.api_client import (
 
 from utils.session import (
     initialize_session,
-    login,
-    logout,
-    is_logged_in,
 )
 
 
@@ -171,58 +168,6 @@ st.success(
 # ==========================================================
 
 with st.sidebar:
-
-    st.subheader(
-        "👤 Account"
-    )
-
-    st.write(
-        f"**User:** {username}"
-    )
-
-    st.write(
-        f"**Role:** {role}"
-    )
-
-
-    st.divider()
-
-
-    if st.button(
-        "🚪 Logout",
-        use_container_width=True,
-    ):
-
-        try:
-
-            logout()
-
-        except Exception:
-
-            pass
-
-
-        for key in [
-            "logged_in",
-            "username",
-            "role",
-            "user_id",
-            "access_token",
-            "token",
-            "jwt_token",
-        ]:
-
-            st.session_state.pop(
-                key,
-                None,
-            )
-
-
-        st.rerun()
-
-
-    st.divider()
-
 
     st.caption(
         f"Backend: {get_api_url()}"
