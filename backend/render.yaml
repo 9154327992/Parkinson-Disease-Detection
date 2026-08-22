@@ -1,9 +1,7 @@
 services:
   - type: web
     name: parkinson-disease-detection-api
-
     env: python
-
     plan: free
 
     rootDir: backend
@@ -17,7 +15,7 @@ services:
 
     autoDeploy: true
 
-    healthCheckPath: /
+    healthCheckPath: /health
 
     envVars:
       - key: PYTHON_VERSION
