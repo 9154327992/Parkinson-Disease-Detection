@@ -1118,12 +1118,21 @@ def predict_audio(
     """
     Upload a WAV audio file and run voice-based prediction.
 
-    The backend automatically extracts the 22 voice features
-    before running the prediction model.
+    Handles Render cold starts by:
+    1. Checking /health first
+    2. Waiting for the backend to wake up
+    3. Sending the audio prediction request
+    4. Retrying if the first prediction request times out
     """
+
+    import time
 
     endpoint = (
         f"{BASE_URL}/prediction/predict-audio"
+    )
+
+    health_endpoint = (
+        f"{BASE_URL}/health"
     )
 
     params = {
@@ -1140,13 +1149,36 @@ def predict_audio(
         ),
     }
 
+    # ======================================================
+    # Audio File
+    # ======================================================
+
+    try:
+
+        audio_bytes = (
+            audio_file.getvalue()
+        )
+
+    except Exception as exc:
+
+        st.error(
+            "Unable to read the audio file: "
+            f"{exc}"
+        )
+
+        return None
+
     files = {
         "file": (
             audio_file.name,
-            audio_file.getvalue(),
+            audio_bytes,
             "audio/wav",
         )
     }
+
+    # ======================================================
+    # Headers
+    # ======================================================
 
     headers = {
         "Accept": "application/json",
@@ -1160,106 +1192,238 @@ def predict_audio(
             "Authorization"
         ] = f"Bearer {token}"
 
-    try:
 
-        response = requests.post(
-            endpoint,
-            params=params,
-            files=files,
-            headers=headers,
-            timeout=60,
-        )
+    # ======================================================
+    # Step 1 - Wake Render Backend
+    # ======================================================
 
-        # --------------------------------------------------
-        # HTTP Error
-        # --------------------------------------------------
+    backend_ready = False
 
-        if not response.ok:
+    max_health_attempts = 6
 
-            st.error(
-                "Audio prediction failed "
-                f"(HTTP {response.status_code})."
+    for attempt in range(
+        max_health_attempts
+    ):
+
+        try:
+
+            health_response = requests.get(
+                health_endpoint,
+                headers={
+                    "Accept":
+                        "application/json",
+                },
+                timeout=30,
             )
 
-            try:
+            if health_response.ok:
 
-                error_data = response.json()
+                backend_ready = True
 
-                st.json(
-                    error_data
-                )
+                break
 
-            except ValueError:
+        except requests.RequestException:
 
-                st.code(
-                    response.text
-                )
+            pass
 
-            return None
 
-        # --------------------------------------------------
-        # Parse Response
-        # --------------------------------------------------
-
-        result = _handle_response(
-            response
-        )
-
-        if not isinstance(
-            result,
-            dict,
+        if attempt < (
+            max_health_attempts - 1
         ):
 
-            st.error(
-                "Invalid response received "
-                "from the audio prediction endpoint."
-            )
+            time.sleep(5)
 
-            return None
 
-        # --------------------------------------------------
-        # Backend response structure:
-        #
-        # {
-        #     "prediction": {
-        #         ...
-        #     },
-        #     "features": {
-        #         ...
-        #     },
-        #     "feature_count": 22
-        # }
-        #
-        # Return only the prediction object because
-        # the existing Prediction page expects the
-        # prediction fields at the top level.
-        # --------------------------------------------------
+    # ======================================================
+    # Backend Still Sleeping
+    # ======================================================
 
-        prediction_result = result.get(
-            "prediction"
-        )
-
-        if isinstance(
-            prediction_result,
-            dict,
-        ):
-
-            return prediction_result
-
-        # --------------------------------------------------
-        # Fallback
-        # --------------------------------------------------
-
-        return result
-
-    except requests.RequestException as exc:
+    if not backend_ready:
 
         st.error(
-            "Audio prediction request failed: "
-            f"{exc}"
+            """
+            ⚠️ The FastAPI backend is taking too long
+            to wake up.
+
+            Please wait a few seconds and try again.
+            """
         )
 
         return None
+
+
+    # ======================================================
+    # Step 2 - Audio Prediction
+    # ======================================================
+
+    max_prediction_attempts = 2
+
+    for attempt in range(
+        max_prediction_attempts
+    ):
+
+        try:
+
+            response = requests.post(
+                endpoint,
+                params=params,
+                files=files,
+                headers=headers,
+                timeout=120,
+            )
+
+
+            # ==================================================
+            # Successful Response
+            # ==================================================
+
+            if response.ok:
+
+                result = _handle_response(
+                    response
+                )
+
+                if not isinstance(
+                    result,
+                    dict,
+                ):
+
+                    st.error(
+                        "Invalid response received "
+                        "from the audio prediction endpoint."
+                    )
+
+                    return None
+
+
+                # ------------------------------------------------
+                # Backend response:
+                #
+                # {
+                #     "prediction": {...},
+                #     "features": {...},
+                #     "feature_count": 22
+                # }
+                # ------------------------------------------------
+
+                prediction_result = (
+                    result.get(
+                        "prediction"
+                    )
+                )
+
+
+                if isinstance(
+                    prediction_result,
+                    dict,
+                ):
+
+                    return prediction_result
+
+
+                return result
+
+
+            # ==================================================
+            # HTTP Error
+            # ==================================================
+
+            if attempt == (
+                max_prediction_attempts - 1
+            ):
+
+                st.error(
+                    "Audio prediction failed "
+                    f"(HTTP {response.status_code})."
+                )
+
+                try:
+
+                    error_data = (
+                        response.json()
+                    )
+
+                    st.json(
+                        error_data
+                    )
+
+                except ValueError:
+
+                    if response.text:
+
+                        st.code(
+                            response.text
+                        )
+
+                return None
+
+
+        # ======================================================
+        # Timeout
+        # ======================================================
+
+        except requests.Timeout:
+
+            if attempt < (
+                max_prediction_attempts - 1
+            ):
+
+                st.info(
+                    """
+                    ⏳ The backend is still processing
+                    the audio. Retrying automatically...
+                    """
+                )
+
+                time.sleep(5)
+
+                continue
+
+
+            st.error(
+                """
+                ⚠️ The audio prediction request
+                took too long.
+
+                The backend may still be starting.
+                Please try again in a few seconds.
+                """
+            )
+
+            return None
+
+
+        # ======================================================
+        # Connection Error
+        # ======================================================
+
+        except requests.RequestException as exc:
+
+            if attempt < (
+                max_prediction_attempts - 1
+            ):
+
+                st.info(
+                    """
+                    🔄 Connection interrupted.
+                    Retrying automatically...
+                    """
+                )
+
+                time.sleep(5)
+
+                continue
+
+
+            st.error(
+                "Audio prediction request failed: "
+                f"{exc}"
+            )
+
+            return None
+
+
+    return None
 
 
 # ==========================================================
