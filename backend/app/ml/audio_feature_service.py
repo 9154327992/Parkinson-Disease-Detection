@@ -1,6 +1,5 @@
 # ==========================================================
 # Audio Feature Service
-# Optimized 22-feature extraction for Parkinson voice audio
 # ==========================================================
 
 from pathlib import Path
@@ -22,16 +21,14 @@ DEFAULT_SAMPLE_RATE = 22050
 MIN_DURATION_SECONDS = 2.0
 MAX_DURATION_SECONDS = 30.0
 
-# Pitch range used for human voice analysis.
 FMIN_HZ = 60.0
 FMAX_HZ = 600.0
 
-# Maximum number of samples used by expensive nonlinear
-# calculations.
 MAX_NONLINEAR_SAMPLES = 12000
 
+
 # ==========================================================
-# Exact Model Feature Names
+# Feature Names
 # ==========================================================
 
 FEATURE_NAMES = [
@@ -62,7 +59,7 @@ FEATURE_NAMES = [
 
 if len(FEATURE_NAMES) != TOTAL_FEATURES:
     raise RuntimeError(
-        f"Feature configuration error: "
+        "Feature configuration error: "
         f"expected {TOTAL_FEATURES} features, "
         f"found {len(FEATURE_NAMES)}."
     )
@@ -74,24 +71,28 @@ if len(FEATURE_NAMES) != TOTAL_FEATURES:
 
 class AudioFeatureService:
     """
-    Convert a voice recording into the 22-feature structure
-    expected by the Parkinson prediction pipeline.
+    Extract the 22 voice features used by the
+    Parkinson prediction pipeline.
 
-    Important:
-        This service preserves the existing 22 feature names
-        and order.
+    Important compatibility methods:
 
-    The implementation is optimized so pitch detection is
-    performed once and reused by jitter and nonlinear
-    feature calculations.
+        extract_features()
+        extract_features_from_file()
+        feature_vector()
+        to_feature_vector()
+
+    The to_feature_vector() method is intentionally retained
+    because prediction_service.py expects that method.
     """
 
     TOTAL_FEATURES = TOTAL_FEATURES
+
     FEATURE_NAMES = FEATURE_NAMES.copy()
 
     DEFAULT_SAMPLE_RATE = DEFAULT_SAMPLE_RATE
 
     MIN_DURATION_SECONDS = MIN_DURATION_SECONDS
+
     MAX_DURATION_SECONDS = MAX_DURATION_SECONDS
 
     # ======================================================
@@ -104,6 +105,7 @@ class AudioFeatureService:
         min_duration: float = MIN_DURATION_SECONDS,
         max_duration: float = MAX_DURATION_SECONDS,
     ):
+
         if sample_rate <= 0:
             raise ValueError(
                 "Sample rate must be greater than zero."
@@ -120,26 +122,38 @@ class AudioFeatureService:
                 "than minimum duration."
             )
 
-        self.sample_rate = int(sample_rate)
-        self.min_duration = float(min_duration)
-        self.max_duration = float(max_duration)
+        self.sample_rate = int(
+            sample_rate
+        )
+
+        self.min_duration = float(
+            min_duration
+        )
+
+        self.max_duration = float(
+            max_duration
+        )
 
     # ======================================================
     # Feature Count
     # ======================================================
 
     def get_feature_count(self) -> int:
+
         return TOTAL_FEATURES
 
     # ======================================================
     # Feature Names
     # ======================================================
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(
+        self,
+    ) -> List[str]:
+
         return FEATURE_NAMES.copy()
 
     # ======================================================
-    # Audio Loading
+    # Load Audio
     # ======================================================
 
     def load_audio(
@@ -148,30 +162,39 @@ class AudioFeatureService:
     ) -> Tuple[np.ndarray, int]:
 
         if not audio_path:
+
             raise ValueError(
                 "Audio path is required."
             )
 
-        path = Path(audio_path)
+        path = Path(
+            audio_path
+        )
 
         if not path.exists():
+
             raise FileNotFoundError(
                 f"Audio file not found: {path}"
             )
 
         if not path.is_file():
+
             raise ValueError(
                 f"Audio path is not a file: {path}"
             )
 
         try:
-            audio, sample_rate = sf.read(
-                str(path),
-                dtype="float64",
-                always_2d=False,
+
+            audio, sample_rate = (
+                sf.read(
+                    str(path),
+                    dtype="float64",
+                    always_2d=False,
+                )
             )
 
         except Exception as exc:
+
             raise ValueError(
                 f"Unable to read audio file: {path}"
             ) from exc
@@ -181,29 +204,39 @@ class AudioFeatureService:
             dtype=np.float64,
         )
 
-        # Convert stereo/multi-channel to mono.
+        # --------------------------------------------------
+        # Convert stereo to mono
+        # --------------------------------------------------
+
         if audio.ndim == 2:
+
             audio = np.mean(
                 audio,
                 axis=1,
             )
 
         elif audio.ndim != 1:
+
             raise ValueError(
                 "Audio must contain one or two dimensions."
             )
 
-        sample_rate = int(sample_rate)
+        sample_rate = int(
+            sample_rate
+        )
 
         self.validate_audio(
             audio,
             sample_rate,
         )
 
-        return audio, sample_rate
+        return (
+            audio,
+            sample_rate,
+        )
 
     # ======================================================
-    # Audio Validation
+    # Validate Audio
     # ======================================================
 
     def validate_audio(
@@ -216,21 +249,27 @@ class AudioFeatureService:
             audio,
             np.ndarray,
         ):
+
             raise ValueError(
                 "Audio waveform must be a NumPy array."
             )
 
         if audio.size == 0:
+
             raise ValueError(
                 "Audio file contains no samples."
             )
 
         if sample_rate <= 0:
+
             raise ValueError(
                 "Invalid audio sample rate."
             )
 
-        if not np.isfinite(audio).all():
+        if not np.isfinite(
+            audio
+        ).all():
+
             raise ValueError(
                 "Audio contains invalid numeric values."
             )
@@ -241,6 +280,7 @@ class AudioFeatureService:
         )
 
         if duration < self.min_duration:
+
             raise ValueError(
                 "Audio recording is too short. "
                 f"Minimum duration is "
@@ -248,6 +288,7 @@ class AudioFeatureService:
             )
 
         if duration > self.max_duration:
+
             raise ValueError(
                 "Audio recording is too long. "
                 f"Maximum duration is "
@@ -261,6 +302,7 @@ class AudioFeatureService:
         )
 
         if peak <= 0:
+
             raise ValueError(
                 "Audio recording is silent."
             )
@@ -268,7 +310,7 @@ class AudioFeatureService:
         return True
 
     # ======================================================
-    # DC Offset
+    # Remove DC Offset
     # ======================================================
 
     def remove_dc_offset(
@@ -297,9 +339,13 @@ class AudioFeatureService:
         )
 
         if peak <= 0:
+
             return audio
 
-        return audio / peak
+        return (
+            audio
+            / peak
+        )
 
     # ======================================================
     # Resample
@@ -312,17 +358,20 @@ class AudioFeatureService:
     ) -> np.ndarray:
 
         if sample_rate <= 0:
+
             raise ValueError(
                 "Invalid source sample rate."
             )
 
         if sample_rate == self.sample_rate:
+
             return np.asarray(
                 audio,
                 dtype=np.float64,
             )
 
         try:
+
             resampled = librosa.resample(
                 audio,
                 orig_sr=sample_rate,
@@ -330,6 +379,7 @@ class AudioFeatureService:
             )
 
         except Exception as exc:
+
             raise ValueError(
                 "Unable to resample audio."
             ) from exc
@@ -340,6 +390,7 @@ class AudioFeatureService:
         )
 
         if resampled.size == 0:
+
             raise ValueError(
                 "Resampling produced an empty waveform."
             )
@@ -366,30 +417,44 @@ class AudioFeatureService:
             dtype=np.float64,
         )
 
-        # Mono.
+        # --------------------------------------------------
+        # Mono
+        # --------------------------------------------------
+
         if audio.ndim == 2:
+
             audio = np.mean(
                 audio,
                 axis=1,
             )
 
         elif audio.ndim != 1:
+
             raise ValueError(
                 "Audio must be mono or multi-channel."
             )
 
-        # Remove DC.
+        # --------------------------------------------------
+        # Remove DC offset
+        # --------------------------------------------------
+
         audio = self.remove_dc_offset(
             audio
         )
 
-        # Resample.
+        # --------------------------------------------------
+        # Resample
+        # --------------------------------------------------
+
         audio = self.resample_audio(
             audio,
             sample_rate,
         )
 
-        # Normalize.
+        # --------------------------------------------------
+        # Normalize
+        # --------------------------------------------------
+
         audio = self.normalize_audio(
             audio
         )
@@ -415,6 +480,7 @@ class AudioFeatureService:
     ) -> np.ndarray:
 
         try:
+
             f0, _, _ = librosa.pyin(
                 audio,
                 fmin=FMIN_HZ,
@@ -425,11 +491,13 @@ class AudioFeatureService:
             )
 
         except Exception as exc:
+
             raise ValueError(
                 "Unable to extract fundamental frequency."
             ) from exc
 
         if f0 is None:
+
             raise ValueError(
                 "Pitch extraction returned no data."
             )
@@ -447,6 +515,7 @@ class AudioFeatureService:
         ]
 
         if len(valid_f0) < 10:
+
             raise ValueError(
                 "Not enough voiced samples detected "
                 "for pitch analysis."
@@ -465,23 +534,26 @@ class AudioFeatureService:
         pitch: np.ndarray,
     ) -> Dict[str, float]:
 
-        fo = float(
-            np.mean(pitch)
-        )
+        values = {
 
-        fhi = float(
-            np.max(pitch)
-        )
+            "MDVP:Fo(Hz)": float(
+                np.mean(pitch)
+            ),
 
-        flo = float(
-            np.min(pitch)
-        )
+            "MDVP:Fhi(Hz)": float(
+                np.max(pitch)
+            ),
 
-        return {
-            "MDVP:Fo(Hz)": fo,
-            "MDVP:Fhi(Hz)": fhi,
-            "MDVP:Flo(Hz)": flo,
+            "MDVP:Flo(Hz)": float(
+                np.min(pitch)
+            ),
         }
+
+        self._validate_values(
+            values
+        )
+
+        return values
 
     # ======================================================
     # Jitter
@@ -492,7 +564,10 @@ class AudioFeatureService:
         pitch: np.ndarray,
     ) -> Dict[str, float]:
 
-        periods = 1.0 / pitch
+        periods = (
+            1.0
+            / pitch
+        )
 
         periods = periods[
             np.isfinite(periods)
@@ -500,6 +575,7 @@ class AudioFeatureService:
         ]
 
         if len(periods) < 5:
+
             raise ValueError(
                 "Not enough valid vocal periods."
             )
@@ -509,12 +585,13 @@ class AudioFeatureService:
         )
 
         if mean_period <= 0:
+
             raise ValueError(
                 "Invalid mean vocal period."
             )
 
         # --------------------------------------------------
-        # Absolute period differences
+        # Jitter absolute
         # --------------------------------------------------
 
         differences = np.abs(
@@ -522,8 +599,14 @@ class AudioFeatureService:
         )
 
         jitter_abs = float(
-            np.mean(differences)
+            np.mean(
+                differences
+            )
         )
+
+        # --------------------------------------------------
+        # Jitter percentage
+        # --------------------------------------------------
 
         jitter_percent = (
             jitter_abs
@@ -554,10 +637,18 @@ class AudioFeatureService:
                 )
             )
 
-        rap = float(
-            np.mean(rap_values)
-            / mean_period
-        )
+        if rap_values:
+
+            rap = float(
+                np.mean(
+                    rap_values
+                )
+                / mean_period
+            )
+
+        else:
+
+            rap = 0.0
 
         # --------------------------------------------------
         # PPQ
@@ -589,19 +680,28 @@ class AudioFeatureService:
                 )
 
         if ppq_values:
+
             ppq = float(
-                np.mean(ppq_values)
+                np.mean(
+                    ppq_values
+                )
                 / mean_period
             )
+
         else:
+
             ppq = rap
 
-        # DDP is traditionally 3 × RAP.
+        # --------------------------------------------------
+        # DDP
+        # --------------------------------------------------
+
         ddp = float(
             rap * 3.0
         )
 
         values = {
+
             "MDVP:Jitter(%)":
                 float(jitter_percent),
 
@@ -615,7 +715,7 @@ class AudioFeatureService:
                 float(ppq),
 
             "Jitter:DDP":
-                ddp,
+                float(ddp),
         }
 
         self._validate_values(
@@ -625,7 +725,7 @@ class AudioFeatureService:
         return values
 
     # ======================================================
-    # RMS Amplitude Track
+    # RMS
     # ======================================================
 
     def extract_rms_track(
@@ -648,6 +748,7 @@ class AudioFeatureService:
         ]
 
         if len(rms) < 15:
+
             raise ValueError(
                 "Not enough amplitude frames "
                 "for shimmer analysis."
@@ -671,6 +772,7 @@ class AudioFeatureService:
         )
 
         if mean_amplitude <= 0:
+
             raise ValueError(
                 "Invalid mean amplitude."
             )
@@ -707,19 +809,25 @@ class AudioFeatureService:
             & (ratios > 0)
         ]
 
-        shimmer_db = float(
-            np.mean(
-                np.abs(
-                    20.0
-                    * np.log10(
-                        ratios
+        if len(ratios) > 0:
+
+            shimmer_db = float(
+                np.mean(
+                    np.abs(
+                        20.0
+                        * np.log10(
+                            ratios
+                        )
                     )
                 )
             )
-        )
+
+        else:
+
+            shimmer_db = 0.0
 
         # --------------------------------------------------
-        # APQ helper
+        # APQ
         # --------------------------------------------------
 
         def calculate_apq(
@@ -727,6 +835,7 @@ class AudioFeatureService:
         ) -> float:
 
             if len(rms) < window:
+
                 return shimmer
 
             half = window // 2
@@ -748,6 +857,7 @@ class AudioFeatureService:
                 )
 
                 if average <= 0:
+
                     continue
 
                 values.append(
@@ -759,21 +869,31 @@ class AudioFeatureService:
                 )
 
             if not values:
+
                 return shimmer
 
             return float(
                 np.mean(values)
             )
 
-        apq3 = calculate_apq(3)
-        apq5 = calculate_apq(5)
-        apq = calculate_apq(11)
+        apq3 = calculate_apq(
+            3
+        )
+
+        apq5 = calculate_apq(
+            5
+        )
+
+        apq = calculate_apq(
+            11
+        )
 
         dda = float(
             apq3 * 3.0
         )
 
         values = {
+
             "MDVP:Shimmer":
                 shimmer,
 
@@ -809,9 +929,10 @@ class AudioFeatureService:
         pitch: np.ndarray,
     ) -> Dict[str, float]:
 
-        # Use the harmonic component from HPSS.
-        harmonic, _ = librosa.effects.hpss(
-            audio
+        harmonic, _ = (
+            librosa.effects.hpss(
+                audio
+            )
         )
 
         harmonic_energy = float(
@@ -856,8 +977,12 @@ class AudioFeatureService:
         )
 
         values = {
-            "NHR": nhr,
-            "HNR": hnr,
+
+            "NHR":
+                nhr,
+
+            "HNR":
+                hnr,
         }
 
         self._validate_values(
@@ -880,7 +1005,6 @@ class AudioFeatureService:
             dtype=np.float64,
         )
 
-        # Downsample only for nonlinear calculation.
         if len(signal) > MAX_NONLINEAR_SAMPLES:
 
             indices = np.linspace(
@@ -904,15 +1028,13 @@ class AudioFeatureService:
         )
 
         if std <= 1e-12:
+
             return 0.0
 
         signal = (
-            signal / std
+            signal
+            / std
         )
-
-        # Use FFT autocorrelation instead of
-        # np.correlate(full), which is much more
-        # expensive for long signals.
 
         n = len(signal)
 
@@ -921,6 +1043,7 @@ class AudioFeatureService:
         while size < (
             2 * n
         ):
+
             size *= 2
 
         spectrum = np.fft.rfft(
@@ -939,7 +1062,11 @@ class AudioFeatureService:
             [:n]
         )
 
-        if autocorrelation[0] <= 0:
+        if (
+            len(autocorrelation) == 0
+            or autocorrelation[0] <= 0
+        ):
+
             return 0.0
 
         autocorrelation = (
@@ -964,6 +1091,7 @@ class AudioFeatureService:
         )
 
         if len(autocorrelation) == 0:
+
             return 0.0
 
         histogram, _ = np.histogram(
@@ -981,10 +1109,12 @@ class AudioFeatureService:
         )
 
         if total <= 0:
+
             return 0.0
 
         probability = (
-            histogram / total
+            histogram
+            / total
         )
 
         probability = probability[
@@ -1001,10 +1131,11 @@ class AudioFeatureService:
         )
 
         maximum_entropy = np.log2(
-            40
+            40.0
         )
 
         if maximum_entropy <= 0:
+
             return 0.0
 
         return float(
@@ -1051,15 +1182,18 @@ class AudioFeatureService:
         n = len(profile)
 
         if n < 128:
+
             return 0.5
 
         min_window = 16
+
         max_window = min(
             n // 4,
             1024,
         )
 
         if max_window <= min_window:
+
             return 0.5
 
         windows = np.unique(
@@ -1071,19 +1205,24 @@ class AudioFeatureService:
                     max_window
                 ),
                 num=10,
-            ).astype(int)
+            ).astype(
+                int
+            )
         )
 
         log_windows = []
+
         log_fluctuations = []
 
         for window in windows:
 
             segments = (
-                n // window
+                n
+                // window
             )
 
             if segments < 2:
+
                 continue
 
             fluctuations = []
@@ -1112,19 +1251,24 @@ class AudioFeatureService:
                 ]
 
                 if len(segment) != window:
+
                     continue
 
                 try:
 
-                    coefficients = np.polyfit(
-                        x,
-                        segment,
-                        1,
+                    coefficients = (
+                        np.polyfit(
+                            x,
+                            segment,
+                            1,
+                        )
                     )
 
-                    trend = np.polyval(
-                        coefficients,
-                        x,
+                    trend = (
+                        np.polyval(
+                            coefficients,
+                            x,
+                        )
                     )
 
                     residual = (
@@ -1141,6 +1285,7 @@ class AudioFeatureService:
                     )
 
                 except Exception:
+
                     continue
 
                 if (
@@ -1149,11 +1294,13 @@ class AudioFeatureService:
                     )
                     and fluctuation > 0
                 ):
+
                     fluctuations.append(
                         fluctuation
                     )
 
             if not fluctuations:
+
                 continue
 
             fluctuation_mean = float(
@@ -1163,6 +1310,7 @@ class AudioFeatureService:
             )
 
             if fluctuation_mean <= 0:
+
                 continue
 
             log_windows.append(
@@ -1178,6 +1326,7 @@ class AudioFeatureService:
             )
 
         if len(log_windows) < 3:
+
             return 0.5
 
         try:
@@ -1193,9 +1342,13 @@ class AudioFeatureService:
             )[0]
 
         except Exception:
+
             return 0.5
 
-        if not np.isfinite(slope):
+        if not np.isfinite(
+            slope
+        ):
+
             return 0.5
 
         return float(
@@ -1207,7 +1360,7 @@ class AudioFeatureService:
         )
 
     # ======================================================
-    # spread1 / spread2
+    # Spread Features
     # ======================================================
 
     def calculate_spread_features(
@@ -1256,7 +1409,6 @@ class AudioFeatureService:
         pitch: np.ndarray,
     ) -> float:
 
-        # Work on a bounded pitch sequence.
         x = np.asarray(
             pitch,
             dtype=np.float64,
@@ -1276,9 +1428,9 @@ class AudioFeatureService:
             ]
 
         if len(x) < 100:
+
             return 0.0
 
-        # Normalize.
         x = (
             x
             - np.mean(x)
@@ -1289,25 +1441,29 @@ class AudioFeatureService:
         )
 
         if std <= 1e-12:
+
             return 0.0
 
         x = (
-            x / std
+            x
+            / std
         )
 
-        # Delay embedding.
         dimension = 2
+
         delay = 1
 
         count = (
             len(x)
             - (
-                dimension - 1
+                dimension
+                - 1
             )
             * delay
         )
 
         if count < 50:
+
             return 0.0
 
         embedded = np.empty(
@@ -1327,8 +1483,6 @@ class AudioFeatureService:
             delay + count
         ]
 
-        # Sample pair distances rather than constructing
-        # a huge full distance matrix.
         max_points = min(
             len(embedded),
             400,
@@ -1347,7 +1501,6 @@ class AudioFeatureService:
                 indices
             ]
 
-        # Pairwise Euclidean distances.
         differences = (
             embedded[:, None, :]
             - embedded[None, :, :]
@@ -1368,20 +1521,30 @@ class AudioFeatureService:
         ]
 
         upper = upper[
-            np.isfinite(upper)
-            & (upper > 0)
+            np.isfinite(
+                upper
+            )
+            & (
+                upper > 0
+            )
         ]
 
         if len(upper) < 20:
+
             return 0.0
 
-        # Use several radii.
         radii = np.percentile(
             upper,
-            [10, 20, 30, 40],
+            [
+                10,
+                20,
+                30,
+                40,
+            ],
         )
 
         log_r = []
+
         log_c = []
 
         total_pairs = float(
@@ -1391,6 +1554,7 @@ class AudioFeatureService:
         for radius in radii:
 
             if radius <= 0:
+
                 continue
 
             count_pairs = float(
@@ -1400,6 +1564,7 @@ class AudioFeatureService:
             )
 
             if count_pairs <= 0:
+
                 continue
 
             correlation_sum = (
@@ -1408,10 +1573,13 @@ class AudioFeatureService:
             )
 
             if correlation_sum <= 0:
+
                 continue
 
             log_r.append(
-                np.log(radius)
+                np.log(
+                    radius
+                )
             )
 
             log_c.append(
@@ -1421,24 +1589,33 @@ class AudioFeatureService:
             )
 
         if len(log_r) < 2:
+
             return 0.0
 
         try:
 
-            d2 = float(
-                np.polyfit(
-                    np.asarray(log_r),
-                    np.asarray(log_c),
-                    1,
-                )[0]
+            slope = np.polyfit(
+                np.asarray(
+                    log_r
+                ),
+                np.asarray(
+                    log_c
+                ),
+                1,
+            )[0]
+
+            d2 = abs(
+                float(slope)
             )
 
-            d2 = abs(d2)
-
         except Exception:
+
             return 0.0
 
-        if not np.isfinite(d2):
+        if not np.isfinite(
+            d2
+        ):
+
             return 0.0
 
         return float(
@@ -1478,6 +1655,7 @@ class AudioFeatureService:
         )
 
         if std <= 1e-12:
+
             return 0.0
 
         z = (
@@ -1485,11 +1663,13 @@ class AudioFeatureService:
             - mean
         ) / std
 
-        # Pitch period entropy approximation.
         histogram, _ = np.histogram(
             z,
             bins=32,
-            range=(-4.0, 4.0),
+            range=(
+                -4.0,
+                4.0,
+            ),
         )
 
         histogram = histogram.astype(
@@ -1497,14 +1677,18 @@ class AudioFeatureService:
         )
 
         total = float(
-            np.sum(histogram)
+            np.sum(
+                histogram
+            )
         )
 
         if total <= 0:
+
             return 0.0
 
         probability = (
-            histogram / total
+            histogram
+            / total
         )
 
         probability = probability[
@@ -1522,7 +1706,9 @@ class AudioFeatureService:
 
         return float(
             entropy
-            / np.log(32.0)
+            / np.log(
+                32.0
+            )
         )
 
     # ======================================================
@@ -1536,8 +1722,6 @@ class AudioFeatureService:
         pitch: np.ndarray,
     ) -> Dict[str, float]:
 
-        # Downsample signal only for expensive nonlinear
-        # calculations.
         signal = np.asarray(
             audio,
             dtype=np.float64,
@@ -1568,7 +1752,8 @@ class AudioFeatureService:
         if std > 1e-12:
 
             signal = (
-                signal / std
+                signal
+                / std
             )
 
         else:
@@ -1577,34 +1762,30 @@ class AudioFeatureService:
                 signal
             )
 
-        # RPDE.
         rpde = self.calculate_rpde(
             signal
         )
 
-        # DFA.
         dfa = self.calculate_dfa(
             signal
         )
 
-        # Spread.
         spread1, spread2 = (
             self.calculate_spread_features(
                 pitch
             )
         )
 
-        # D2.
         d2 = self.calculate_d2(
             pitch
         )
 
-        # PPE.
         ppe = self.calculate_ppe(
             pitch
         )
 
         values = {
+
             "RPDE":
                 float(rpde),
 
@@ -1631,7 +1812,7 @@ class AudioFeatureService:
         return values
 
     # ======================================================
-    # Extract All Features
+    # Extract All 22 Features
     # ======================================================
 
     def extract_features(
@@ -1642,30 +1823,19 @@ class AudioFeatureService:
         """
         Extract exactly 22 features.
 
-        Pitch detection happens ONCE and the resulting
-        pitch track is reused for:
-            - Fo
-            - Fhi
-            - Flo
-            - Jitter
-            - RAP
-            - PPQ
-            - DDP
-            - spread1
-            - spread2
-            - D2
-            - PPE
+        Pitch detection is performed once and reused.
         """
 
         # --------------------------------------------------
         # Preprocess
         # --------------------------------------------------
 
-        processed_audio, processed_rate = (
-            self.preprocess_audio(
-                audio,
-                sample_rate,
-            )
+        (
+            processed_audio,
+            processed_rate,
+        ) = self.preprocess_audio(
+            audio,
+            sample_rate,
         )
 
         # --------------------------------------------------
@@ -1678,7 +1848,7 @@ class AudioFeatureService:
         )
 
         # --------------------------------------------------
-        # Pitch
+        # Pitch features
         # --------------------------------------------------
 
         pitch_features = (
@@ -1735,63 +1905,124 @@ class AudioFeatureService:
         )
 
         # --------------------------------------------------
-        # Assemble
+        # Assemble in exact order
         # --------------------------------------------------
 
-        features = {}
+        features = {
 
-        features.update(
-            pitch_features
-        )
+            "MDVP:Fo(Hz)":
+                pitch_features[
+                    "MDVP:Fo(Hz)"
+                ],
 
-        features.update(
-            jitter_features
-        )
+            "MDVP:Fhi(Hz)":
+                pitch_features[
+                    "MDVP:Fhi(Hz)"
+                ],
 
-        features.update(
-            shimmer_features
-        )
+            "MDVP:Flo(Hz)":
+                pitch_features[
+                    "MDVP:Flo(Hz)"
+                ],
 
-        features.update(
-            hnr_features
-        )
+            "MDVP:Jitter(%)":
+                jitter_features[
+                    "MDVP:Jitter(%)"
+                ],
 
-        features.update(
-            {
-                "RPDE":
-                    nonlinear_features[
-                        "RPDE"
-                    ],
+            "MDVP:Jitter(Abs)":
+                jitter_features[
+                    "MDVP:Jitter(Abs)"
+                ],
 
-                "DFA":
-                    nonlinear_features[
-                        "DFA"
-                    ],
+            "MDVP:RAP":
+                jitter_features[
+                    "MDVP:RAP"
+                ],
 
-                "spread1":
-                    nonlinear_features[
-                        "spread1"
-                    ],
+            "MDVP:PPQ":
+                jitter_features[
+                    "MDVP:PPQ"
+                ],
 
-                "spread2":
-                    nonlinear_features[
-                        "spread2"
-                    ],
+            "Jitter:DDP":
+                jitter_features[
+                    "Jitter:DDP"
+                ],
 
-                "D2":
-                    nonlinear_features[
-                        "D2"
-                    ],
+            "MDVP:Shimmer":
+                shimmer_features[
+                    "MDVP:Shimmer"
+                ],
 
-                "PPE":
-                    nonlinear_features[
-                        "PPE"
-                    ],
-            }
-        )
+            "MDVP:Shimmer(dB)":
+                shimmer_features[
+                    "MDVP:Shimmer(dB)"
+                ],
+
+            "Shimmer:APQ3":
+                shimmer_features[
+                    "Shimmer:APQ3"
+                ],
+
+            "Shimmer:APQ5":
+                shimmer_features[
+                    "Shimmer:APQ5"
+                ],
+
+            "MDVP:APQ":
+                shimmer_features[
+                    "MDVP:APQ"
+                ],
+
+            "Shimmer:DDA":
+                shimmer_features[
+                    "Shimmer:DDA"
+                ],
+
+            "NHR":
+                hnr_features[
+                    "NHR"
+                ],
+
+            "HNR":
+                hnr_features[
+                    "HNR"
+                ],
+
+            "RPDE":
+                nonlinear_features[
+                    "RPDE"
+                ],
+
+            "DFA":
+                nonlinear_features[
+                    "DFA"
+                ],
+
+            "spread1":
+                nonlinear_features[
+                    "spread1"
+                ],
+
+            "spread2":
+                nonlinear_features[
+                    "spread2"
+                ],
+
+            "D2":
+                nonlinear_features[
+                    "D2"
+                ],
+
+            "PPE":
+                nonlinear_features[
+                    "PPE"
+                ],
+        }
 
         # --------------------------------------------------
-        # Validate exact feature contract
+        # Final validation
         # --------------------------------------------------
 
         self.validate_feature_dictionary(
@@ -1821,7 +2052,54 @@ class AudioFeatureService:
         )
 
     # ======================================================
-    # Feature Dictionary Validation
+    # Feature Vector
+    # ======================================================
+
+    def feature_vector(
+        self,
+        features: Dict[str, float],
+    ) -> List[float]:
+        """
+        Return the 22 values in the exact
+        model feature order.
+        """
+
+        self.validate_feature_dictionary(
+            features
+        )
+
+        return [
+            float(
+                features[name]
+            )
+            for name in FEATURE_NAMES
+        ]
+
+    # ======================================================
+    # Backward Compatibility
+    # ======================================================
+
+    def to_feature_vector(
+        self,
+        features: Dict[str, float],
+    ) -> List[float]:
+        """
+        Backward-compatible alias.
+
+        prediction_service.py currently expects:
+
+            audio_feature_service.to_feature_vector()
+
+        Keep this method so the existing prediction
+        service does not fail.
+        """
+
+        return self.feature_vector(
+            features
+        )
+
+    # ======================================================
+    # Validate Feature Dictionary
     # ======================================================
 
     def validate_feature_dictionary(
@@ -1833,6 +2111,7 @@ class AudioFeatureService:
             features,
             dict,
         ):
+
             raise ValueError(
                 "Features must be a dictionary."
             )
@@ -1844,22 +2123,28 @@ class AudioFeatureService:
         ]
 
         if missing:
+
             raise ValueError(
                 "Missing required features: "
-                + ", ".join(missing)
+                + ", ".join(
+                    missing
+                )
             )
 
         if len(features) != TOTAL_FEATURES:
+
             raise ValueError(
                 "Exactly 22 features are required. "
                 f"Found {len(features)}."
             )
 
+        ordered_values = {
+            name: features[name]
+            for name in FEATURE_NAMES
+        }
+
         self._validate_values(
-            {
-                name: features[name]
-                for name in FEATURE_NAMES
-            }
+            ordered_values
         )
 
         return True
@@ -1876,6 +2161,7 @@ class AudioFeatureService:
         for name, value in values.items():
 
             try:
+
                 numeric_value = float(
                     value
                 )
@@ -1898,30 +2184,6 @@ class AudioFeatureService:
                     f"Feature {name} "
                     "contains an invalid value."
                 )
-
-    # ======================================================
-    # Feature Vector
-    # ======================================================
-
-    def feature_vector(
-        self,
-        features: Dict[str, float],
-    ) -> List[float]:
-        """
-        Return the 22 features in the exact
-        model order.
-        """
-
-        self.validate_feature_dictionary(
-            features
-        )
-
-        return [
-            float(
-                features[name]
-            )
-            for name in FEATURE_NAMES
-        ]
 
     # ======================================================
     # Audio Information
@@ -1953,6 +2215,7 @@ class AudioFeatureService:
         )
 
         return {
+
             "sample_rate":
                 int(sample_rate),
 
