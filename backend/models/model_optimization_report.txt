@@ -1,0 +1,204 @@
+======================================================================
+STEP 6 - MODEL OPTIMIZATION REPORT
+======================================================================
+
+SELECTED FEATURES
+----------------------------------------------------------------------
+01. MDVP:Jitter(%)
+02. Jitter:DDP
+03. MDVP:Flo(Hz)
+04. MDVP:RAP
+05. PPE
+06. MDVP:Fo(Hz)
+07. MDVP:Fhi(Hz)
+08. MDVP:APQ
+09. D2
+10. MDVP:Jitter(Abs)
+11. MDVP:Shimmer(dB)
+12. MDVP:PPQ
+
+MODEL COMPARISON
+----------------------------------------------------------------------
+Rank 1: HistGradientBoosting
+    Accuracy : 0.7882 +/- 0.0947
+    Balanced : 0.7875
+    Precision: 0.8197
+    Recall   : 0.7500
+    F1       : 0.7715
+    ROC-AUC  : 0.7960
+
+Rank 2: HistGradientBoosting_fast
+    Accuracy : 0.7640 +/- 0.0752
+    Balanced : 0.7639
+    Precision: 0.7893
+    Recall   : 0.7250
+    F1       : 0.7470
+    ROC-AUC  : 0.7913
+
+Rank 3: RandomForest_300
+    Accuracy : 0.7522 +/- 0.0900
+    Balanced : 0.7514
+    Precision: 0.7737
+    Recall   : 0.7500
+    F1       : 0.7538
+    ROC-AUC  : 0.7512
+
+Rank 4: RandomForest_500
+    Accuracy : 0.7522 +/- 0.0900
+    Balanced : 0.7514
+    Precision: 0.7737
+    Recall   : 0.7500
+    F1       : 0.7538
+    ROC-AUC  : 0.7497
+
+Rank 5: RandomForest_depth8
+    Accuracy : 0.7522 +/- 0.0900
+    Balanced : 0.7514
+    Precision: 0.7737
+    Recall   : 0.7500
+    F1       : 0.7538
+    ROC-AUC  : 0.7497
+
+Rank 6: SVM_Linear
+    Accuracy : 0.7272 +/- 0.0668
+    Balanced : 0.7264
+    Precision: 0.7714
+    Recall   : 0.6500
+    F1       : 0.7012
+    ROC-AUC  : 0.7882
+
+Rank 7: ExtraTrees_depth8
+    Accuracy : 0.7272 +/- 0.0668
+    Balanced : 0.7264
+    Precision: 0.7376
+    Recall   : 0.7000
+    F1       : 0.7132
+    ROC-AUC  : 0.7691
+
+Rank 8: RandomForest_leaf2
+    Accuracy : 0.7279 +/- 0.0945
+    Balanced : 0.7264
+    Precision: 0.7617
+    Recall   : 0.7000
+    F1       : 0.7226
+    ROC-AUC  : 0.7469
+
+Rank 9: SVM_RBF_C10
+    Accuracy : 0.7162 +/- 0.0284
+    Balanced : 0.7167
+    Precision: 0.7262
+    Recall   : 0.7000
+    F1       : 0.7031
+    ROC-AUC  : 0.8170
+
+Rank 10: LogisticRegression_C10
+    Accuracy : 0.7162 +/- 0.0627
+    Balanced : 0.7167
+    Precision: 0.7320
+    Recall   : 0.7000
+    F1       : 0.7057
+    ROC-AUC  : 0.7878
+
+Rank 11: ExtraTrees_500
+    Accuracy : 0.7154 +/- 0.0525
+    Balanced : 0.7153
+    Precision: 0.7162
+    Recall   : 0.7000
+    F1       : 0.7032
+    ROC-AUC  : 0.7597
+
+Rank 12: ExtraTrees_300
+    Accuracy : 0.7154 +/- 0.0525
+    Balanced : 0.7153
+    Precision: 0.7162
+    Recall   : 0.7000
+    F1       : 0.7032
+    ROC-AUC  : 0.7538
+
+Rank 13: KNN_7
+    Accuracy : 0.7147 +/- 0.0673
+    Balanced : 0.7139
+    Precision: 0.7214
+    Recall   : 0.7000
+    F1       : 0.7066
+    ROC-AUC  : 0.7497
+
+Rank 14: KNN_5
+    Accuracy : 0.7147 +/- 0.0960
+    Balanced : 0.7139
+    Precision: 0.7302
+    Recall   : 0.7000
+    F1       : 0.7122
+    ROC-AUC  : 0.7335
+
+Rank 15: GradientBoosting
+    Accuracy : 0.7140 +/- 0.1364
+    Balanced : 0.7125
+    Precision: 0.7464
+    Recall   : 0.6750
+    F1       : 0.7064
+    ROC-AUC  : 0.7960
+
+Rank 16: GradientBoosting_fast
+    Accuracy : 0.7132 +/- 0.1469
+    Balanced : 0.7125
+    Precision: 0.7417
+    Recall   : 0.6750
+    F1       : 0.7045
+    ROC-AUC  : 0.7760
+
+Rank 17: ExtraTrees_leaf2
+    Accuracy : 0.7022 +/- 0.0763
+    Balanced : 0.7014
+    Precision: 0.7131
+    Recall   : 0.6750
+    F1       : 0.6905
+    ROC-AUC  : 0.7812
+
+Rank 18: SVM_RBF
+    Accuracy : 0.7022 +/- 0.0763
+    Balanced : 0.7000
+    Precision: 0.7933
+    Recall   : 0.5500
+    F1       : 0.6484
+    ROC-AUC  : 0.7670
+
+Rank 19: LogisticRegression
+    Accuracy : 0.6912 +/- 0.0689
+    Balanced : 0.6903
+    Precision: 0.7235
+    Recall   : 0.6250
+    F1       : 0.6587
+    ROC-AUC  : 0.7604
+
+Rank 20: GradientBoosting_deeper
+    Accuracy : 0.6890 +/- 0.1390
+    Balanced : 0.6889
+    Precision: 0.7028
+    Recall   : 0.6750
+    F1       : 0.6855
+    ROC-AUC  : 0.7595
+
+Rank 21: LogisticRegression_C01
+    Accuracy : 0.6794 +/- 0.0162
+    Balanced : 0.6778
+    Precision: 0.6892
+    Recall   : 0.6500
+    F1       : 0.6617
+    ROC-AUC  : 0.7281
+
+======================================================================
+BEST MODEL
+======================================================================
+Model: HistGradientBoosting
+Accuracy: 0.7882
+Balanced Accuracy: 0.7875
+Precision: 0.8197
+Recall: 0.7500
+F1: 0.7715
+ROC-AUC: 0.7960
+
+IMPORTANT
+The production model.pkl was NOT replaced.
+The selected model must undergo final validation before deployment.
+======================================================================

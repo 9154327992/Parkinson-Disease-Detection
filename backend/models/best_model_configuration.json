@@ -1,0 +1,31 @@
+{
+    "step": 6,
+    "selected_feature_count": 12,
+    "selected_features": [
+        "MDVP:Jitter(%)",
+        "Jitter:DDP",
+        "MDVP:Flo(Hz)",
+        "MDVP:RAP",
+        "PPE",
+        "MDVP:Fo(Hz)",
+        "MDVP:Fhi(Hz)",
+        "MDVP:APQ",
+        "D2",
+        "MDVP:Jitter(Abs)",
+        "MDVP:Shimmer(dB)",
+        "MDVP:PPQ"
+    ],
+    "best_model": "HistGradientBoosting",
+    "cross_validation": {
+        "accuracy": 0.7882352941176471,
+        "accuracy_std": 0.09472460538345834,
+        "balanced_accuracy": 0.7875,
+        "precision": 0.8197402597402597,
+        "recall": 0.75,
+        "f1": 0.7714979757085021,
+        "roc_auc": 0.7960069444444444,
+        "roc_auc_std": 0.07793572751605511
+    },
+    "model_replaced": false,
+    "note": "Candidate model only. Existing model.pkl was not overwritten."
+}
