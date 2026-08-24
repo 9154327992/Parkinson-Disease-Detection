@@ -1,0 +1,97 @@
+======================================================================
+STEP 5 - FEATURE SELECTION REPORT
+======================================================================
+
+DATASET
+Recordings: 81
+Features tested: 22
+
+FEATURE SET COMPARISON
+----------------------------------------------------------------------
+Rank 1: F_top_12_importance
+    Features : 12
+    Accuracy : 0.7390 +/- 0.0941
+    Precision: 0.7416
+    Recall   : 0.7500
+    F1       : 0.7407
+    ROC-AUC  : 0.7812
+
+Rank 2: G_hybrid
+    Features : 12
+    Accuracy : 0.7015 +/- 0.1099
+    Precision: 0.7028
+    Recall   : 0.7000
+    F1       : 0.6981
+    ROC-AUC  : 0.7378
+
+Rank 3: D_shimmer_reduced
+    Features : 19
+    Accuracy : 0.6912 +/- 0.0564
+    Precision: 0.6783
+    Recall   : 0.7250
+    F1       : 0.6995
+    ROC-AUC  : 0.7622
+
+Rank 4: A_full_22
+    Features : 22
+    Accuracy : 0.6904 +/- 0.0906
+    Precision: 0.6954
+    Recall   : 0.7000
+    F1       : 0.6943
+    ROC-AUC  : 0.7417
+
+Rank 5: C_jitter_reduced
+    Features : 17
+    Accuracy : 0.6787 +/- 0.0838
+    Precision: 0.6869
+    Recall   : 0.6500
+    F1       : 0.6662
+    ROC-AUC  : 0.7594
+
+Rank 6: B_correlation_reduced
+    Features : 17
+    Accuracy : 0.6662 +/- 0.0862
+    Precision: 0.6704
+    Recall   : 0.6750
+    F1       : 0.6693
+    ROC-AUC  : 0.7378
+
+Rank 7: E_compact_statistical
+    Features : 13
+    Accuracy : 0.6287 +/- 0.0721
+    Precision: 0.6262
+    Recall   : 0.6250
+    F1       : 0.6245
+    ROC-AUC  : 0.7071
+
+======================================================================
+SELECTED FEATURE SET
+======================================================================
+Name: F_top_12_importance
+Count: 12
+
+01. MDVP:Jitter(%)
+02. Jitter:DDP
+03. MDVP:Flo(Hz)
+04. MDVP:RAP
+05. PPE
+06. MDVP:Fo(Hz)
+07. MDVP:Fhi(Hz)
+08. MDVP:APQ
+09. D2
+10. MDVP:Jitter(Abs)
+11. MDVP:Shimmer(dB)
+12. MDVP:PPQ
+
+CROSS-VALIDATION
+Accuracy : 0.7390
+Std      : 0.0941
+Precision: 0.7416
+Recall   : 0.7500
+F1       : 0.7407
+ROC-AUC  : 0.7812
+
+IMPORTANT
+The existing model.pkl was NOT overwritten.
+The selected feature set must be validated again before deployment.
+======================================================================

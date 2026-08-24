@@ -1,0 +1,132 @@
+{
+    "step": 5,
+    "dataset": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\audio_training_features.csv",
+    "recordings": 81,
+    "baseline": {
+        "feature_count": 22,
+        "feature_set": "A_full_22"
+    },
+    "winner": {
+        "step": 5,
+        "description": "Best feature subset from stratified cross-validation.",
+        "feature_set": "F_top_12_importance",
+        "feature_count": 12,
+        "features": [
+            "MDVP:Jitter(%)",
+            "Jitter:DDP",
+            "MDVP:Flo(Hz)",
+            "MDVP:RAP",
+            "PPE",
+            "MDVP:Fo(Hz)",
+            "MDVP:Fhi(Hz)",
+            "MDVP:APQ",
+            "D2",
+            "MDVP:Jitter(Abs)",
+            "MDVP:Shimmer(dB)",
+            "MDVP:PPQ"
+        ],
+        "cross_validation": {
+            "accuracy": 0.7389705882352942,
+            "accuracy_std": 0.0940774270680115,
+            "precision": 0.7415584415584415,
+            "recall": 0.75,
+            "f1": 0.7407017543859649,
+            "roc_auc": 0.78125
+        },
+        "warning": "This feature set has not yet been used to replace the production model."
+    },
+    "all_results": [
+        {
+            "FeatureSet": "F_top_12_importance",
+            "FeatureCount": 12,
+            "Features": "MDVP:Jitter(%), Jitter:DDP, MDVP:Flo(Hz), MDVP:RAP, PPE, MDVP:Fo(Hz), MDVP:Fhi(Hz), MDVP:APQ, D2, MDVP:Jitter(Abs), MDVP:Shimmer(dB), MDVP:PPQ",
+            "AccuracyMean": 0.7389705882352942,
+            "AccuracyStd": 0.0940774270680115,
+            "PrecisionMean": 0.7415584415584415,
+            "RecallMean": 0.75,
+            "F1Mean": 0.7407017543859649,
+            "ROCAUCMean": 0.78125,
+            "ROCAUCStd": 0.06171380518166093,
+            "Rank": 1
+        },
+        {
+            "FeatureSet": "G_hybrid",
+            "FeatureCount": 12,
+            "Features": "MDVP:Jitter(%), Jitter:DDP, MDVP:Flo(Hz), MDVP:RAP, PPE, MDVP:Fo(Hz), MDVP:Fhi(Hz), MDVP:APQ, D2, MDVP:Shimmer(dB), Shimmer:APQ5, RPDE",
+            "AccuracyMean": 0.7014705882352941,
+            "AccuracyStd": 0.10993569211763794,
+            "PrecisionMean": 0.7027777777777777,
+            "RecallMean": 0.7,
+            "F1Mean": 0.698109243697479,
+            "ROCAUCMean": 0.7378472222222222,
+            "ROCAUCStd": 0.09440997124114109,
+            "Rank": 2
+        },
+        {
+            "FeatureSet": "D_shimmer_reduced",
+            "FeatureCount": 19,
+            "Features": "MDVP:Fo(Hz), MDVP:Fhi(Hz), MDVP:Flo(Hz), MDVP:Jitter(%), MDVP:Jitter(Abs), MDVP:RAP, MDVP:PPQ, Jitter:DDP, MDVP:Shimmer, MDVP:Shimmer(dB), MDVP:APQ, NHR, HNR, RPDE, DFA, spread1, spread2, D2, PPE",
+            "AccuracyMean": 0.6911764705882353,
+            "AccuracyStd": 0.05638320444906122,
+            "PrecisionMean": 0.6783333333333333,
+            "RecallMean": 0.725,
+            "F1Mean": 0.6995098039215686,
+            "ROCAUCMean": 0.7621527777777778,
+            "ROCAUCStd": 0.08975543330986697,
+            "Rank": 3
+        },
+        {
+            "FeatureSet": "A_full_22",
+            "FeatureCount": 22,
+            "Features": "MDVP:Fo(Hz), MDVP:Fhi(Hz), MDVP:Flo(Hz), MDVP:Jitter(%), MDVP:Jitter(Abs), MDVP:RAP, MDVP:PPQ, Jitter:DDP, MDVP:Shimmer, MDVP:Shimmer(dB), Shimmer:APQ3, Shimmer:APQ5, MDVP:APQ, Shimmer:DDA, NHR, HNR, RPDE, DFA, spread1, spread2, D2, PPE",
+            "AccuracyMean": 0.6904411764705882,
+            "AccuracyStd": 0.09063525326796465,
+            "PrecisionMean": 0.6953968253968255,
+            "RecallMean": 0.7,
+            "F1Mean": 0.694313725490196,
+            "ROCAUCMean": 0.7416666666666667,
+            "ROCAUCStd": 0.08059296305785292,
+            "Rank": 4
+        },
+        {
+            "FeatureSet": "C_jitter_reduced",
+            "FeatureCount": 17,
+            "Features": "MDVP:Fo(Hz), MDVP:Fhi(Hz), MDVP:Flo(Hz), MDVP:Jitter(%), MDVP:Jitter(Abs), MDVP:RAP, MDVP:Shimmer, MDVP:Shimmer(dB), MDVP:APQ, NHR, HNR, RPDE, DFA, spread1, spread2, D2, PPE",
+            "AccuracyMean": 0.6786764705882353,
+            "AccuracyStd": 0.08379127346359237,
+            "PrecisionMean": 0.6869047619047619,
+            "RecallMean": 0.65,
+            "F1Mean": 0.6661764705882354,
+            "ROCAUCMean": 0.759375,
+            "ROCAUCStd": 0.07818747501998005,
+            "Rank": 5
+        },
+        {
+            "FeatureSet": "B_correlation_reduced",
+            "FeatureCount": 17,
+            "Features": "MDVP:Fo(Hz), MDVP:Fhi(Hz), MDVP:Flo(Hz), MDVP:Jitter(%), MDVP:Jitter(Abs), Jitter:DDP, MDVP:Shimmer, Shimmer:APQ3, Shimmer:APQ5, MDVP:APQ, NHR, HNR, RPDE, DFA, spread2, D2, PPE",
+            "AccuracyMean": 0.6661764705882354,
+            "AccuracyStd": 0.08617069846157917,
+            "PrecisionMean": 0.6703968253968254,
+            "RecallMean": 0.675,
+            "F1Mean": 0.6693137254901961,
+            "ROCAUCMean": 0.7378472222222222,
+            "ROCAUCStd": 0.08853826246179156,
+            "Rank": 6
+        },
+        {
+            "FeatureSet": "E_compact_statistical",
+            "FeatureCount": 13,
+            "Features": "MDVP:Fo(Hz), MDVP:Fhi(Hz), MDVP:Flo(Hz), MDVP:Jitter(%), MDVP:Shimmer(dB), MDVP:APQ, NHR, HNR, RPDE, DFA, spread1, D2, PPE",
+            "AccuracyMean": 0.6286764705882353,
+            "AccuracyStd": 0.07211882256023076,
+            "PrecisionMean": 0.6261904761904762,
+            "RecallMean": 0.625,
+            "F1Mean": 0.6245098039215686,
+            "ROCAUCMean": 0.7071180555555555,
+            "ROCAUCStd": 0.06470735552908882,
+            "Rank": 7
+        }
+    ],
+    "important_note": "Feature selection uses cross-validation only. The existing model.pkl was not overwritten."
+}
