@@ -1,0 +1,70 @@
+{
+    "step": 9,
+    "status": "complete",
+    "dataset": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\audio_training_features.csv",
+    "total_recordings": 81,
+    "healthy_recordings": 41,
+    "parkinson_recordings": 40,
+    "features": [
+        "MDVP:Jitter(%)",
+        "Jitter:DDP",
+        "MDVP:Flo(Hz)",
+        "MDVP:RAP",
+        "PPE",
+        "MDVP:Fo(Hz)",
+        "MDVP:Fhi(Hz)",
+        "MDVP:APQ",
+        "D2",
+        "MDVP:Jitter(Abs)",
+        "MDVP:Shimmer(dB)",
+        "MDVP:PPQ"
+    ],
+    "feature_count": 12,
+    "model": "HistGradientBoosting",
+    "model_parameters": {
+        "max_iter": 150,
+        "learning_rate": 0.05,
+        "max_leaf_nodes": 15,
+        "l2_regularization": 1.0,
+        "random_state": 42
+    },
+    "decision_threshold": 0.45,
+    "sanity_validation": {
+        "default_threshold": {
+            "accuracy": 0.7901234567901234,
+            "balanced_accuracy": 0.7896341463414633,
+            "precision": 0.8108108108108109,
+            "recall": 0.75,
+            "sensitivity": 0.75,
+            "specificity": 0.8292682926829268,
+            "f1": 0.7792207792207793,
+            "roc_auc": 0.7957317073170732,
+            "tn": 34,
+            "fp": 7,
+            "fn": 10,
+            "tp": 30
+        },
+        "optimized_threshold": {
+            "accuracy": 0.7407407407407407,
+            "balanced_accuracy": 0.7408536585365854,
+            "precision": 0.7317073170731707,
+            "recall": 0.75,
+            "sensitivity": 0.75,
+            "specificity": 0.7317073170731707,
+            "f1": 0.7407407407407407,
+            "roc_auc": 0.7957317073170732,
+            "tn": 30,
+            "fp": 11,
+            "fn": 10,
+            "tp": 30
+        }
+    },
+    "artifacts": {
+        "model": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\final_model.pkl",
+        "scaler": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\final_scaler.pkl",
+        "metadata": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\final_model_metadata.json",
+        "feature_config": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\final_feature_config.json"
+    },
+    "existing_model_replaced": false,
+    "next_step": "Step 10 - production integration and end-to-end testing."
+}

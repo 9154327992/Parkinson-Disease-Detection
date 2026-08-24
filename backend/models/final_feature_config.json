@@ -1,0 +1,49 @@
+{
+    "version": "step9_final",
+    "feature_count": 12,
+    "features": [
+        "MDVP:Jitter(%)",
+        "Jitter:DDP",
+        "MDVP:Flo(Hz)",
+        "MDVP:RAP",
+        "PPE",
+        "MDVP:Fo(Hz)",
+        "MDVP:Fhi(Hz)",
+        "MDVP:APQ",
+        "D2",
+        "MDVP:Jitter(Abs)",
+        "MDVP:Shimmer(dB)",
+        "MDVP:PPQ"
+    ],
+    "feature_order": [
+        "MDVP:Jitter(%)",
+        "Jitter:DDP",
+        "MDVP:Flo(Hz)",
+        "MDVP:RAP",
+        "PPE",
+        "MDVP:Fo(Hz)",
+        "MDVP:Fhi(Hz)",
+        "MDVP:APQ",
+        "D2",
+        "MDVP:Jitter(Abs)",
+        "MDVP:Shimmer(dB)",
+        "MDVP:PPQ"
+    ],
+    "target_column": "status",
+    "healthy_class": 0,
+    "parkinson_class": 1,
+    "decision_threshold": 0.45,
+    "model": "HistGradientBoosting",
+    "preprocessing": [
+        "SimpleImputer(strategy='median')",
+        "StandardScaler"
+    ],
+    "model_parameters": {
+        "max_iter": 150,
+        "learning_rate": 0.05,
+        "max_leaf_nodes": 15,
+        "l2_regularization": 1.0,
+        "random_state": 42
+    },
+    "production_model_changed": false
+}

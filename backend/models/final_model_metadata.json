@@ -1,0 +1,69 @@
+{
+    "step": 9,
+    "model_type": "HistGradientBoosting",
+    "training_samples": 81,
+    "healthy_samples": 41,
+    "parkinson_samples": 40,
+    "feature_count": 12,
+    "features": [
+        "MDVP:Jitter(%)",
+        "Jitter:DDP",
+        "MDVP:Flo(Hz)",
+        "MDVP:RAP",
+        "PPE",
+        "MDVP:Fo(Hz)",
+        "MDVP:Fhi(Hz)",
+        "MDVP:APQ",
+        "D2",
+        "MDVP:Jitter(Abs)",
+        "MDVP:Shimmer(dB)",
+        "MDVP:PPQ"
+    ],
+    "decision_threshold": 0.45,
+    "model_parameters": {
+        "max_iter": 150,
+        "learning_rate": 0.05,
+        "max_leaf_nodes": 15,
+        "l2_regularization": 1.0,
+        "random_state": 42
+    },
+    "preprocessing": {
+        "imputer": "median",
+        "scaler": "StandardScaler"
+    },
+    "sanity_validation": {
+        "default_threshold": {
+            "accuracy": 0.7901234567901234,
+            "balanced_accuracy": 0.7896341463414633,
+            "precision": 0.8108108108108109,
+            "recall": 0.75,
+            "sensitivity": 0.75,
+            "specificity": 0.8292682926829268,
+            "f1": 0.7792207792207793,
+            "roc_auc": 0.7957317073170732,
+            "tn": 34,
+            "fp": 7,
+            "fn": 10,
+            "tp": 30
+        },
+        "optimized_threshold": {
+            "accuracy": 0.7407407407407407,
+            "balanced_accuracy": 0.7408536585365854,
+            "precision": 0.7317073170731707,
+            "recall": 0.75,
+            "sensitivity": 0.75,
+            "specificity": 0.7317073170731707,
+            "f1": 0.7407407407407407,
+            "roc_auc": 0.7957317073170732,
+            "tn": 30,
+            "fp": 11,
+            "fn": 10,
+            "tp": 30
+        }
+    },
+    "source_dataset": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\audio_training_features.csv",
+    "production_model_path": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\final_model.pkl",
+    "production_scaler_path": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\final_scaler.pkl",
+    "existing_model_preserved": true,
+    "clinical_warning": "This model is a research candidate and is not a clinical diagnostic device."
+}

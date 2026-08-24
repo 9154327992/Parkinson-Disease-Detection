@@ -1,0 +1,64 @@
+======================================================================
+STEP 9 - FINAL MODEL TRAINING
+======================================================================
+
+DATASET
+----------------------------------------------------------------------
+Total recordings : 81
+Healthy          : 41
+Parkinson        : 40
+
+FEATURES
+----------------------------------------------------------------------
+Feature count: 12
+01. MDVP:Jitter(%)
+02. Jitter:DDP
+03. MDVP:Flo(Hz)
+04. MDVP:RAP
+05. PPE
+06. MDVP:Fo(Hz)
+07. MDVP:Fhi(Hz)
+08. MDVP:APQ
+09. D2
+10. MDVP:Jitter(Abs)
+11. MDVP:Shimmer(dB)
+12. MDVP:PPQ
+
+MODEL
+----------------------------------------------------------------------
+Model: HistGradientBoosting
+max_iter: 150
+learning_rate: 0.05
+max_leaf_nodes: 15
+l2_regularization: 1.0
+
+DECISION THRESHOLD
+----------------------------------------------------------------------
+Threshold: 0.45
+
+FINAL SANITY VALIDATION
+----------------------------------------------------------------------
+Optimized threshold:
+Accuracy: 0.7407
+Balanced Accuracy: 0.7409
+Precision: 0.7317
+Sensitivity: 0.7500
+Specificity: 0.7317
+F1: 0.7407
+ROC-AUC: 0.7957
+
+ARTIFACTS
+----------------------------------------------------------------------
+Model: C:\Users\150 LAB\Downloads\Parkinson-Disease-Detection\backend\models\final_model.pkl
+Scaler: C:\Users\150 LAB\Downloads\Parkinson-Disease-Detection\backend\models\final_scaler.pkl
+Metadata: C:\Users\150 LAB\Downloads\Parkinson-Disease-Detection\backend\models\final_model_metadata.json
+Feature config: C:\Users\150 LAB\Downloads\Parkinson-Disease-Detection\backend\models\final_feature_config.json
+
+IMPORTANT
+----------------------------------------------------------------------
+Existing model.pkl was NOT replaced.
+Existing scaler.pkl was NOT replaced.
+The final model is a production candidate pending Step 10 testing.
+This model is not a clinical diagnostic device.
+
+======================================================================
