@@ -1,0 +1,100 @@
+======================================================================
+PARKINSON VOICE FEATURE ANALYSIS
+======================================================================
+
+DATASET SUMMARY
+----------------------------------------------------------------------
+Total recordings : 81
+Healthy          : 41
+Parkinson        : 40
+Features         : 22
+
+TOP FEATURES
+----------------------------------------------------------------------
+01. MDVP:Jitter(%)
+    Effect size : 0.3942
+    P-value     : 0.00254371
+    Importance  : 0.071272
+02. MDVP:Fhi(Hz)
+    Effect size : 0.5180
+    P-value     : 0.0144104
+    Importance  : 0.057374
+03. Jitter:DDP
+    Effect size : 0.2149
+    P-value     : 0.0103274
+    Importance  : 0.066600
+04. MDVP:RAP
+    Effect size : 0.2149
+    P-value     : 0.0103274
+    Importance  : 0.068158
+05. MDVP:Fo(Hz)
+    Effect size : 0.5461
+    P-value     : 0.0230965
+    Importance  : 0.059174
+06. PPE
+    Effect size : 0.4556
+    P-value     : 0.0162131
+    Importance  : 0.054417
+07. MDVP:APQ
+    Effect size : 0.5721
+    P-value     : 0.0219792
+    Importance  : 0.040008
+08. MDVP:Shimmer(dB)
+    Effect size : 0.5104
+    P-value     : 0.0287558
+    Importance  : 0.054432
+09. MDVP:Flo(Hz)
+    Effect size : 0.4172
+    P-value     : 0.068261
+    Importance  : 0.061126
+10. MDVP:PPQ
+    Effect size : 0.1889
+    P-value     : 0.0162131
+    Importance  : 0.048496
+
+OUTLIER SUMMARY
+----------------------------------------------------------------------
+D2: 13 outliers (16.05%)
+spread1: 12 outliers (14.81%)
+spread2: 11 outliers (13.58%)
+MDVP:Jitter(Abs): 10 outliers (12.35%)
+MDVP:RAP: 5 outliers (6.17%)
+MDVP:Jitter(%): 5 outliers (6.17%)
+MDVP:APQ: 5 outliers (6.17%)
+Jitter:DDP: 5 outliers (6.17%)
+MDVP:PPQ: 5 outliers (6.17%)
+Shimmer:DDA: 4 outliers (4.94%)
+
+HIGHLY CORRELATED FEATURES
+----------------------------------------------------------------------
+MDVP:RAP <-> Jitter:DDP : 1.0000
+Shimmer:APQ3 <-> Shimmer:DDA : 1.0000
+MDVP:PPQ <-> Jitter:DDP : 0.9956
+MDVP:RAP <-> MDVP:PPQ : 0.9956
+spread1 <-> spread2 : 0.9693
+MDVP:Shimmer(dB) <-> MDVP:APQ : 0.9672
+MDVP:Jitter(%) <-> MDVP:RAP : 0.9479
+MDVP:Jitter(%) <-> Jitter:DDP : 0.9479
+MDVP:Jitter(%) <-> MDVP:PPQ : 0.9428
+MDVP:Fo(Hz) <-> MDVP:Flo(Hz) : 0.9169
+MDVP:Shimmer(dB) <-> Shimmer:APQ5 : 0.9118
+MDVP:PPQ <-> spread2 : 0.9111
+Jitter:DDP <-> spread2 : 0.9026
+MDVP:RAP <-> spread2 : 0.9026
+
+PD vs HC FEATURE SEPARATION
+----------------------------------------------------------------------
+MDVP:APQ: HC mean=0.026018, PD mean=0.034262, effect=0.5721, p=0.0219792
+MDVP:Fo(Hz): HC mean=159.092446, PD mean=185.990083, effect=0.5461, p=0.0230965
+MDVP:Fhi(Hz): HC mean=173.066392, PD mean=209.548066, effect=0.5180, p=0.0144104
+MDVP:Shimmer(dB): HC mean=0.232201, PD mean=0.285626, effect=0.5104, p=0.0287558
+PPE: HC mean=0.534194, PD mean=0.591749, effect=0.4556, p=0.0162131
+MDVP:Flo(Hz): HC mean=149.795526, PD mean=169.600508, effect=0.4172, p=0.068261
+MDVP:Jitter(%): HC mean=0.002029, PD mean=0.002647, effect=0.3942, p=0.00254371
+D2: HC mean=2.466453, PD mean=1.928909, effect=-0.3821, p=0.0261078
+Shimmer:APQ5: HC mean=0.011865, PD mean=0.013979, effect=0.3532, p=0.239569
+Jitter:DDP: HC mean=0.003282, PD mean=0.003878, effect=0.2149, p=0.0103274
+
+======================================================================
+END OF FEATURE ANALYSIS
+======================================================================

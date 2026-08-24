@@ -1,0 +1,209 @@
+{
+    "validation": {
+        "valid": true,
+        "rows": 81,
+        "columns": 26,
+        "feature_count": 22,
+        "missing_columns": [],
+        "labels": [
+            0,
+            1
+        ]
+    },
+    "summary": {
+        "total": 81,
+        "healthy": 41,
+        "parkinson": 40,
+        "feature_count": 22,
+        "healthy_percentage": 50.617283950617285,
+        "parkinson_percentage": 49.382716049382715
+    },
+    "top_features": [
+        {
+            "Feature": "MDVP:Jitter(%)",
+            "AbsoluteEffectSize": 0.39419865070966215,
+            "PValue": 0.002543707286395767,
+            "Importance": 0.07127155799342033,
+            "EffectRank": 7.0,
+            "ImportanceRank": 1.0,
+            "PValueRank": 1.0,
+            "CombinedRank": 9.0
+        },
+        {
+            "Feature": "MDVP:Fhi(Hz)",
+            "AbsoluteEffectSize": 0.518032692592059,
+            "PValue": 0.01441035126256618,
+            "Importance": 0.05737378054120851,
+            "EffectRank": 3.0,
+            "ImportanceRank": 6.0,
+            "PValueRank": 5.0,
+            "CombinedRank": 14.0
+        },
+        {
+            "Feature": "Jitter:DDP",
+            "AbsoluteEffectSize": 0.21485177335339117,
+            "PValue": 0.010327377251557487,
+            "Importance": 0.06659976726784302,
+            "EffectRank": 10.0,
+            "ImportanceRank": 3.0,
+            "PValueRank": 2.0,
+            "CombinedRank": 15.0
+        },
+        {
+            "Feature": "MDVP:RAP",
+            "AbsoluteEffectSize": 0.21485177335338396,
+            "PValue": 0.010327377251557487,
+            "Importance": 0.06815784363491142,
+            "EffectRank": 11.0,
+            "ImportanceRank": 2.0,
+            "PValueRank": 2.0,
+            "CombinedRank": 15.0
+        },
+        {
+            "Feature": "MDVP:Fo(Hz)",
+            "AbsoluteEffectSize": 0.5460634979220078,
+            "PValue": 0.023096456694026272,
+            "Importance": 0.059174222626885375,
+            "EffectRank": 2.0,
+            "ImportanceRank": 5.0,
+            "PValueRank": 9.0,
+            "CombinedRank": 16.0
+        },
+        {
+            "Feature": "PPE",
+            "AbsoluteEffectSize": 0.45559944601728564,
+            "PValue": 0.016213066653301137,
+            "Importance": 0.05441681441648711,
+            "EffectRank": 5.0,
+            "ImportanceRank": 8.0,
+            "PValueRank": 6.0,
+            "CombinedRank": 19.0
+        },
+        {
+            "Feature": "MDVP:APQ",
+            "AbsoluteEffectSize": 0.5720945708716624,
+            "PValue": 0.021979152762409925,
+            "Importance": 0.04000813017880381,
+            "EffectRank": 1.0,
+            "ImportanceRank": 13.0,
+            "PValueRank": 8.0,
+            "CombinedRank": 22.0
+        },
+        {
+            "Feature": "MDVP:Shimmer(dB)",
+            "AbsoluteEffectSize": 0.5103838471032384,
+            "PValue": 0.028755765766299065,
+            "Importance": 0.0544320167569221,
+            "EffectRank": 4.0,
+            "ImportanceRank": 7.0,
+            "PValueRank": 11.0,
+            "CombinedRank": 22.0
+        },
+        {
+            "Feature": "MDVP:Flo(Hz)",
+            "AbsoluteEffectSize": 0.4171963048493454,
+            "PValue": 0.06826096581553384,
+            "Importance": 0.061126038358381665,
+            "EffectRank": 6.0,
+            "ImportanceRank": 4.0,
+            "PValueRank": 13.0,
+            "CombinedRank": 23.0
+        },
+        {
+            "Feature": "MDVP:PPQ",
+            "AbsoluteEffectSize": 0.18891578563344932,
+            "PValue": 0.016213066653301137,
+            "Importance": 0.04849587145395163,
+            "EffectRank": 14.0,
+            "ImportanceRank": 9.0,
+            "PValueRank": 6.0,
+            "CombinedRank": 29.0
+        }
+    ],
+    "highly_correlated_pairs": [
+        {
+            "FeatureA": "MDVP:RAP",
+            "FeatureB": "Jitter:DDP",
+            "Correlation": 1.0,
+            "AbsoluteCorrelation": 1.0
+        },
+        {
+            "FeatureA": "Shimmer:APQ3",
+            "FeatureB": "Shimmer:DDA",
+            "Correlation": 0.9999999999999997,
+            "AbsoluteCorrelation": 0.9999999999999997
+        },
+        {
+            "FeatureA": "MDVP:PPQ",
+            "FeatureB": "Jitter:DDP",
+            "Correlation": 0.9955882649747096,
+            "AbsoluteCorrelation": 0.9955882649747096
+        },
+        {
+            "FeatureA": "MDVP:RAP",
+            "FeatureB": "MDVP:PPQ",
+            "Correlation": 0.9955882649747084,
+            "AbsoluteCorrelation": 0.9955882649747084
+        },
+        {
+            "FeatureA": "spread1",
+            "FeatureB": "spread2",
+            "Correlation": 0.9692818118129002,
+            "AbsoluteCorrelation": 0.9692818118129002
+        },
+        {
+            "FeatureA": "MDVP:Shimmer(dB)",
+            "FeatureB": "MDVP:APQ",
+            "Correlation": 0.9671879036615773,
+            "AbsoluteCorrelation": 0.9671879036615773
+        },
+        {
+            "FeatureA": "MDVP:Jitter(%)",
+            "FeatureB": "MDVP:RAP",
+            "Correlation": 0.947922100182472,
+            "AbsoluteCorrelation": 0.947922100182472
+        },
+        {
+            "FeatureA": "MDVP:Jitter(%)",
+            "FeatureB": "Jitter:DDP",
+            "Correlation": 0.9479221001824716,
+            "AbsoluteCorrelation": 0.9479221001824716
+        },
+        {
+            "FeatureA": "MDVP:Jitter(%)",
+            "FeatureB": "MDVP:PPQ",
+            "Correlation": 0.9428232596112462,
+            "AbsoluteCorrelation": 0.9428232596112462
+        },
+        {
+            "FeatureA": "MDVP:Fo(Hz)",
+            "FeatureB": "MDVP:Flo(Hz)",
+            "Correlation": 0.9169100543487656,
+            "AbsoluteCorrelation": 0.9169100543487656
+        },
+        {
+            "FeatureA": "MDVP:Shimmer(dB)",
+            "FeatureB": "Shimmer:APQ5",
+            "Correlation": 0.9118158976936315,
+            "AbsoluteCorrelation": 0.9118158976936315
+        },
+        {
+            "FeatureA": "MDVP:PPQ",
+            "FeatureB": "spread2",
+            "Correlation": 0.9110649065812073,
+            "AbsoluteCorrelation": 0.9110649065812073
+        },
+        {
+            "FeatureA": "Jitter:DDP",
+            "FeatureB": "spread2",
+            "Correlation": 0.9025865240612136,
+            "AbsoluteCorrelation": 0.9025865240612136
+        },
+        {
+            "FeatureA": "MDVP:RAP",
+            "FeatureB": "spread2",
+            "Correlation": 0.9025865240612136,
+            "AbsoluteCorrelation": 0.9025865240612136
+        }
+    ]
+}
