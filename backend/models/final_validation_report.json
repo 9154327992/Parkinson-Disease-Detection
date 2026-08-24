@@ -1,0 +1,67 @@
+{
+    "step": 7,
+    "validation_type": "Repeated Stratified Cross-Validation",
+    "dataset": "C:\\Users\\150 LAB\\Downloads\\Parkinson-Disease-Detection\\backend\\models\\audio_training_features.csv",
+    "recordings": 81,
+    "feature_count": 12,
+    "features": [
+        "MDVP:Jitter(%)",
+        "Jitter:DDP",
+        "MDVP:Flo(Hz)",
+        "MDVP:RAP",
+        "PPE",
+        "MDVP:Fo(Hz)",
+        "MDVP:Fhi(Hz)",
+        "MDVP:APQ",
+        "D2",
+        "MDVP:Jitter(Abs)",
+        "MDVP:Shimmer(dB)",
+        "MDVP:PPQ"
+    ],
+    "model": "HistGradientBoosting",
+    "repeats": 10,
+    "requested_folds": 5,
+    "fold_count": 5,
+    "metrics": {
+        "accuracy": 0.7407407407407407,
+        "balanced_accuracy": 0.739939024390244,
+        "precision": 0.7714285714285715,
+        "recall": 0.675,
+        "sensitivity": 0.675,
+        "specificity": 0.8048780487804879,
+        "f1": 0.72,
+        "roc_auc": 0.7585365853658537,
+        "npv": 0.717391304347826,
+        "tn": 33,
+        "fp": 8,
+        "fn": 13,
+        "tp": 27
+    },
+    "confidence": {
+        "mean_confidence": 0.7281931012166944,
+        "median_confidence": 0.7437910027919715,
+        "correct_mean_confidence": 0.7362037353670149,
+        "incorrect_mean_confidence": 0.7053055750729218,
+        "high_confidence_threshold": 0.8,
+        "high_confidence_count": 28,
+        "high_confidence_errors": 5
+    },
+    "error_count": 21,
+    "error_rate": 0.25925925925925924,
+    "leakage_inspection": {
+        "participant_columns_found": [],
+        "leakage_check_possible": false,
+        "message": "No explicit participant identifier was found in the feature CSV. Participant-level leakage cannot be verified from this file alone."
+    },
+    "baseline_22_feature_comparison": {
+        "feature_count": 22,
+        "accuracy": 0.6904411764705882,
+        "balanced_accuracy": 0.6888888888888889,
+        "f1": 0.6828571428571427,
+        "roc_auc": 0.7534722222222222,
+        "recall": 0.675,
+        "specificity": 0.7027777777777777
+    },
+    "production_model_changed": false,
+    "warning": "Validation on 81 recordings is still limited. Results should not be interpreted as clinical performance."
+}

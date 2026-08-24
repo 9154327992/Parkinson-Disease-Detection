@@ -1,0 +1,99 @@
+======================================================================
+STEP 7 - ROBUST FINAL VALIDATION
+======================================================================
+
+DATASET
+Recordings : 81
+Features   : 12
+Model      : HistGradientBoosting
+Validation : Repeated Stratified Cross-Validation
+Repeats    : 10
+
+FEATURES
+----------------------------------------------------------------------
+01. MDVP:Jitter(%)
+02. Jitter:DDP
+03. MDVP:Flo(Hz)
+04. MDVP:RAP
+05. PPE
+06. MDVP:Fo(Hz)
+07. MDVP:Fhi(Hz)
+08. MDVP:APQ
+09. D2
+10. MDVP:Jitter(Abs)
+11. MDVP:Shimmer(dB)
+12. MDVP:PPQ
+
+OVERALL OOF RESULTS
+----------------------------------------------------------------------
+Accuracy          : 0.7407
+Balanced Accuracy : 0.7399
+Precision         : 0.7714
+Recall/Sensitivity: 0.6750
+Specificity       : 0.8049
+F1                : 0.7200
+ROC-AUC           : 0.7585
+NPV               : 0.7174
+
+CONFUSION MATRIX
+----------------------------------------------------------------------
+                Predicted
+                HC    PD
+Actual HC         33     8
+Actual PD         13    27
+
+ERROR ANALYSIS
+----------------------------------------------------------------------
+Errors     : 21
+Error rate : 0.2593
+False positives: 8
+False negatives: 13
+
+AH_325J_7F5F27AA-5A93-43CF-AB17-FC53940BF4B0.wav | False Positive | PD probability=0.5283 | confidence=0.5283
+AH_333L_6C551A6E-CC47-410E-AA49-2DC0A86E6489.wav | False Positive | PD probability=0.9131 | confidence=0.9131
+AH_378G_3C2A05CE-36E4-4956-8FC2-0494B27D3EA8.wav | False Positive | PD probability=0.8572 | confidence=0.8572
+AH_420J_07C96C2C-6E96-4A2F-BEC9-5CB71DB309B6.wav | False Positive | PD probability=0.6702 | confidence=0.6702
+AH_619B_5CF9C4CA-31AA-4F22-8E57-8E53618CC224.wav | False Positive | PD probability=0.6854 | confidence=0.6854
+AH_621N_204CF3E2-1DA0-4908-A47F-78997B1BAFC2.wav | False Positive | PD probability=0.7723 | confidence=0.7723
+AH_777R_A36CF7FA-37FD-483E-98FE-040942B1DF49.wav | False Positive | PD probability=0.7367 | confidence=0.7367
+AH_821C_8F9D5EF0-18B2-4967-B36D-82E014792BC3.wav | False Positive | PD probability=0.5433 | confidence=0.5433
+AH_545622717-461DFFFE-54AF-42AF-BA78-528BD505D624.wav | False Negative | PD probability=0.4246 | confidence=0.5754
+AH_545622720-E1486AF6-8C95-47EB-829B-4D62698C987A.wav | False Negative | PD probability=0.2901 | confidence=0.7099
+AH_545629296-C2C009C6-8C17-42EA-B6BE-362942FC4692.wav | False Negative | PD probability=0.3924 | confidence=0.6076
+AH_545648867-CB17D873-1CEA-492A-B5B0-93C7463F516C.wav | False Negative | PD probability=0.4264 | confidence=0.5736
+AH_545713224-1B3708B0-8792-4FEE-B03B-C7CB9CB03D58.wav | False Negative | PD probability=0.3900 | confidence=0.6100
+AH_545753015-58CAA743-BA9A-47E0-B9EF-CC35E9EFB839.wav | False Negative | PD probability=0.2273 | confidence=0.7727
+AH_545789675-243F18DB-4432-4C87-B12C-6EEC2D2D30D6.wav | False Negative | PD probability=0.2528 | confidence=0.7472
+AH_545789682-7554E0C7-4E25-49C3-9E6C-04D525455E28.wav | False Negative | PD probability=0.0810 | confidence=0.9190
+AH_545806325-8A17002B-CFD3-4DCF-8854-04F0F2BFF21B.wav | False Negative | PD probability=0.1198 | confidence=0.8802
+AH_545812846-0C14B32A-6C50-4B62-BC89-0A815C2DEEFA.wav | False Negative | PD probability=0.2559 | confidence=0.7441
+AH_545841226-C699FC9E-1E0C-474D-A12A-936DD92B8980.wav | False Negative | PD probability=0.3941 | confidence=0.6059
+AH_545847410-D1BA3BB4-1F61-44CA-ACDE-455A8E97E04B.wav | False Negative | PD probability=0.1584 | confidence=0.8416
+AH_545880204-EE87D3E2-0D4C-4EAA-ACD7-C3F177AFF62F.wav | False Negative | PD probability=0.4822 | confidence=0.5178
+
+CONFIDENCE
+----------------------------------------------------------------------
+Mean confidence: 0.7282
+Median confidence: 0.7438
+Correct confidence: 0.7362
+Incorrect confidence: 0.7053
+High-confidence errors: 5
+
+22-FEATURE COMPARISON
+----------------------------------------------------------------------
+22-feature accuracy: 0.6904
+12-feature accuracy: 0.7407
+22-feature ROC-AUC: 0.7535
+12-feature ROC-AUC: 0.7585
+
+PARTICIPANT LEAKAGE
+----------------------------------------------------------------------
+No explicit participant identifier was found in the feature CSV. Participant-level leakage cannot be verified from this file alone.
+
+IMPORTANT
+----------------------------------------------------------------------
+The production model.pkl was NOT replaced.
+Validation results are based on 81 recordings and should not be interpreted as clinical accuracy.
+Independent external validation is required before clinical use.
+
+======================================================================
