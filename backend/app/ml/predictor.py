@@ -1,61 +1,166 @@
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
+
+import json
+import math
 
 import joblib
 import numpy as np
 
-from app.ml.preprocessing import Preprocessor
-
 
 # ==========================================================
-# Constants
+# PATHS
 # ==========================================================
 
-TOTAL_FEATURES = 22
-
-MODEL_PATH = Path(
-    "models/model.pkl"
+BASE_MODEL_DIRECTORY = Path(
+    "models"
 )
 
-SCALER_PATH = Path(
-    "models/scaler.pkl"
+FINAL_MODEL_PATH = (
+    BASE_MODEL_DIRECTORY
+    / "final_model.pkl"
+)
+
+FINAL_SCALER_PATH = (
+    BASE_MODEL_DIRECTORY
+    / "final_scaler.pkl"
+)
+
+FINAL_FEATURE_CONFIG_PATH = (
+    BASE_MODEL_DIRECTORY
+    / "final_feature_config.json"
+)
+
+FINAL_METADATA_PATH = (
+    BASE_MODEL_DIRECTORY
+    / "final_model_metadata.json"
 )
 
 
 # ==========================================================
-# Parkinson Predictor
+# MODEL CONFIGURATION
 # ==========================================================
 
-class ParkinsonPredictor:
+EXTRACTED_FEATURE_COUNT = 22
+
+PRODUCTION_FEATURE_COUNT = 12
+
+DEFAULT_THRESHOLD = 0.45
+
+HEALTHY_CLASS = 0
+
+PARKINSON_CLASS = 1
+
+
+# ==========================================================
+# ALL 22 EXTRACTED FEATURES
+# ==========================================================
+
+ALL_FEATURE_NAMES = [
+    "MDVP:Fo(Hz)",
+    "MDVP:Fhi(Hz)",
+    "MDVP:Flo(Hz)",
+    "MDVP:Jitter(%)",
+    "MDVP:Jitter(Abs)",
+    "MDVP:RAP",
+    "MDVP:PPQ",
+    "Jitter:DDP",
+    "MDVP:Shimmer",
+    "MDVP:Shimmer(dB)",
+    "Shimmer:APQ3",
+    "Shimmer:APQ5",
+    "MDVP:APQ",
+    "Shimmer:DDA",
+    "NHR",
+    "HNR",
+    "RPDE",
+    "DFA",
+    "spread1",
+    "spread2",
+    "D2",
+    "PPE",
+]
+
+
+# ==========================================================
+# FINAL 12 FEATURES
+# ==========================================================
+
+SELECTED_FEATURE_NAMES = [
+    "MDVP:Jitter(%)",
+    "Jitter:DDP",
+    "MDVP:Flo(Hz)",
+    "MDVP:RAP",
+    "PPE",
+    "MDVP:Fo(Hz)",
+    "MDVP:Fhi(Hz)",
+    "MDVP:APQ",
+    "D2",
+    "MDVP:Jitter(Abs)",
+    "MDVP:Shimmer(dB)",
+    "MDVP:PPQ",
+]
+
+
+# ==========================================================
+# FEATURE INDEX MAP
+# ==========================================================
+
+FEATURE_INDEX = {
+    name: index
+    for index, name in enumerate(
+        ALL_FEATURE_NAMES
+    )
+}
+
+
+# ==========================================================
+# PREDICTOR
+# ==========================================================
+
+class Predictor:
     """
-    Main Parkinson prediction engine.
+    Production Parkinson prediction engine.
 
-    Input:
-        22 extracted audio features
-
-    Output:
-        prediction
-        diagnosis
-        Parkinson probability
-        risk score
-        risk level
-        confidence
-        recommendation
+    The predictor receives the 22 original voice features
+    and converts them into the 12-feature representation
+    required by the final model.
     """
 
     # ======================================================
-    # Initialization
+    # INITIALIZATION
     # ======================================================
 
     def __init__(
         self,
         model_path: str = str(
-            MODEL_PATH
+            FINAL_MODEL_PATH
         ),
         scaler_path: str = str(
-            SCALER_PATH
+            FINAL_SCALER_PATH
         ),
+        feature_config_path: str = str(
+            FINAL_FEATURE_CONFIG_PATH
+        ),
+        threshold: float = DEFAULT_THRESHOLD,
     ):
+        """
+        Initialize the prediction engine.
+
+        Parameters
+        ----------
+        model_path:
+            Path to final_model.pkl.
+
+        scaler_path:
+            Path to final_scaler.pkl.
+
+        feature_config_path:
+            Path to final_feature_config.json.
+
+        threshold:
+            Parkinson decision threshold.
+        """
 
         self.model_path = Path(
             model_path
@@ -65,209 +170,292 @@ class ParkinsonPredictor:
             scaler_path
         )
 
+        self.feature_config_path = Path(
+            feature_config_path
+        )
+
         self.model = None
 
-        self.preprocessor = None
+        self.scaler = None
+
+        self.feature_config = {}
+
+        self.threshold = float(
+            threshold
+        )
 
         self.is_pipeline = False
 
-        self._load()
+        self.model_loaded = False
+
+        self.scaler_loaded = False
+
+        self._load_feature_configuration()
+
+        self._load_model()
+
+        self._load_scaler()
 
     # ======================================================
-    # Load Model
+    # LOAD FEATURE CONFIGURATION
     # ======================================================
 
-    def _load(self):
+    def _load_feature_configuration(
+        self,
+    ) -> None:
         """
-        Load the trained model.
+        Load final feature configuration.
 
-        Supports both:
+        The configuration is validated against the
+        hard-coded production feature order.
+        """
 
-        1. A normal sklearn classifier +
-           separate scaler.pkl
+        if not self.feature_config_path.exists():
+            raise FileNotFoundError(
+                "Final feature configuration not found: "
+                f"{self.feature_config_path.resolve()}"
+            )
 
-        2. A sklearn Pipeline containing:
-           imputer -> scaler -> model
+        try:
+
+            with open(
+                self.feature_config_path,
+                "r",
+                encoding="utf-8",
+            ) as file:
+
+                configuration = json.load(
+                    file
+                )
+
+        except json.JSONDecodeError as exc:
+
+            raise ValueError(
+                "Invalid final feature configuration JSON: "
+                f"{self.feature_config_path.resolve()}"
+            ) from exc
+
+        if not isinstance(
+            configuration,
+            dict,
+        ):
+            raise ValueError(
+                "Final feature configuration must "
+                "contain a JSON object."
+            )
+
+        self.feature_config = (
+            configuration
+        )
+
+        configured_features = (
+            configuration.get(
+                "features"
+            )
+        )
+
+        if configured_features is None:
+
+            configured_features = (
+                configuration.get(
+                    "feature_order"
+                )
+            )
+
+        if configured_features is not None:
+
+            if configured_features != (
+                SELECTED_FEATURE_NAMES
+            ):
+
+                raise ValueError(
+                    "Feature order mismatch.\n\n"
+                    "Expected:\n"
+                    f"{SELECTED_FEATURE_NAMES}\n\n"
+                    "Configuration contains:\n"
+                    f"{configured_features}"
+                )
+
+        configured_count = (
+            configuration.get(
+                "feature_count"
+            )
+        )
+
+        if configured_count is not None:
+
+            if int(
+                configured_count
+            ) != PRODUCTION_FEATURE_COUNT:
+
+                raise ValueError(
+                    "Final model configuration "
+                    "does not contain exactly "
+                    "12 features."
+                )
+
+        configured_threshold = (
+            configuration.get(
+                "decision_threshold"
+            )
+        )
+
+        if configured_threshold is not None:
+
+            self.threshold = float(
+                configured_threshold
+            )
+
+        if not (
+            0.0
+            <
+            self.threshold
+            <
+            1.0
+        ):
+
+            raise ValueError(
+                "Decision threshold must be "
+                "between 0 and 1."
+            )
+
+    # ======================================================
+    # LOAD MODEL
+    # ======================================================
+
+    def _load_model(
+        self,
+    ) -> None:
+        """
+        Load final_model.pkl.
         """
 
         if not self.model_path.exists():
 
             raise FileNotFoundError(
-                "Model not found: "
-                f"{self.model_path}"
+                "Final prediction model not found: "
+                f"{self.model_path.resolve()}"
             )
 
-        # --------------------------------------------------
-        # Load model
-        # --------------------------------------------------
+        try:
 
-        self.model = joblib.load(
-            self.model_path
+            self.model = joblib.load(
+                self.model_path
+            )
+
+        except Exception as exc:
+
+            raise RuntimeError(
+                "Unable to load final prediction "
+                f"model: {self.model_path.resolve()}"
+            ) from exc
+
+        if self.model is None:
+
+            raise RuntimeError(
+                "Loaded final model is None."
+            )
+
+        self.is_pipeline = (
+            hasattr(
+                self.model,
+                "named_steps",
+            )
+            and hasattr(
+                self.model,
+                "predict",
+            )
         )
 
-        # --------------------------------------------------
-        # Detect Pipeline
-        # --------------------------------------------------
-
-        if hasattr(
-            self.model,
-            "named_steps",
-        ):
-
-            self.is_pipeline = True
-
-            # --------------------------------------------------
-            # Pipeline itself handles scaling.
-            # --------------------------------------------------
-
-            self.preprocessor = None
-
-        else:
-
-            self.is_pipeline = False
-
-            # --------------------------------------------------
-            # Old architecture requires scaler.
-            # --------------------------------------------------
-
-            if not self.scaler_path.exists():
-
-                raise FileNotFoundError(
-                    "Scaler not found: "
-                    f"{self.scaler_path}"
-                )
-
-            self.preprocessor = (
-                Preprocessor(
-                    scaler_path=self.scaler_path
-                )
-            )
-
-        # --------------------------------------------------
-        # Validate feature count
-        # --------------------------------------------------
-
-        self._validate_model_features()
+        self.model_loaded = True
 
     # ======================================================
-    # Validate Model Features
+    # LOAD SCALER
     # ======================================================
 
-    def _validate_model_features(
+    def _load_scaler(
         self,
     ) -> None:
+        """
+        Load final_scaler.pkl.
 
-        # --------------------------------------------------
-        # Pipeline
-        # --------------------------------------------------
+        The scaler is retained for compatibility.
 
-        if self.is_pipeline:
+        If final_model.pkl is already a Pipeline containing
+        preprocessing, the scaler is NOT applied separately.
+        """
 
-            try:
+        if not self.scaler_path.exists():
 
-                model = (
-                    self.model
-                    .named_steps
-                    .get("model")
-                )
-
-                if model is not None:
-
-                    feature_count = getattr(
-                        model,
-                        "n_features_in_",
-                        None,
-                    )
-
-                    if (
-                        feature_count is not None
-                        and feature_count
-                        != TOTAL_FEATURES
-                    ):
-
-                        raise ValueError(
-                            "Model expects "
-                            f"{feature_count} features, "
-                            f"but application requires "
-                            f"{TOTAL_FEATURES}."
-                        )
-
-            except AttributeError:
-
-                pass
-
-            return
-
-        # --------------------------------------------------
-        # Normal classifier
-        # --------------------------------------------------
-
-        model_features = getattr(
-            self.model,
-            "n_features_in_",
-            None,
-        )
-
-        if (
-            model_features is not None
-            and model_features
-            != TOTAL_FEATURES
-        ):
-
-            raise ValueError(
-                "Model expects "
-                f"{model_features} features, "
-                f"but application requires "
-                f"{TOTAL_FEATURES}."
+            raise FileNotFoundError(
+                "Final scaler not found: "
+                f"{self.scaler_path.resolve()}"
             )
 
-        # --------------------------------------------------
-        # Scaler
-        # --------------------------------------------------
+        try:
 
-        scaler_features = getattr(
-            self.preprocessor.scaler,
-            "n_features_in_",
-            None,
-        )
-
-        if (
-            scaler_features is not None
-            and scaler_features
-            != TOTAL_FEATURES
-        ):
-
-            raise ValueError(
-                "Scaler expects "
-                f"{scaler_features} features, "
-                f"but application requires "
-                f"{TOTAL_FEATURES}."
+            self.scaler = joblib.load(
+                self.scaler_path
             )
+
+        except Exception as exc:
+
+            raise RuntimeError(
+                "Unable to load final scaler: "
+                f"{self.scaler_path.resolve()}"
+            ) from exc
+
+        self.scaler_loaded = (
+            self.scaler is not None
+        )
 
     # ======================================================
-    # Validate Input
+    # VALIDATE FEATURES
     # ======================================================
 
     def _validate_features(
         self,
-        features: List[float],
+        features: Sequence[float],
     ) -> List[float]:
         """
-        Validate exactly 22 numeric features.
+        Validate the incoming 22-feature vector.
+
+        The audio feature service produces 22 features.
         """
 
         if features is None:
 
             raise ValueError(
-                "Features are required."
+                "Features cannot be None."
             )
 
-        if len(features) != TOTAL_FEATURES:
+        if isinstance(
+            features,
+            np.ndarray,
+        ):
+
+            features = (
+                features.tolist()
+            )
+
+        if not isinstance(
+            features,
+            (list, tuple),
+        ):
+
+            raise ValueError(
+                "Features must be a list "
+                "or tuple of numeric values."
+            )
+
+        if len(features) != (
+            EXTRACTED_FEATURE_COUNT
+        ):
 
             raise ValueError(
                 "Exactly "
-                f"{TOTAL_FEATURES} "
-                "features are required. "
+                f"{EXTRACTED_FEATURE_COUNT} "
+                "audio features are required. "
                 f"Received {len(features)}."
             )
 
@@ -286,20 +474,22 @@ class ParkinsonPredictor:
             except (
                 TypeError,
                 ValueError,
-            ):
+            ) as exc:
 
                 raise ValueError(
-                    f"Feature {index + 1} "
-                    "must be numeric."
-                )
+                    "Feature "
+                    f"{index + 1} is not numeric: "
+                    f"{value}"
+                ) from exc
 
-            if not np.isfinite(
+            if not math.isfinite(
                 numeric_value
             ):
 
                 raise ValueError(
-                    f"Feature {index + 1} "
-                    "must be finite."
+                    "Feature "
+                    f"{index + 1} contains "
+                    "NaN or infinite value."
                 )
 
             validated.append(
@@ -309,7 +499,62 @@ class ParkinsonPredictor:
         return validated
 
     # ======================================================
-    # Prepare Input
+    # SELECT 12 FEATURES
+    # ======================================================
+
+    def _select_production_features(
+        self,
+        features: List[float],
+    ) -> np.ndarray:
+        """
+        Convert 22 extracted features into the exact
+        12-feature production vector.
+
+        IMPORTANT:
+        The order here must NEVER be changed unless the
+        final model is retrained with a different order.
+        """
+
+        selected = []
+
+        for feature_name in (
+            SELECTED_FEATURE_NAMES
+        ):
+
+            index = FEATURE_INDEX.get(
+                feature_name
+            )
+
+            if index is None:
+
+                raise RuntimeError(
+                    "Unknown production feature: "
+                    f"{feature_name}"
+                )
+
+            selected.append(
+                features[index]
+            )
+
+        array = np.asarray(
+            selected,
+            dtype=np.float64,
+        )
+
+        if array.shape != (
+            PRODUCTION_FEATURE_COUNT,
+        ):
+
+            raise RuntimeError(
+                "Production feature vector "
+                "does not contain exactly "
+                "12 values."
+            )
+
+        return array
+
+    # ======================================================
+    # PREPARE INPUT
     # ======================================================
 
     def _prepare_input(
@@ -317,82 +562,77 @@ class ParkinsonPredictor:
         features: List[float],
     ) -> np.ndarray:
         """
-        Prepare features for prediction.
-
-        Pipeline model:
-            raw features are passed directly.
-
-        Old model:
-            features are scaled using scaler.pkl.
+        Prepare 12-feature model input.
         """
 
-        array = np.asarray(
-            features,
-            dtype=np.float64,
-        ).reshape(
-            1,
-            TOTAL_FEATURES,
+        validated = (
+            self._validate_features(
+                features
+            )
         )
+
+        selected = (
+            self._select_production_features(
+                validated
+            )
+        )
+
+        return selected.reshape(
+            1,
+            PRODUCTION_FEATURE_COUNT,
+        )
+
+    # ======================================================
+    # MODEL INPUT
+    # ======================================================
+
+    def _model_input(
+        self,
+        prepared_features: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Apply preprocessing when required.
+
+        Step 9 final_model.pkl is a Pipeline containing:
+
+            SimpleImputer
+            StandardScaler
+            HistGradientBoosting
+
+        Therefore applying final_scaler.pkl again would
+        incorrectly double-scale the data.
+
+        If a plain classifier is supplied instead, the
+        separately saved scaler is applied.
+        """
 
         if self.is_pipeline:
 
-            return array
+            return prepared_features
 
-        return self.preprocessor.scale(
-            features
-        )
+        if self.scaler is None:
 
-    # ======================================================
-    # Predict Class
-    # ======================================================
-
-    def _predict_class(
-        self,
-        prepared_features: np.ndarray,
-    ) -> int:
-        """
-        Return:
-
-            0 = Healthy
-            1 = Parkinson
-        """
-
-        prediction = self.model.predict(
-            prepared_features
-        )[0]
+            raise RuntimeError(
+                "Model is not a pipeline and "
+                "final scaler is unavailable."
+            )
 
         try:
 
-            return int(
-                prediction
+            return self.scaler.transform(
+                prepared_features
             )
 
-        except (
-            TypeError,
-            ValueError,
-        ):
+        except Exception as exc:
 
-            normalized = (
-                str(prediction)
-                .strip()
-                .lower()
-            )
-
-            if normalized in {
-                "1",
-                "parkinson",
-                "parkinson's",
-                "parkinson detected",
-                "positive",
-                "pd",
-            }:
-
-                return 1
-
-            return 0
+            raise RuntimeError(
+                "Failed to transform "
+                "12-feature input using "
+                "final scaler."
+            ) from exc
 
     # ======================================================
-    # Parkinson Probability
+    # PREDICT PROBABILITY
     # ======================================================
 
     def _parkinson_probability(
@@ -400,31 +640,69 @@ class ParkinsonPredictor:
         prepared_features: np.ndarray,
     ) -> float:
         """
-        Return probability of class 1.
+        Return probability of Parkinson class.
         """
+
+        model_input = (
+            self._model_input(
+                prepared_features
+            )
+        )
 
         if not hasattr(
             self.model,
             "predict_proba",
         ):
 
-            prediction = (
-                self._predict_class(
-                    prepared_features
+            raise RuntimeError(
+                "Final model does not provide "
+                "predict_proba()."
+            )
+
+        try:
+
+            probabilities = (
+                self.model.predict_proba(
+                    model_input
                 )
             )
 
-            return (
-                1.0
-                if prediction == 1
-                else 0.0
+        except Exception as exc:
+
+            raise RuntimeError(
+                "Final model probability "
+                "prediction failed."
+            ) from exc
+
+        probabilities = np.asarray(
+            probabilities
+        )
+
+        if probabilities.ndim != 2:
+
+            raise RuntimeError(
+                "Unexpected probability "
+                "output shape: "
+                f"{probabilities.shape}"
             )
 
-        probabilities = (
-            self.model.predict_proba(
-                prepared_features
-            )[0]
-        )
+        if probabilities.shape[0] != 1:
+
+            raise RuntimeError(
+                "Expected exactly one "
+                "prediction."
+            )
+
+        # --------------------------------------------------
+        # Binary classification.
+        #
+        # Normally:
+        #
+        # probability[:, 0] = HC
+        # probability[:, 1] = PD
+        #
+        # We explicitly handle class ordering below.
+        # --------------------------------------------------
 
         classes = getattr(
             self.model,
@@ -432,195 +710,225 @@ class ParkinsonPredictor:
             None,
         )
 
-        # --------------------------------------------------
-        # Pipeline
-        # --------------------------------------------------
+        if classes is None and hasattr(
+            self.model,
+            "named_steps",
+        ):
 
-        if classes is None and self.is_pipeline:
-
-            classifier = (
-                self.model
-                .named_steps
-                .get("model")
+            final_model = (
+                self.model.named_steps.get(
+                    "model"
+                )
             )
 
-            if classifier is not None:
-
-                classes = getattr(
-                    classifier,
-                    "classes_",
-                    None,
-                )
+            classes = getattr(
+                final_model,
+                "classes_",
+                None,
+            )
 
         if classes is None:
 
-            raise ValueError(
-                "Model does not expose "
-                "class information."
+            if probabilities.shape[1] != 2:
+
+                raise RuntimeError(
+                    "Unable to determine "
+                    "binary model classes."
+                )
+
+            return float(
+                probabilities[0, 1]
             )
 
-        classes_list = list(
+        classes = list(
             classes
         )
 
-        # --------------------------------------------------
-        # Find numeric class 1
-        # --------------------------------------------------
+        try:
 
-        if 1 in classes_list:
-
-            index = classes_list.index(
-                1
+            pd_index = classes.index(
+                PARKINSON_CLASS
             )
 
-            return float(
-                probabilities[index]
-            )
+        except ValueError as exc:
 
-        # --------------------------------------------------
-        # String labels
-        # --------------------------------------------------
+            raise RuntimeError(
+                "Final model does not contain "
+                "Parkinson class 1."
+            ) from exc
 
-        normalized_classes = [
-            str(value)
-            .strip()
-            .lower()
-            for value in classes_list
-        ]
-
-        parkinson_labels = {
-            "1",
-            "parkinson",
-            "parkinson's",
-            "parkinson detected",
-            "positive",
-            "pd",
-        }
-
-        for index, label in enumerate(
-            normalized_classes
-        ):
-
-            if label in parkinson_labels:
-
-                return float(
-                    probabilities[index]
-                )
-
-        raise ValueError(
-            "Unable to identify "
-            "Parkinson class in model."
+        probability = float(
+            probabilities[
+                0,
+                pd_index,
+            ]
         )
 
+        if not (
+            0.0
+            <= probability
+            <= 1.0
+        ):
+
+            raise RuntimeError(
+                "Model returned an invalid "
+                f"Parkinson probability: "
+                f"{probability}"
+            )
+
+        return probability
+
     # ======================================================
-    # Confidence
+    # PREDICT CLASS USING THRESHOLD
+    # ======================================================
+
+    def _predict_class(
+        self,
+        parkinson_probability: float,
+    ) -> int:
+        """
+        Convert probability to class using Step 8
+        decision threshold.
+        """
+
+        if (
+            parkinson_probability
+            >= self.threshold
+        ):
+
+            return PARKINSON_CLASS
+
+        return HEALTHY_CLASS
+
+    # ======================================================
+    # CONFIDENCE
     # ======================================================
 
     def _confidence(
         self,
-        prepared_features: np.ndarray,
+        parkinson_probability: float,
     ) -> float:
+        """
+        Confidence is the probability of the selected
+        class.
 
-        if not hasattr(
-            self.model,
-            "predict_proba",
+        For PD:
+            confidence = PD probability
+
+        For HC:
+            confidence = HC probability
+        """
+
+        if (
+            parkinson_probability
+            >= self.threshold
         ):
 
-            return 0.0
-
-        probabilities = (
-            self.model.predict_proba(
-                prepared_features
-            )[0]
-        )
+            return float(
+                parkinson_probability
+            )
 
         return float(
-            np.max(
-                probabilities
-            )
+            1.0
+            -
+            parkinson_probability
         )
 
     # ======================================================
-    # Risk Level
+    # DIAGNOSIS
     # ======================================================
 
-    @staticmethod
-    def _risk_level(
-        risk_score: float,
-    ) -> str:
-
-        if risk_score >= 75:
-
-            return "High Risk"
-
-        if risk_score >= 40:
-
-            return "Medium Risk"
-
-        return "Low Risk"
-
-    # ======================================================
-    # Diagnosis
-    # ======================================================
-
-    @staticmethod
     def _diagnosis(
+        self,
         prediction: int,
     ) -> str:
-
-        if prediction == 1:
-
-            return (
-                "Parkinson Detected"
-            )
-
-        return "Healthy"
-
-    # ======================================================
-    # Recommendation
-    # ======================================================
-
-    @staticmethod
-    def _recommendation(
-        prediction: int,
-        risk_score: float,
-    ) -> str:
         """
-        General screening recommendation.
-
-        This is not a medical diagnosis.
+        Convert numeric class to diagnosis label.
         """
 
-        if prediction == 1:
-
-            if risk_score >= 75:
-
-                return (
-                    "The screening result indicates "
-                    "a higher likelihood of a "
-                    "Parkinson-related pattern. "
-                    "Please consult a qualified "
-                    "healthcare professional or "
-                    "neurologist for clinical evaluation."
-                )
+        if (
+            int(prediction)
+            ==
+            PARKINSON_CLASS
+        ):
 
             return (
-                "The screening result indicates "
-                "a possible Parkinson-related pattern. "
-                "Consider discussing the result with "
-                "a qualified healthcare professional."
+                "Parkinson's Disease"
             )
 
         return (
-            "The screening result does not indicate "
-            "a strong Parkinson-related pattern. "
-            "Continue routine healthcare and consult "
-            "a healthcare professional if symptoms "
-            "are present."
+            "Healthy Control"
         )
 
     # ======================================================
-    # Main Prediction
+    # RISK LEVEL
+    # ======================================================
+
+    def _risk_level(
+        self,
+        risk_score: float,
+    ) -> str:
+        """
+        Convert Parkinson probability into a simple
+        risk category.
+
+        This is an application-level classification,
+        not a clinical diagnosis.
+        """
+
+        if risk_score < 30.0:
+
+            return "Low"
+
+        if risk_score < 60.0:
+
+            return "Moderate"
+
+        if risk_score < 80.0:
+
+            return "High"
+
+        return "Very High"
+
+    # ======================================================
+    # RECOMMENDATION
+    # ======================================================
+
+    def _recommendation(
+        self,
+        prediction: int,
+        risk_score: float,
+    ) -> str:
+        """
+        Generate a safe application recommendation.
+        """
+
+        if (
+            prediction
+            ==
+            PARKINSON_CLASS
+        ):
+
+            return (
+                "The voice analysis indicates "
+                "an elevated Parkinson's disease "
+                "risk. Please consult a qualified "
+                "healthcare professional for "
+                "clinical evaluation. This result "
+                "is not a diagnosis."
+            )
+
+        return (
+            "The voice analysis does not indicate "
+            "an elevated Parkinson's disease risk "
+            "based on this model. If you have "
+            "symptoms or concerns, consult a "
+            "qualified healthcare professional. "
+            "This result is not a diagnosis."
+        )
+
+    # ======================================================
+    # MAIN PREDICTION
     # ======================================================
 
     def predict(
@@ -628,21 +936,17 @@ class ParkinsonPredictor:
         features: List[float],
     ) -> Dict[str, Any]:
         """
-        Run complete prediction pipeline.
+        Run a complete Parkinson prediction.
+
+        Input:
+            22 extracted voice features.
+
+        Output:
+            Structured prediction dictionary.
         """
 
         # --------------------------------------------------
-        # Validate
-        # --------------------------------------------------
-
-        features = (
-            self._validate_features(
-                features
-            )
-        )
-
-        # --------------------------------------------------
-        # Prepare
+        # Prepare 22 -> 12
         # --------------------------------------------------
 
         prepared_features = (
@@ -652,17 +956,7 @@ class ParkinsonPredictor:
         )
 
         # --------------------------------------------------
-        # Class
-        # --------------------------------------------------
-
-        prediction = (
-            self._predict_class(
-                prepared_features
-            )
-        )
-
-        # --------------------------------------------------
-        # Parkinson probability
+        # Probability
         # --------------------------------------------------
 
         parkinson_probability = (
@@ -672,12 +966,22 @@ class ParkinsonPredictor:
         )
 
         # --------------------------------------------------
+        # Threshold decision
+        # --------------------------------------------------
+
+        prediction = (
+            self._predict_class(
+                parkinson_probability
+            )
+        )
+
+        # --------------------------------------------------
         # Confidence
         # --------------------------------------------------
 
         confidence = (
             self._confidence(
-                prepared_features
+                parkinson_probability
             )
         )
 
@@ -692,6 +996,17 @@ class ParkinsonPredictor:
 
         confidence_score = (
             confidence
+            * 100.0
+        )
+
+        healthy_probability = (
+            1.0
+            -
+            parkinson_probability
+        )
+
+        healthy_score = (
+            healthy_probability
             * 100.0
         )
 
@@ -727,16 +1042,17 @@ class ParkinsonPredictor:
         )
 
         # --------------------------------------------------
-        # Result
+        # Return
         # --------------------------------------------------
 
         return {
-
             "prediction":
                 diagnosis,
 
             "prediction_value":
-                prediction,
+                int(
+                    prediction
+                ),
 
             "diagnosis":
                 diagnosis,
@@ -764,22 +1080,35 @@ class ParkinsonPredictor:
 
             "healthy_probability":
                 round(
-                    (
-                        1.0
-                        - parkinson_probability
-                    )
-                    * 100.0,
+                    healthy_score,
                     2,
+                ),
+
+            "decision_threshold":
+                round(
+                    self.threshold,
+                    4,
                 ),
 
             "recommendation":
                 recommendation,
 
             "model":
-                self.model.__class__.__name__,
+                self._model_name(),
+
+            "model_path":
+                str(
+                    self.model_path
+                ),
+
+            "features_extracted":
+                EXTRACTED_FEATURE_COUNT,
 
             "features_used":
-                TOTAL_FEATURES,
+                PRODUCTION_FEATURE_COUNT,
+
+            "selected_features":
+                SELECTED_FEATURE_NAMES.copy(),
 
             "model_type":
                 (
@@ -790,21 +1119,129 @@ class ParkinsonPredictor:
         }
 
     # ======================================================
-    # Batch Prediction
+    # MODEL NAME
+    # ======================================================
+
+    def _model_name(
+        self,
+    ) -> str:
+        """
+        Return underlying model name.
+        """
+
+        if hasattr(
+            self.model,
+            "named_steps",
+        ):
+
+            model_step = (
+                self.model.named_steps.get(
+                    "model"
+                )
+            )
+
+            if model_step is not None:
+
+                return (
+                    model_step.__class__.__name__
+                )
+
+        return (
+            self.model.__class__.__name__
+        )
+
+    # ======================================================
+    # BATCH PREDICTION
     # ======================================================
 
     def predict_batch(
         self,
-        features: List[List[float]],
-    ) -> List[Dict[str, Any]]:
+        dataset,
+    ):
+        """
+        Predict multiple samples.
 
-        if not features:
+        Accepted input:
+            - pandas DataFrame
+            - list of 22-feature lists
+            - numpy array
 
-            return []
+        If a DataFrame contains the 22 named audio
+        features, they are converted using the same
+        production feature order.
+        """
+
+        # --------------------------------------------------
+        # Pandas DataFrame
+        # --------------------------------------------------
+
+        try:
+
+            import pandas as pd
+
+        except ImportError:
+
+            pd = None
+
+        if (
+            pd is not None
+            and isinstance(
+                dataset,
+                pd.DataFrame,
+            )
+        ):
+
+            missing = [
+                feature
+                for feature in ALL_FEATURE_NAMES
+                if feature not in dataset.columns
+            ]
+
+            if missing:
+
+                raise ValueError(
+                    "Batch dataframe is missing "
+                    "required features: "
+                    + ", ".join(
+                        missing
+                    )
+                )
+
+            rows = (
+                dataset[
+                    ALL_FEATURE_NAMES
+                ]
+                .values
+                .tolist()
+            )
+
+        else:
+
+            if isinstance(
+                dataset,
+                np.ndarray,
+            ):
+
+                dataset = (
+                    dataset.tolist()
+                )
+
+            if not isinstance(
+                dataset,
+                (list, tuple),
+            ):
+
+                raise ValueError(
+                    "Batch dataset must be "
+                    "a DataFrame, list, tuple, "
+                    "or numpy array."
+                )
+
+            rows = dataset
 
         results = []
 
-        for row in features:
+        for row in rows:
 
             results.append(
                 self.predict(
@@ -815,162 +1252,419 @@ class ParkinsonPredictor:
         return results
 
     # ======================================================
-    # Model Information
+    # MODEL INFORMATION
     # ======================================================
 
     def model_information(
         self,
     ) -> Dict[str, Any]:
-
-        classes = getattr(
-            self.model,
-            "classes_",
-            [],
-        )
-
-        if not classes and self.is_pipeline:
-
-            classifier = (
-                self.model
-                .named_steps
-                .get("model")
-            )
-
-            if classifier is not None:
-
-                classes = getattr(
-                    classifier,
-                    "classes_",
-                    [],
-                )
+        """
+        Return model and production configuration.
+        """
 
         return {
+            "status":
+                "loaded"
+                if self.model_loaded
+                else "not_loaded",
 
             "model":
-                self.model.__class__.__name__,
+                self._model_name()
+                if self.model is not None
+                else None,
 
             "model_path":
                 str(
-                    self.model_path
+                    self.model_path.resolve()
                 ),
 
             "scaler_path":
                 str(
-                    self.scaler_path
+                    self.scaler_path.resolve()
                 ),
 
-            "features":
-                TOTAL_FEATURES,
-
-            "classes":
-                [
-                    str(value)
-                    for value in classes
-                ],
-
-            "model_loaded":
-                self.model is not None,
-
-            "scaler_loaded":
-                (
-                    self.is_pipeline
-                    or self.preprocessor is not None
+            "feature_config_path":
+                str(
+                    self.feature_config_path.resolve()
                 ),
+
+            "features_extracted":
+                EXTRACTED_FEATURE_COUNT,
+
+            "features_used":
+                PRODUCTION_FEATURE_COUNT,
+
+            "selected_features":
+                SELECTED_FEATURE_NAMES.copy(),
+
+            "decision_threshold":
+                self.threshold,
+
+            "healthy_class":
+                HEALTHY_CLASS,
+
+            "parkinson_class":
+                PARKINSON_CLASS,
 
             "pipeline":
                 self.is_pipeline,
+
+            "scaler_loaded":
+                self.scaler_loaded,
+
+            "model_loaded":
+                self.model_loaded,
+
+            "production_candidate":
+                True,
         }
 
     # ======================================================
-    # Health
+    # HEALTH
     # ======================================================
 
     def health(
         self,
     ) -> Dict[str, Any]:
+        """
+        Verify that the prediction engine is ready.
+        """
 
-        try:
+        healthy = (
+            self.model_loaded
+            and self.scaler_loaded
+            and self.model is not None
+        )
 
-            return {
-                "healthy": True,
-                "model_loaded":
-                    self.model is not None,
-                "pipeline":
-                    self.is_pipeline,
-                "features":
-                    TOTAL_FEATURES,
-            }
+        return {
+            "status":
+                "healthy"
+                if healthy
+                else "unhealthy",
 
-        except Exception as exc:
+            "model_loaded":
+                self.model_loaded,
 
-            return {
-                "healthy": False,
-                "error":
-                    str(exc),
-            }
+            "scaler_loaded":
+                self.scaler_loaded,
+
+            "model":
+                self._model_name()
+                if self.model is not None
+                else None,
+
+            "features_extracted":
+                EXTRACTED_FEATURE_COUNT,
+
+            "features_used":
+                PRODUCTION_FEATURE_COUNT,
+
+            "threshold":
+                self.threshold,
+
+            "model_path_exists":
+                self.model_path.exists(),
+
+            "scaler_path_exists":
+                self.scaler_path.exists(),
+
+            "feature_config_exists":
+                self.feature_config_path.exists(),
+        }
 
 
 # ==========================================================
-# Shared Predictor
+# HIGH-LEVEL PREDICTOR
 # ==========================================================
 
-predictor = ParkinsonPredictor()
+class ParkinsonPredictor:
+    """
+    High-level prediction interface.
+
+    This class preserves compatibility with the existing
+    application code.
+    """
+
+    # ======================================================
+    # INITIALIZATION
+    # ======================================================
+
+    def __init__(
+        self,
+    ):
+
+        self.predictor = (
+            Predictor()
+        )
+
+    # ======================================================
+    # PREDICT
+    # ======================================================
+
+    def predict(
+        self,
+        features: List[float],
+    ) -> Dict[str, Any]:
+        """
+        Predict Parkinson disease from 22 voice features.
+        """
+
+        return (
+            self.predictor.predict(
+                features
+            )
+        )
+
+    # ======================================================
+    # BATCH
+    # ======================================================
+
+    def predict_batch(
+        self,
+        dataset,
+    ):
+
+        return (
+            self.predictor.predict_batch(
+                dataset
+            )
+        )
+
+    # ======================================================
+    # MODEL INFORMATION
+    # ======================================================
+
+    def model_info(
+        self,
+    ):
+
+        return (
+            self.predictor.model_information()
+        )
+
+    # ======================================================
+    # HEALTH
+    # ======================================================
+
+    def health(
+        self,
+    ):
+
+        return (
+            self.predictor.health()
+        )
 
 
 # ==========================================================
-# Convenience Function
+# GLOBAL PREDICTOR
+# ==========================================================
+
+predictor = (
+    Predictor()
+)
+
+
+# ==========================================================
+# CONVENIENCE FUNCTION
 # ==========================================================
 
 def predict(
     features: List[float],
 ) -> Dict[str, Any]:
+    """
+    Convenience prediction function.
 
-    return predictor.predict(
-        features
+    Example
+    -------
+    result = predict(features)
+    """
+
+    return (
+        predictor.predict(
+            features
+        )
     )
 
 
 # ==========================================================
-# Standalone Test
+# MAIN TEST
 # ==========================================================
 
 if __name__ == "__main__":
 
-    sample_features = [
-        119.992,
-        157.302,
-        74.997,
-        0.00784,
-        0.00007,
-        0.00370,
-        0.00554,
-        0.01109,
-        0.04374,
-        0.426,
-        0.02182,
-        0.03130,
-        0.02971,
-        0.06545,
-        0.02211,
-        21.033,
-        0.414783,
-        0.815285,
-        -4.813031,
-        0.266482,
-        2.301442,
-        0.284654,
-    ]
+    print()
 
-    result = predict(
-        sample_features
+    print(
+        "=" * 70
     )
 
     print(
-        "\nPrediction Result\n"
+        "PREDICTOR STEP 10 SELF TEST"
     )
 
-    for key, value in result.items():
+    print(
+        "=" * 70
+    )
+
+    print()
+
+    try:
+
+        test_predictor = (
+            Predictor()
+        )
+
+        # --------------------------------------------------
+        # Display health
+        # --------------------------------------------------
+
+        health = (
+            test_predictor.health()
+        )
 
         print(
-            f"{key}: {value}"
+            "HEALTH"
         )
+
+        print(
+            "-" * 70
+        )
+
+        for key, value in (
+            health.items()
+        ):
+
+            print(
+                f"{key}: {value}"
+            )
+
+        print()
+
+        # --------------------------------------------------
+        # Display model information
+        # --------------------------------------------------
+
+        information = (
+            test_predictor.model_information()
+        )
+
+        print(
+            "MODEL INFORMATION"
+        )
+
+        print(
+            "-" * 70
+        )
+
+        print(
+            f"Model: "
+            f"{information['model']}"
+        )
+
+        print(
+            f"Features extracted: "
+            f"{information['features_extracted']}"
+        )
+
+        print(
+            f"Features used: "
+            f"{information['features_used']}"
+        )
+
+        print(
+            f"Threshold: "
+            f"{information['decision_threshold']}"
+        )
+
+        print()
+
+        # --------------------------------------------------
+        # Sample 22-feature vector
+        # --------------------------------------------------
+
+        sample_features = [
+            119.992,
+            157.302,
+            74.997,
+            0.00784,
+            0.00007,
+            0.00370,
+            0.00554,
+            0.01109,
+            0.04374,
+            0.426,
+            0.02182,
+            0.03130,
+            0.02971,
+            0.06545,
+            0.02211,
+            21.033,
+            0.414783,
+            0.815285,
+            -4.813031,
+            0.266482,
+            2.301442,
+            0.284654,
+        ]
+
+        print(
+            "PREDICTION TEST"
+        )
+
+        print(
+            "-" * 70
+        )
+
+        result = (
+            test_predictor.predict(
+                sample_features
+            )
+        )
+
+        for key, value in (
+            result.items()
+        ):
+
+            print(
+                f"{key}: {value}"
+            )
+
+        print()
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            "PREDICTOR SELF TEST COMPLETE"
+        )
+
+        print(
+            "=" * 70
+        )
+
+    except Exception as exc:
+
+        print()
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            "PREDICTOR SELF TEST FAILED"
+        )
+
+        print(
+            "=" * 70
+        )
+
+        print(
+            str(exc)
+        )
+
+        print(
+            "=" * 70
+        )
+
+        raise
