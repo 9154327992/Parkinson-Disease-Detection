@@ -73,14 +73,27 @@ class ReportService:
             # Find Patient
             # --------------------------------------------------
 
-            patient = (
-                db.query(Patient)
+            prediction_record = (
+                db.query(Prediction)
                 .filter(
-                    Patient.id
-                    == prediction.patient_id
+                    Prediction.id == prediction.prediction_id
                 )
                 .first()
             )
+
+            if prediction_record is None:
+
+                raise ValueError(
+                    "Prediction not found."
+                )
+
+            if prediction_record.patient_id != prediction.patient_id:
+
+                raise ValueError(
+                    "Prediction does not belong to the requested patient."
+                )
+
+            patient = prediction_record.patient
 
             if patient is None:
 
@@ -94,6 +107,8 @@ class ReportService:
 
             database_report = Report(
                 patient_id=patient.id,
+
+                prediction_id=prediction_record.id,
 
                 report_name=(
                     "Parkinson Disease "
@@ -174,20 +189,23 @@ class ReportService:
                 )
 
             # --------------------------------------------------
-            # Find Latest Prediction
+            # Find Exact Prediction
             # --------------------------------------------------
 
             prediction_record = (
                 db.query(Prediction)
                 .filter(
-                    Prediction.patient_id
-                    == patient.id
-                )
-                .order_by(
-                    Prediction.created_at.desc()
+                    Prediction.id == request.prediction_id,
+                    Prediction.patient_id == patient.id,
                 )
                 .first()
             )
+
+            if prediction_record is None:
+
+                raise ValueError(
+                    "Prediction not found for this patient."
+                )
 
             # --------------------------------------------------
             # Create Database Report
@@ -195,6 +213,8 @@ class ReportService:
 
             database_report = Report(
                 patient_id=patient.id,
+
+                prediction_id=prediction_record.id,
 
                 report_name=(
                     "Parkinson Disease "
@@ -483,14 +503,14 @@ class ReportService:
 
             patient = report.patient
 
+            if patient is None:
+                return None
+
             prediction_record = (
                 db.query(Prediction)
                 .filter(
-                    Prediction.patient_id
-                    == patient.id
-                )
-                .order_by(
-                    Prediction.created_at.desc()
+                    Prediction.id == report.prediction_id,
+                    Prediction.patient_id == patient.id,
                 )
                 .first()
             )
