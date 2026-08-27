@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -20,6 +21,7 @@ from app.database.database import SessionLocal
 
 from app.database.models import (
     Patient,
+    Prediction,
 )
 
 from app.ml.predictor import (
@@ -565,6 +567,7 @@ class PredictionService:
     def predict(
         self,
         request: PredictionRequest,
+        owner_id: Optional[int] = None,
     ) -> PredictionResponse:
         """
         Run Parkinson disease prediction using the
@@ -686,17 +689,6 @@ class PredictionService:
         )
 
         # --------------------------------------------------
-        # Prediction ID
-        # --------------------------------------------------
-
-        prediction_id = (
-            PredictionService
-            .next_prediction_id
-        )
-
-        PredictionService.next_prediction_id += 1
-
-        # --------------------------------------------------
         # Patient ID
         # --------------------------------------------------
 
@@ -753,6 +745,11 @@ class PredictionService:
                     Patient.gender == str(
                         request.gender
                     ),
+                    *(
+                        [Patient.owner_id == owner_id]
+                        if owner_id is not None
+                        else []
+                    ),
                 )
                 .first()
             )
@@ -772,7 +769,7 @@ class PredictionService:
                     gender=str(
                         request.gender
                     ),
-                    owner_id=None,
+                    owner_id=owner_id,
                 )
 
                 db.add(
@@ -789,6 +786,33 @@ class PredictionService:
                 patient.id
             )
 
+            # ------------------------------------------------
+            # Persist prediction in database
+            # ------------------------------------------------
+            created_at = datetime.utcnow()
+
+            database_prediction = Prediction(
+                patient_id=patient.id,
+                prediction=prediction,
+                probability=(
+                    float(risk_score) / 100.0
+                ),
+                confidence=float(confidence),
+                risk_level=risk_level,
+                features=json.dumps(features),
+                created_at=created_at,
+            )
+
+            db.add(database_prediction)
+            db.commit()
+            db.refresh(database_prediction)
+
+            # Database-generated ID is the canonical prediction ID.
+            prediction_id = database_prediction.id
+
+        except Exception:
+            db.rollback()
+            raise
         finally:
 
             db.close()
@@ -797,9 +821,7 @@ class PredictionService:
         # Created timestamp
         # --------------------------------------------------
 
-        created_at = (
-            datetime.utcnow()
-        )
+        # created_at was assigned when the database record was committed.
 
         # --------------------------------------------------
         # Response
@@ -1041,56 +1063,105 @@ class PredictionService:
 
     def get_history(
         self,
-        patient_id: Optional[int] = None,
+        owner_id: Optional[int] = None,
     ) -> List[PredictionHistory]:
-        """
-        Return prediction history.
-        """
+        """Return persisted prediction history from SQLite."""
 
-        records = (
-            PredictionService.history
-        )
+        db = SessionLocal()
+        try:
+            query = db.query(Prediction).join(Patient)
 
-        if patient_id is None:
+            if owner_id is not None:
+                query = query.filter(
+                    Patient.owner_id == owner_id
+                )
 
-            return records
+            records = query.order_by(
+                Prediction.created_at.desc()
+            ).all()
 
-        return [
-            item
-            for item in records
-            if item.patient_id
-            == patient_id
-        ]
+            result = []
+            for record in records:
+                patient = record.patient
+                result.append(
+                    PredictionHistory(
+                        prediction_id=record.id,
+                        patient_id=record.patient_id,
+                        patient_name=(
+                            f"{patient.first_name} "
+                            f"{patient.last_name}"
+                        ).strip(),
+                        age=int(patient.age),
+                        gender=str(patient.gender),
+                        prediction=str(record.prediction),
+                        confidence=round(
+                            float(record.confidence or 0.0), 2
+                        ),
+                        risk_score=round(
+                            float(record.probability or 0.0) * 100.0, 2
+                        ),
+                        risk_level=str(record.risk_level or "Unknown"),
+                        created_at=record.created_at,
+                    )
+                )
+
+            return result
+        finally:
+            db.close()
 
     # ======================================================
     # PREDICTION DETAILS
     # ======================================================
 
+    def _db_prediction_response(
+        self,
+        record: Prediction,
+    ) -> PredictionResponse:
+        """Convert a database Prediction into the API response schema."""
+
+        prediction_value = (
+            PARKINSON_CLASS
+            if str(record.prediction) == "Parkinson Detected"
+            else HEALTHY_CLASS
+        )
+
+        risk_score = float(record.probability or 0.0) * 100.0
+
+        return PredictionResponse(
+            prediction_id=record.id,
+            patient_id=record.patient_id,
+            prediction=str(record.prediction),
+            prediction_value=prediction_value,
+            confidence=round(float(record.confidence or 0.0), 2),
+            risk_score=round(risk_score, 2),
+            risk_level=str(record.risk_level or "Unknown"),
+            recommendation=self._recommendation(
+                str(record.risk_level or "Low Risk"),
+                prediction_value,
+            ),
+            model_name=self._production_model_name(),
+            model_version="2.0.0-step9",
+            created_at=record.created_at,
+        )
+
     def get_prediction(
         self,
         prediction_id: int,
-    ) -> Optional[
-        PredictionResponse
-    ]:
-        """
-        Retrieve prediction by ID.
-        """
+    ) -> Optional[PredictionResponse]:
+        """Retrieve a persisted prediction by ID."""
 
-        record = (
-            PredictionService
-            .predictions
-            .get(
-                prediction_id
-            )
-        )
+        db = SessionLocal()
+        try:
+            record = db.query(Prediction).filter(
+                Prediction.id == prediction_id
+            ).first()
 
-        if record is None:
+            if record is None:
+                return None
 
-            return None
-
-        return record[
-            "response"
-        ]
+            return self._db_prediction_response(record)
+        finally:
+            db.close()
 
     # ======================================================
     # COMPLETE PREDICTION DATA
@@ -1100,17 +1171,42 @@ class PredictionService:
         self,
         prediction_id: int,
     ) -> Optional[Dict]:
-        """
-        Return complete prediction information.
-        """
+        """Return complete persisted prediction information."""
 
-        return (
-            PredictionService
-            .predictions
-            .get(
-                prediction_id
-            )
-        )
+        db = SessionLocal()
+        try:
+            record = db.query(Prediction).filter(
+                Prediction.id == prediction_id
+            ).first()
+
+            if record is None:
+                return None
+
+            response = self._db_prediction_response(record)
+
+            try:
+                features = json.loads(record.features or "[]")
+            except (TypeError, ValueError):
+                features = []
+
+            return {
+                "response": response,
+                "patient_name": (
+                    f"{record.patient.first_name} "
+                    f"{record.patient.last_name}"
+                ).strip(),
+                "age": record.patient.age,
+                "gender": record.patient.gender,
+                "features": features,
+                "feature_names": FEATURE_NAMES.copy(),
+                "selected_feature_names": SELECTED_FEATURE_NAMES.copy(),
+                "features_extracted": EXTRACTED_FEATURE_COUNT,
+                "features_used": PRODUCTION_FEATURE_COUNT,
+                "decision_threshold": DECISION_THRESHOLD,
+                "model": self._production_model_name(),
+            }
+        finally:
+            db.close()
 
     # ======================================================
     # DELETE PREDICTION
@@ -1120,163 +1216,77 @@ class PredictionService:
         self,
         prediction_id: int,
     ) -> bool:
-        """
-        Delete prediction from in-memory history.
-        """
+        """Delete a persisted prediction from SQLite."""
 
-        if (
-            prediction_id
-            not in PredictionService.predictions
-        ):
+        db = SessionLocal()
+        try:
+            record = db.query(Prediction).filter(
+                Prediction.id == prediction_id
+            ).first()
 
-            return False
+            if record is None:
+                return False
 
-        del PredictionService.predictions[
-            prediction_id
-        ]
-
-        PredictionService.history = [
-            item
-            for item
-            in PredictionService.history
-            if item.prediction_id
-            != prediction_id
-        ]
-
-        return True
+            db.delete(record)
+            db.commit()
+            return True
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     # ======================================================
     # STATISTICS
     # ======================================================
 
-    def statistics(
-        self,
-    ) -> PredictionStatistics:
-        """
-        Calculate prediction statistics.
-        """
+    def statistics(self) -> PredictionStatistics:
+        """Calculate prediction statistics from persisted records."""
 
-        records = (
-            PredictionService
-            .predictions
-        )
+        db = SessionLocal()
+        try:
+            records = db.query(Prediction).all()
 
-        total_predictions = len(
-            records
-        )
+            healthy_cases = 0
+            parkinson_cases = 0
+            high_risk_cases = 0
+            medium_risk_cases = 0
+            low_risk_cases = 0
+            confidence_values = []
 
-        healthy_cases = 0
-
-        parkinson_cases = 0
-
-        high_risk_cases = 0
-
-        medium_risk_cases = 0
-
-        low_risk_cases = 0
-
-        confidence_values = []
-
-        # --------------------------------------------------
-        # Calculate statistics
-        # --------------------------------------------------
-
-        for record in (
-            records.values()
-        ):
-
-            prediction = (
-                record["response"]
-            )
-
-            confidence_values.append(
-                float(
-                    prediction.confidence
+            for record in records:
+                confidence_values.append(
+                    float(record.confidence or 0.0)
                 )
-            )
 
-            if (
-                prediction
-                .prediction_value
-                ==
-                PARKINSON_CLASS
-            ):
+                if str(record.prediction) == "Parkinson Detected":
+                    parkinson_cases += 1
+                else:
+                    healthy_cases += 1
 
-                parkinson_cases += 1
-
-            else:
-
-                healthy_cases += 1
-
-            if (
-                prediction.risk_level
-                ==
-                "High Risk"
-            ):
-
-                high_risk_cases += 1
-
-            elif (
-                prediction.risk_level
-                ==
-                "Medium Risk"
-            ):
-
-                medium_risk_cases += 1
-
-            elif (
-                prediction.risk_level
-                ==
-                "Low Risk"
-            ):
-
-                low_risk_cases += 1
-
-        # --------------------------------------------------
-        # Average confidence
-        # --------------------------------------------------
-
-        if confidence_values:
+                if record.risk_level == "High Risk":
+                    high_risk_cases += 1
+                elif record.risk_level == "Medium Risk":
+                    medium_risk_cases += 1
+                elif record.risk_level == "Low Risk":
+                    low_risk_cases += 1
 
             average_confidence = (
-                sum(
-                    confidence_values
-                )
-                /
-                len(
-                    confidence_values
-                )
+                sum(confidence_values) / len(confidence_values)
+                if confidence_values else 0.0
             )
 
-        else:
-
-            average_confidence = 0.0
-
-        return PredictionStatistics(
-            total_predictions=
-                total_predictions,
-
-            healthy_cases=
-                healthy_cases,
-
-            parkinson_cases=
-                parkinson_cases,
-
-            average_confidence=
-                round(
-                    average_confidence,
-                    2,
-                ),
-
-            high_risk_cases=
-                high_risk_cases,
-
-            medium_risk_cases=
-                medium_risk_cases,
-
-            low_risk_cases=
-                low_risk_cases,
-        )
+            return PredictionStatistics(
+                total_predictions=len(records),
+                healthy_cases=healthy_cases,
+                parkinson_cases=parkinson_cases,
+                average_confidence=round(average_confidence, 2),
+                high_risk_cases=high_risk_cases,
+                medium_risk_cases=medium_risk_cases,
+                low_risk_cases=low_risk_cases,
+            )
+        finally:
+            db.close()
 
     # ======================================================
     # MODEL INFORMATION
