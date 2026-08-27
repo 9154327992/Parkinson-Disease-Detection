@@ -1,10 +1,3 @@
-"""
-Database Models
-
-SQLAlchemy ORM models for the Parkinson Disease
-Detection System.
-"""
-
 from datetime import datetime
 
 from sqlalchemy import (
@@ -156,6 +149,12 @@ class Prediction(Base):
         back_populates="predictions",
     )
 
+    reports = relationship(
+        "Report",
+        back_populates="prediction",
+        cascade="all, delete",
+    )
+
 
 # ==========================================================
 # Report
@@ -172,6 +171,13 @@ class Report(Base):
         ForeignKey("patients.id")
     )
 
+    prediction_id = Column(
+        Integer,
+        ForeignKey("predictions.id"),
+        nullable=False,
+        index=True,
+    )
+
     report_name = Column(String(200))
 
     report_path = Column(String(500))
@@ -183,6 +189,11 @@ class Report(Base):
 
     patient = relationship(
         "Patient",
+        back_populates="reports",
+    )
+
+    prediction = relationship(
+        "Prediction",
         back_populates="reports",
     )
 
