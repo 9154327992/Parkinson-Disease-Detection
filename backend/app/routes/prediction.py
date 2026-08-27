@@ -1,14 +1,21 @@
 # ==========================================================
-# Standard Library
+# STANDARD LIBRARY
 # ==========================================================
 
 import os
 import tempfile
-import wave
 
 
 # ==========================================================
-# FastAPI
+# THIRD-PARTY
+# ==========================================================
+
+import librosa
+import numpy as np
+
+
+# ==========================================================
+# FASTAPI
 # ==========================================================
 
 from fastapi import (
@@ -22,7 +29,7 @@ from fastapi import (
 
 
 # ==========================================================
-# Application Schemas
+# APPLICATION SCHEMAS
 # ==========================================================
 
 from app.schemas.prediction import (
@@ -32,7 +39,7 @@ from app.schemas.prediction import (
 
 
 # ==========================================================
-# Application Services
+# APPLICATION SERVICES
 # ==========================================================
 
 from app.services.prediction_service import (
@@ -45,7 +52,7 @@ from app.services.report_service import (
 
 
 # ==========================================================
-# ML Audio Service
+# AUDIO FEATURE SERVICE
 # ==========================================================
 
 from app.ml.audio_feature_service import (
@@ -54,7 +61,7 @@ from app.ml.audio_feature_service import (
 
 
 # ==========================================================
-# Authentication
+# AUTHENTICATION
 # ==========================================================
 
 from app.dependencies import (
@@ -63,7 +70,7 @@ from app.dependencies import (
 
 
 # ==========================================================
-# Router
+# ROUTER
 # ==========================================================
 
 router = APIRouter(
@@ -72,7 +79,7 @@ router = APIRouter(
 
 
 # ==========================================================
-# Prediction Service
+# PREDICTION SERVICE
 # ==========================================================
 
 prediction_service = (
@@ -81,16 +88,32 @@ prediction_service = (
 
 
 # ==========================================================
-# Audio Configuration
+# AUDIO CONFIGURATION
 # ==========================================================
 
 MIN_AUDIO_DURATION_SECONDS = 2.0
 
 SUPPORTED_AUDIO_EXTENSION = ".wav"
 
+EXPECTED_FEATURE_COUNT = 22
+
 
 # ==========================================================
-# Predict Parkinson Disease From Features
+# PRODUCTION FEATURE COUNT
+# ==========================================================
+
+PRODUCTION_FEATURE_COUNT = 12
+
+
+# ==========================================================
+# PRODUCTION THRESHOLD
+# ==========================================================
+
+PRODUCTION_THRESHOLD = 0.45
+
+
+# ==========================================================
+# PREDICT FROM FEATURE VECTOR
 # ==========================================================
 
 @router.post(
@@ -105,18 +128,20 @@ def predict(
     Predict Parkinson Disease from an existing
     22-feature voice vector.
 
-    The PredictionService passes the 22 features into
-    the production Predictor.
+    The PredictionService passes the features to the
+    production Predictor.
 
-    The Predictor selects the final 12 production
-    features and uses:
+    Production model:
 
-        final_model.pkl
-        final_scaler.pkl
-        final_feature_config.json
-        threshold = 0.45
+        HistGradientBoostingClassifier
 
-    After prediction, a report is generated.
+    Production feature count:
+
+        12
+
+    Decision threshold:
+
+        0.45
     """
 
     try:
@@ -172,109 +197,94 @@ def predict(
 
 
 # ==========================================================
-# WAV Duration Validation
+# AUDIO DURATION
 # ==========================================================
 
-def get_wav_duration(
+def get_audio_duration(
     file_path: str,
 ) -> float:
     """
-    Return WAV duration in seconds.
+    Determine the duration of an uploaded audio file.
 
-    Uses Python's standard-library wave module so that
-    duration validation does not depend on librosa.
+    librosa is intentionally used instead of Python's
+    standard-library wave module.
+
+    Reason
+    ------
+    The project's dataset contains WAV files using
+    IEEE Float WAV format. Python's wave module can reject
+    those files with:
+
+        unknown extended format:
+        00000003-0000-0010-8000-00aa00389b71
+
+    librosa can read the same audio format used by the
+    existing AudioFeatureService.
 
     Parameters
     ----------
     file_path:
-        Temporary WAV file path.
+        Path to temporary WAV file.
 
     Returns
     -------
-    float:
-        Duration in seconds.
-
-    Raises
-    ------
-    ValueError:
-        If the file is not a valid WAV file or has
-        invalid audio metadata.
+    float
+        Audio duration in seconds.
     """
 
     try:
 
-        with wave.open(
-            file_path,
-            "rb",
-        ) as wav_file:
+        duration = librosa.get_duration(
+            path=file_path
+        )
 
-            frame_count = (
-                wav_file.getnframes()
-            )
+        duration = float(
+            duration
+        )
 
-            sample_rate = (
-                wav_file.getframerate()
-            )
-
-            # ------------------------------------------------
-            # Validate WAV metadata
-            # ------------------------------------------------
-
-            if frame_count <= 0:
-
-                raise ValueError(
-                    "Audio file contains no audio frames."
-                )
-
-            if sample_rate <= 0:
-
-                raise ValueError(
-                    "Audio file has an invalid sample rate."
-                )
-
-            duration = (
-                frame_count
-                / float(sample_rate)
-            )
-
-            return float(
-                duration
-            )
-
-    except wave.Error as exc:
+    except Exception as exc:
 
         raise ValueError(
-            "Uploaded file is not a valid WAV audio file."
+            "Unable to read the uploaded WAV audio file."
         ) from exc
 
-    except EOFError as exc:
+    # ------------------------------------------------------
+    # Validate duration value
+    # ------------------------------------------------------
+
+    if not np.isfinite(
+        duration
+    ):
 
         raise ValueError(
-            "Uploaded WAV file is incomplete or corrupted."
-        ) from exc
+            "Audio file has an invalid duration."
+        )
+
+    if duration <= 0:
+
+        raise ValueError(
+            "Audio file contains no usable audio."
+        )
+
+    return duration
 
 
 # ==========================================================
-# Validate Audio Duration
+# VALIDATE AUDIO DURATION
 # ==========================================================
 
 def validate_audio_duration(
     file_path: str,
 ) -> float:
     """
-    Validate that a WAV recording is at least
-    MIN_AUDIO_DURATION_SECONDS long.
+    Require a minimum recording duration.
 
-    Returns the duration if valid.
+    Current production requirement:
 
-    Raises
-    ------
-    ValueError
-        When the recording is shorter than the
-        required minimum.
+        2.0 seconds
     """
 
-    duration = get_wav_duration(
+    duration = get_audio_duration(
         file_path
     )
 
@@ -293,7 +303,102 @@ def validate_audio_duration(
 
 
 # ==========================================================
-# Predict From Audio File
+# VALIDATE FEATURE VECTOR
+# ==========================================================
+
+def validate_feature_vector(
+    feature_vector,
+) -> list:
+    """
+    Validate that AudioFeatureService returned
+    exactly 22 model features.
+    """
+
+    # ------------------------------------------------------
+    # Convert numpy array
+    # ------------------------------------------------------
+
+    if isinstance(
+        feature_vector,
+        np.ndarray,
+    ):
+
+        feature_vector = (
+            feature_vector.tolist()
+        )
+
+    # ------------------------------------------------------
+    # Validate sequence
+    # ------------------------------------------------------
+
+    if not isinstance(
+        feature_vector,
+        (list, tuple),
+    ):
+
+        raise ValueError(
+            "Audio feature vector must be "
+            "a list or tuple."
+        )
+
+    # ------------------------------------------------------
+    # Validate feature count
+    # ------------------------------------------------------
+
+    if len(
+        feature_vector
+    ) != EXPECTED_FEATURE_COUNT:
+
+        raise ValueError(
+            "Audio feature extraction returned "
+            f"{len(feature_vector)} features. "
+            f"Expected {EXPECTED_FEATURE_COUNT}."
+        )
+
+    validated = []
+
+    # ------------------------------------------------------
+    # Validate values
+    # ------------------------------------------------------
+
+    for index, value in enumerate(
+        feature_vector
+    ):
+
+        try:
+
+            numeric_value = float(
+                value
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ) as exc:
+
+            raise ValueError(
+                f"Audio feature {index + 1} "
+                "is not a valid number."
+            ) from exc
+
+        if not np.isfinite(
+            numeric_value
+        ):
+
+            raise ValueError(
+                f"Audio feature {index + 1} "
+                "is not finite."
+            )
+
+        validated.append(
+            numeric_value
+        )
+
+    return validated
+
+
+# ==========================================================
+# PREDICT FROM AUDIO
 # ==========================================================
 
 @router.post(
@@ -307,27 +412,29 @@ async def predict_audio(
     file: UploadFile = File(...),
 ):
     """
-    Upload a WAV audio file, validate its duration,
-    extract the 22 voice features, and run the
-    production prediction pipeline.
+    Upload a WAV audio recording and run the
+    production Parkinson Disease prediction pipeline.
 
-    Required minimum recording duration:
+    Input requirements
+    ------------------
 
+    File:
+        WAV
+
+    Minimum duration:
         2.0 seconds
 
-    Feature flow:
+    Feature extraction:
+        22 features
 
-        WAV
-         ↓
-        22 audio features
-         ↓
-        Predictor
-         ↓
-        12 selected features
-         ↓
+    Production model:
         HistGradientBoostingClassifier
-         ↓
-        threshold 0.45
+
+    Production features:
+        12
+
+    Decision threshold:
+        0.45
     """
 
     temporary_path = None
@@ -335,7 +442,7 @@ async def predict_audio(
     try:
 
         # ==================================================
-        # 1. Validate filename
+        # 1. Validate uploaded filename
         # ==================================================
 
         if not file.filename:
@@ -356,7 +463,7 @@ async def predict_audio(
         )
 
         # --------------------------------------------------
-        # Only WAV
+        # WAV only
         # --------------------------------------------------
 
         if not filename.endswith(
@@ -377,8 +484,7 @@ async def predict_audio(
         # ==================================================
 
         patient_name = (
-            patient_name
-            .strip()
+            patient_name.strip()
         )
 
         if not patient_name:
@@ -392,6 +498,10 @@ async def predict_audio(
                 ),
             )
 
+        # --------------------------------------------------
+        # Age
+        # --------------------------------------------------
+
         if age <= 0:
 
             raise HTTPException(
@@ -403,9 +513,12 @@ async def predict_audio(
                 ),
             )
 
+        # --------------------------------------------------
+        # Gender
+        # --------------------------------------------------
+
         gender = (
-            str(gender)
-            .strip()
+            str(gender).strip()
         )
 
         if not gender:
@@ -458,15 +571,17 @@ async def predict_audio(
             )
 
         # ==================================================
-        # 5. CHECK AUDIO DURATION
+        # 5. Validate WAV duration
         # ==================================================
 
-        duration = validate_audio_duration(
-            temporary_path
+        duration = (
+            validate_audio_duration(
+                temporary_path
+            )
         )
 
         # ==================================================
-        # 6. Extract 22 features
+        # 6. Extract 22 audio features
         # ==================================================
 
         features_dict = (
@@ -477,7 +592,7 @@ async def predict_audio(
         )
 
         # ==================================================
-        # 7. Convert features to vector
+        # 7. Convert dictionary to vector
         # ==================================================
 
         feature_vector = (
@@ -488,23 +603,17 @@ async def predict_audio(
         )
 
         # ==================================================
-        # 8. Validate feature count
+        # 8. Validate extracted features
         # ==================================================
 
-        if len(
-            feature_vector
-        ) != 22:
-
-            raise ValueError(
-                "Audio feature extraction "
-                "returned an unexpected number "
-                f"of features: "
-                f"{len(feature_vector)}. "
-                "Expected 22."
+        feature_vector = (
+            validate_feature_vector(
+                feature_vector
             )
+        )
 
         # ==================================================
-        # 9. Build PredictionRequest
+        # 9. Build prediction request
         # ==================================================
 
         request = PredictionRequest(
@@ -534,7 +643,7 @@ async def predict_audio(
         )
 
         # ==================================================
-        # 12. Return result
+        # 12. Return response
         # ==================================================
 
         return {
@@ -550,11 +659,25 @@ async def predict_audio(
                 duration,
                 3,
             ),
+
+            "production_feature_count":
+                PRODUCTION_FEATURE_COUNT,
+
+            "decision_threshold":
+                PRODUCTION_THRESHOLD,
         }
+
+    # ======================================================
+    # HTTP exceptions
+    # ======================================================
 
     except HTTPException:
 
         raise
+
+    # ======================================================
+    # Validation errors
+    # ======================================================
 
     except ValueError as exc:
 
@@ -564,6 +687,10 @@ async def predict_audio(
             ),
             detail=str(exc),
         )
+
+    # ======================================================
+    # Unexpected errors
+    # ======================================================
 
     except Exception as exc:
 
@@ -576,11 +703,11 @@ async def predict_audio(
             ),
         )
 
-    finally:
+    # ======================================================
+    # Always remove temporary file
+    # ======================================================
 
-        # ==================================================
-        # Always remove temporary WAV
-        # ==================================================
+    finally:
 
         if (
             temporary_path
@@ -601,7 +728,7 @@ async def predict_audio(
 
 
 # ==========================================================
-# Model Information
+# MODEL INFORMATION
 # ==========================================================
 
 @router.get(
@@ -638,7 +765,7 @@ def model_information(
 
 
 # ==========================================================
-# Prediction Statistics
+# PREDICTION STATISTICS
 # ==========================================================
 
 @router.get(
@@ -675,7 +802,7 @@ def prediction_statistics(
 
 
 # ==========================================================
-# Prediction History
+# PREDICTION HISTORY
 # ==========================================================
 
 @router.get(
@@ -688,10 +815,7 @@ def prediction_history(
     ),
 ):
     """
-    Return prediction history.
-
-    The existing PredictionService history behavior
-    is preserved.
+    Return prediction history for the current user.
     """
 
     try:
@@ -717,7 +841,7 @@ def prediction_history(
 
 
 # ==========================================================
-# Prediction By ID
+# PREDICTION BY ID
 # ==========================================================
 
 @router.get(
@@ -774,7 +898,7 @@ def prediction_by_id(
 
 
 # ==========================================================
-# Delete Prediction
+# DELETE PREDICTION
 # ==========================================================
 
 @router.delete(
