@@ -123,6 +123,7 @@ PRODUCTION_THRESHOLD = 0.45
 )
 def predict(
     request: PredictionRequest,
+    current_user=Depends(get_current_user),
 ):
     """
     Predict Parkinson Disease from an existing
@@ -152,7 +153,8 @@ def predict(
 
         result = (
             prediction_service.predict(
-                request
+                request,
+                owner_id=current_user["id"],
             )
         )
 
@@ -410,6 +412,7 @@ async def predict_audio(
     age: int,
     gender: str,
     file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
 ):
     """
     Upload a WAV audio recording and run the
@@ -629,7 +632,8 @@ async def predict_audio(
 
         result = (
             prediction_service.predict(
-                request
+                request,
+                owner_id=current_user["id"],
             )
         )
 
