@@ -60,7 +60,6 @@ FINAL_FEATURE_CONFIG_PATH = (
     / "final_feature_config.json"
 )
 
-
 # ==========================================================
 # PRODUCTION CONFIGURATION
 # ==========================================================
