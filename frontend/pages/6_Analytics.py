@@ -1,10 +1,23 @@
 import streamlit as st
 import pandas as pd
-
+from pathlib import Path
 from utils.api_client import (
     get_analytics,
     get_patient_history,
 )
+
+IMAGE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "analytics_banner.png"
+)
+
+if IMAGE_PATH.exists():
+    st.image(
+        str(IMAGE_PATH),
+        use_container_width=True,
+    )
 
 
 # ==========================================================
