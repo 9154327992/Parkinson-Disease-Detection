@@ -5,30 +5,17 @@ from utils.api_client import (
     ask_ai_assistant,
 )
 
-# ==========================================================
-# Chatbot Banner
-# ==========================================================
-
-FRONTEND_DIR = Path(__file__).resolve().parents[1]
-
-CHATBOT_BANNER = (
-    FRONTEND_DIR
+IMAGE_PATH = (
+    Path(__file__).resolve().parents[1]
     / "assets"
     / "images"
     / "chatbot_banner.png"
 )
 
-if CHATBOT_BANNER.exists():
-
+if IMAGE_PATH.exists():
     st.image(
-        str(CHATBOT_BANNER),
+        str(IMAGE_PATH),
         use_container_width=True,
-    )
-
-else:
-
-    st.warning(
-        f"Chatbot banner not found: {CHATBOT_BANNER}"
     )
 
 
