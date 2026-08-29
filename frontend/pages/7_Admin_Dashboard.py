@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-
+from pathlib import Path
 from utils.api_client import (
     get_admin_dashboard,
     get_users,
@@ -14,6 +14,24 @@ from utils.session import (
     initialize_session,
 )
 
+# ==========================================================
+# Dashboard Banner
+# ==========================================================
+
+FRONTEND_DIR = Path(__file__).resolve().parents[1]
+
+DASHBOARD_BANNER = (
+    FRONTEND_DIR
+    / "assets"
+    / "images"
+    / "dashboard_banner.png"
+)
+
+if DASHBOARD_BANNER.exists():
+    st.image(
+        str(DASHBOARD_BANNER),
+        use_container_width=True,
+    )
 
 # ==========================================================
 # Page Configuration
