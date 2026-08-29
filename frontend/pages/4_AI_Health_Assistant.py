@@ -43,6 +43,16 @@ if "ai_error" not in st.session_state:
     st.session_state.ai_error = None
 
 
+# Used to trigger scrolling after an assistant response.
+if "scroll_to_answer" not in st.session_state:
+    st.session_state.scroll_to_answer = False
+
+
+# Used for suggested-question buttons.
+if "pending_question" not in st.session_state:
+    st.session_state.pending_question = None
+
+
 # ==========================================================
 # Banner
 # ==========================================================
@@ -73,7 +83,7 @@ st.markdown(
     """
 Ask questions about **Parkinson's disease, symptoms,
 diagnosis, exercise, nutrition, medication, voice
-changes, and healthy lifestyle practices.**
+changes, sleep, stress, and healthy lifestyle practices.**
 """
 )
 
@@ -85,86 +95,16 @@ st.divider()
 
 
 # ==========================================================
-# Suggested Questions
-# ==========================================================
-
-st.subheader(
-    "💡 Suggested Questions"
-)
-
-st.markdown(
-    "Choose a question or type your own below."
-)
-
-
-suggested_questions = [
-
-    "What is Parkinson's disease?",
-
-    "What are the early symptoms of Parkinson's disease?",
-
-    "How can the risk of Parkinson's disease be reduced?",
-
-    "How is Parkinson's disease diagnosed?",
-
-    "Is Parkinson's disease curable?",
-
-    "What exercises may be beneficial for people with Parkinson's?",
-
-    "What foods are recommended for a healthy lifestyle?",
-
-    "What causes tremors and slowed movement?",
-
-    "What is bradykinesia?",
-
-    "What are Parkinson's-related voice changes?",
-
-]
-
-
-# ==========================================================
-# Suggested Question Buttons
-# ==========================================================
-
-question_columns = st.columns(2)
-
-
-for index, question_text in enumerate(
-    suggested_questions
-):
-
-    column = question_columns[
-        index % 2
-    ]
-
-    with column:
-
-        if st.button(
-            question_text,
-            key=f"question_{index}",
-            use_container_width=True,
-        ):
-
-            st.session_state[
-                "pending_question"
-            ] = question_text
-
-            st.rerun()
-
-
-st.divider()
-
-
-# ==========================================================
-# AI Request Function
+# Ask Question
 # ==========================================================
 
 def ask_question(
     question: str,
 ):
     """
-    Send a question to the FastAPI AI assistant
-    and store the response in chat history.
+    Send a question to the FastAPI AI assistant.
+
+    The response is stored in Streamlit session state.
     """
 
     question = str(
@@ -176,14 +116,14 @@ def ask_question(
 
 
     # ------------------------------------------------------
-    # Clear previous error
+    # Reset error
     # ------------------------------------------------------
 
     st.session_state.ai_error = None
 
 
     # ------------------------------------------------------
-    # Store User Message
+    # Add user message
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
@@ -195,7 +135,7 @@ def ask_question(
 
 
     # ------------------------------------------------------
-    # Call Backend
+    # Ask backend
     # ------------------------------------------------------
 
     response = None
@@ -221,7 +161,7 @@ def ask_question(
 
 
     # ------------------------------------------------------
-    # Handle No Response
+    # No response
     # ------------------------------------------------------
 
     if response is None:
@@ -234,7 +174,7 @@ def ask_question(
 
 
     # ------------------------------------------------------
-    # Handle Dictionary Response
+    # Dictionary response
     # ------------------------------------------------------
 
     elif isinstance(
@@ -268,7 +208,7 @@ def ask_question(
 
 
         # --------------------------------------------------
-        # Backend explicitly reported failure
+        # Backend failure
         # --------------------------------------------------
 
         if response.get(
@@ -283,7 +223,7 @@ def ask_question(
 
 
     # ------------------------------------------------------
-    # Handle String Response
+    # String response
     # ------------------------------------------------------
 
     elif isinstance(
@@ -303,7 +243,7 @@ def ask_question(
 
 
     # ------------------------------------------------------
-    # Unexpected Response
+    # Unexpected response
     # ------------------------------------------------------
 
     else:
@@ -320,7 +260,7 @@ def ask_question(
 
 
     # ------------------------------------------------------
-    # Store Assistant Response
+    # Add assistant response
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
@@ -331,17 +271,94 @@ def ask_question(
     )
 
 
+    # ------------------------------------------------------
+    # Tell page to scroll to latest answer
+    # ------------------------------------------------------
+
+    st.session_state.scroll_to_answer = True
+
+
+# ==========================================================
+# Suggested Questions
+# ==========================================================
+
+st.subheader(
+    "💡 Suggested Questions"
+)
+
+st.markdown(
+    "Choose a question or type your own question below."
+)
+
+
+suggested_questions = [
+
+    "What is Parkinson's disease?",
+
+    "What are the early symptoms of Parkinson's disease?",
+
+    "How can the risk of Parkinson's disease be reduced?",
+
+    "How is Parkinson's disease diagnosed?",
+
+    "Is Parkinson's disease curable?",
+
+    "What exercises may be beneficial for Parkinson's?",
+
+    "What foods are recommended for a healthy lifestyle?",
+
+    "What causes tremors and slowed movement?",
+
+    "What is bradykinesia?",
+
+    "What are Parkinson's-related voice changes?",
+
+]
+
+
+# ==========================================================
+# Suggested Question Buttons
+# ==========================================================
+
+col1, col2 = st.columns(2)
+
+
+for index, question_text in enumerate(
+    suggested_questions
+):
+
+    column = (
+        col1
+        if index % 2 == 0
+        else col2
+    )
+
+    with column:
+
+        if st.button(
+            question_text,
+            key=f"suggested_question_{index}",
+            use_container_width=True,
+        ):
+
+            st.session_state.pending_question = (
+                question_text
+            )
+
+            st.rerun()
+
+
 # ==========================================================
 # Process Suggested Question
 # ==========================================================
 
-if "pending_question" in st.session_state:
+if st.session_state.pending_question:
 
     pending_question = (
-        st.session_state.pop(
-            "pending_question"
-        )
+        st.session_state.pending_question
     )
+
+    st.session_state.pending_question = None
 
     ask_question(
         pending_question
@@ -351,7 +368,7 @@ if "pending_question" in st.session_state:
 
 
 # ==========================================================
-# Error Display
+# Error Information
 # ==========================================================
 
 if st.session_state.ai_error:
@@ -368,6 +385,8 @@ if st.session_state.ai_error:
 # Conversation
 # ==========================================================
 
+st.divider()
+
 st.subheader(
     "💬 Conversation"
 )
@@ -381,14 +400,14 @@ if not st.session_state.chat_history:
 
         Ask a question about Parkinson's disease,
         symptoms, diagnosis, exercise, nutrition,
-        medication, voice changes, or healthy living.
+        medication, voice changes, sleep, stress,
+        or healthy living.
         """
     )
 
-
 else:
 
-    for message in (
+    for index, message in enumerate(
         st.session_state.chat_history
     ):
 
@@ -418,6 +437,33 @@ else:
             role = "assistant"
 
 
+        # --------------------------------------------------
+        # Latest assistant answer marker
+        # --------------------------------------------------
+
+        is_latest_assistant = (
+            index
+            == len(
+                st.session_state.chat_history
+            ) - 1
+            and role == "assistant"
+        )
+
+
+        if is_latest_assistant:
+
+            st.markdown(
+                """
+                <div id="latest-answer"></div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
+        # --------------------------------------------------
+        # Chat message
+        # --------------------------------------------------
+
         with st.chat_message(
             role
         ):
@@ -427,6 +473,41 @@ else:
                     content
                 )
             )
+
+
+# ==========================================================
+# Automatic Scroll To Latest Answer
+# ==========================================================
+
+if (
+    st.session_state.scroll_to_answer
+    and st.session_state.chat_history
+):
+
+    st.session_state.scroll_to_answer = False
+
+    st.markdown(
+        """
+        <script>
+        setTimeout(function() {
+
+            const target =
+                document.getElementById("latest-answer");
+
+            if (target) {
+
+                target.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+
+            }
+
+        }, 500);
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # ==========================================================
@@ -471,13 +552,17 @@ if st.session_state.chat_history:
 
             st.session_state.ai_error = None
 
+            st.session_state.scroll_to_answer = False
+
+            st.session_state.pending_question = None
+
             st.rerun()
 
 
     with control_col2:
 
         if st.button(
-            "🔄 Start New Conversation",
+            "🔄 New Conversation",
             use_container_width=True,
         ):
 
@@ -485,11 +570,15 @@ if st.session_state.chat_history:
 
             st.session_state.ai_error = None
 
+            st.session_state.scroll_to_answer = False
+
+            st.session_state.pending_question = None
+
             st.rerun()
 
 
 # ==========================================================
-# Health Assistant Guidance
+# What Can I Ask?
 # ==========================================================
 
 st.divider()
@@ -504,29 +593,30 @@ with st.expander(
 
 - What is Parkinson's disease?
 - What are the common symptoms?
-- What are early warning signs?
-- How is Parkinson's diagnosed?
-- Is Parkinson's curable?
+- What are the early warning signs?
+- How is Parkinson's disease diagnosed?
+- Is Parkinson's disease curable?
+- How can the risk be reduced?
 
 ### Lifestyle
 
-- What exercises may help?
+- What exercises may be beneficial?
 - What foods support a healthy lifestyle?
 - How can sleep be improved?
 - How can stress be managed?
 
-### Voice and Movement
+### Movement and Voice
 
 - What is bradykinesia?
 - What causes tremors?
 - Why can Parkinson's affect speech?
-- What are common voice changes?
+- What are common Parkinson's-related voice changes?
 
 ### General Health
 
-You can also ask about general health topics,
-but the assistant provides **educational information**
-and cannot provide a personal diagnosis.
+You can ask general educational health questions,
+but the assistant cannot provide a personal diagnosis
+or replace a healthcare professional.
 """
     )
 
