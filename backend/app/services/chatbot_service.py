@@ -824,24 +824,43 @@ class ChatbotService:
             )
 
         # ======================================================
-        # Prevention
+        # Prevention / Risk Reduction
         # ======================================================
 
         if (
-            "prevention" in text
-            or "prevent parkinson" in text
-            or "prevent parkinson's" in text
+            "prevent" in text
+            or "prevention" in text
+            or "reduce the risk" in text
+            or "lower the risk" in text
+            or "avoid parkinson" in text
+            or "avoid parkinson's" in text
+            or "how to prevent" in text
+            or "how can i prevent" in text
+            or "how can we prevent" in text
+            or "can parkinson be prevented" in text
+            or "is parkinson preventable" in text
         ):
 
             information = self.parkinson_information()
 
             return (
-                "The educational information lists:\n\n"
+                "There is currently no guaranteed way to prevent "
+                "Parkinson disease. However, some healthy lifestyle "
+                "practices may support overall health and may help "
+                "reduce certain risk factors.\n\n"
+
+                "**Healthy practices include:**\n\n"
+
                 + "\n".join(
                     f"• {item}"
                     for item in information.prevention
                 )
+
                 + "\n\n"
+
+                "These measures do not guarantee that Parkinson "
+                "disease will be prevented.\n\n"
+
                 + information.disclaimer
             )
 
