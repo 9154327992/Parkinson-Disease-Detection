@@ -1,11 +1,29 @@
 import streamlit as st
 import pandas as pd
-
+from pathlib import Path
 from utils.api_client import (
     get_patient_history,
     delete_prediction,
 )
 
+# ==========================================================
+# History Banner
+# ==========================================================
+
+FRONTEND_DIR = Path(__file__).resolve().parents[1]
+
+HISTORY_BANNER = (
+    FRONTEND_DIR
+    / "assets"
+    / "images"
+    / "history_banner.png"
+)
+
+if HISTORY_BANNER.exists():
+    st.image(
+        str(HISTORY_BANNER),
+        use_container_width=True,
+    )
 
 # ==========================================================
 # Page Configuration
