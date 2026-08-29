@@ -1,11 +1,24 @@
 import streamlit as st
 import pandas as pd
-
+from pathlib import Path
 from utils.api_client import (
     get,
     get_reports,
     download_report,
 )
+
+IMAGE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "report_banner.png"
+)
+
+if IMAGE_PATH.exists():
+    st.image(
+        str(IMAGE_PATH),
+        use_container_width=True,
+    )
 
 
 # ==========================================================
