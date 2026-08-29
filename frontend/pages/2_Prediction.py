@@ -1,10 +1,28 @@
 import streamlit as st
-
+from pathlib import Path
 from utils.api_client import (
     predict_patient,
     predict_audio,
 )
 
+# ==========================================================
+# Prediction Banner
+# ==========================================================
+
+FRONTEND_DIR = Path(__file__).resolve().parents[1]
+
+PREDICTION_BANNER = (
+    FRONTEND_DIR
+    / "assets"
+    / "images"
+    / "prediction_banner.png"
+)
+
+if PREDICTION_BANNER.exists():
+    st.image(
+        str(PREDICTION_BANNER),
+        use_container_width=True,
+    )
 
 # ==========================================================
 # Page Configuration
