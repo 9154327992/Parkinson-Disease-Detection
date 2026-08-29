@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -30,7 +31,6 @@ from app.schemas.report import (
     MedicationItem,
     FollowUpPlan,
     ReportSummary,
-    ReportDownload,
     ReportList,
     DeleteReportResponse,
 )
@@ -42,6 +42,32 @@ from app.schemas.prediction import (
 
 
 # ==========================================================
+# Paths
+# ==========================================================
+
+# report_service.py
+#   app/
+#     services/
+#
+# Project root:
+#   backend/
+#
+# PDF directory:
+#   backend/reports/
+
+SERVICE_FILE = Path(__file__).resolve()
+
+BACKEND_DIR = SERVICE_FILE.parents[2]
+
+REPORTS_DIR = BACKEND_DIR / "reports"
+
+REPORTS_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+
+# ==========================================================
 # Report Service
 # ==========================================================
 
@@ -49,7 +75,8 @@ class ReportService:
     """
     Handles patient report generation.
 
-    Reports are stored in the SQLite database.
+    Reports are stored in the database and the generated
+    PDF files are stored in backend/reports/.
     """
 
     # ======================================================
@@ -63,6 +90,15 @@ class ReportService:
     ) -> ReportResponse:
         """
         Generate a report from a completed prediction.
+
+        Steps:
+            1. Validate prediction.
+            2. Find patient.
+            3. Create database report.
+            4. Generate PDF.
+            5. Save PDF to backend/reports/.
+            6. Store PDF path in report_path.
+            7. Return report response.
         """
 
         db = SessionLocal()
@@ -70,7 +106,7 @@ class ReportService:
         try:
 
             # --------------------------------------------------
-            # Find Patient
+            # Find Prediction
             # --------------------------------------------------
 
             prediction_record = (
@@ -87,10 +123,18 @@ class ReportService:
                     "Prediction not found."
                 )
 
-            if prediction_record.patient_id != prediction.patient_id:
+            # --------------------------------------------------
+            # Verify Patient
+            # --------------------------------------------------
+
+            if (
+                prediction_record.patient_id
+                != prediction.patient_id
+            ):
 
                 raise ValueError(
-                    "Prediction does not belong to the requested patient."
+                    "Prediction does not belong "
+                    "to the requested patient."
                 )
 
             patient = prediction_record.patient
@@ -120,8 +164,52 @@ class ReportService:
                 generated_at=datetime.utcnow(),
             )
 
-            db.add(
-                database_report
+            db.add(database_report)
+
+            db.commit()
+
+            db.refresh(database_report)
+
+            # --------------------------------------------------
+            # Build Report Response
+            # --------------------------------------------------
+
+            report_response = (
+                self._build_report_response(
+                    report_id=database_report.id,
+                    patient=patient,
+                    prediction=prediction,
+                )
+            )
+
+            # --------------------------------------------------
+            # Generate PDF
+            # --------------------------------------------------
+
+            pdf_bytes, filename = (
+                self._generate_pdf(
+                    report_response
+                )
+            )
+
+            # --------------------------------------------------
+            # Save PDF
+            # --------------------------------------------------
+
+            pdf_path = (
+                REPORTS_DIR / filename
+            )
+
+            pdf_path.write_bytes(
+                pdf_bytes
+            )
+
+            # --------------------------------------------------
+            # Store PDF Path
+            # --------------------------------------------------
+
+            database_report.report_path = (
+                str(pdf_path)
             )
 
             db.commit()
@@ -130,18 +218,7 @@ class ReportService:
                 database_report
             )
 
-            # --------------------------------------------------
-            # Return Report Response
-            # --------------------------------------------------
-
-            return self._build_report_response(
-                report_id=database_report.id,
-
-                patient=patient,
-
-                prediction=prediction,
-
-            )
+            return report_response
 
         except Exception:
 
@@ -162,7 +239,8 @@ class ReportService:
         request: ReportRequest,
     ) -> ReportResponse:
         """
-        Generate a report manually for an existing patient.
+        Generate a report manually for an existing patient
+        and prediction.
         """
 
         db = SessionLocal()
@@ -195,8 +273,11 @@ class ReportService:
             prediction_record = (
                 db.query(Prediction)
                 .filter(
-                    Prediction.id == request.prediction_id,
-                    Prediction.patient_id == patient.id,
+                    Prediction.id
+                    == request.prediction_id,
+
+                    Prediction.patient_id
+                    == patient.id,
                 )
                 .first()
             )
@@ -204,8 +285,20 @@ class ReportService:
             if prediction_record is None:
 
                 raise ValueError(
-                    "Prediction not found for this patient."
+                    "Prediction not found "
+                    "for this patient."
                 )
+
+            # --------------------------------------------------
+            # Build Prediction Response
+            # --------------------------------------------------
+
+            prediction = (
+                self._prediction_response(
+                    prediction_record,
+                    patient.id,
+                )
+            )
 
             # --------------------------------------------------
             # Create Database Report
@@ -237,111 +330,76 @@ class ReportService:
             )
 
             # --------------------------------------------------
-            # Build Prediction Summary
+            # Build Report Response
             # --------------------------------------------------
 
-            if prediction_record is not None:
+            report_response = (
+                self._build_report_response(
+                    report_id=database_report.id,
 
-                prediction = (
-                    PredictionResponse(
-                        prediction_id=(
-                            prediction_record.id
-                        ),
+                    patient=patient,
 
-                        patient_id=(
-                            prediction_record.patient_id
-                        ),
+                    prediction=prediction,
 
-                        prediction=(
-                            prediction_record.prediction
-                        ),
+                    include_recommendations=(
+                        request.include_recommendations
+                    ),
 
-                        probability=(
-                            prediction_record.probability
-                        ),
+                    include_exercises=(
+                        request.include_exercises
+                    ),
 
-                        confidence=(
-                            prediction_record.confidence
-                        ),
+                    include_medication=(
+                        request.include_medication
+                    ),
 
-                        risk_score=(
-                            prediction_record.probability
-                            * 100
-                            if prediction_record.probability
-                            is not None
-                            else 0.0
-                        ),
+                    include_follow_up=(
+                        request.include_follow_up
+                    ),
 
-                        risk_level=(
-                            prediction_record.risk_level
-                        ),
-
-                        recommendation=(
-                            self._recommendation_text(
-                                prediction_record.risk_level
-                            )
-                        ),
-                    )
+                    doctor_notes=(
+                        request.doctor_notes
+                    ),
                 )
-
-            else:
-
-                prediction = (
-                    PredictionResponse(
-                        prediction_id=0,
-
-                        patient_id=patient.id,
-
-                        prediction=(
-                            "Prediction Pending"
-                        ),
-
-                        probability=0.0,
-
-                        confidence=0.0,
-
-                        risk_score=0.0,
-
-                        risk_level="Unknown",
-
-                        recommendation=(
-                            "Prediction information "
-                            "is not available."
-                        ),
-                    )
-                )
-
-            # --------------------------------------------------
-            # Build Response
-            # --------------------------------------------------
-
-            return self._build_report_response(
-                report_id=database_report.id,
-
-                patient=patient,
-
-                prediction=prediction,
-
-                include_recommendations=(
-                    request.include_recommendations
-                ),
-
-                include_exercises=(
-                    request.include_exercises
-                ),
-
-                include_medication=(
-                    request.include_medication
-                ),
-
-                include_follow_up=(
-                    request.include_follow_up
-                ),
-
-                doctor_notes=(
-                    request.doctor_notes
-                ),
             )
+
+            # --------------------------------------------------
+            # Generate PDF
+            # --------------------------------------------------
+
+            pdf_bytes, filename = (
+                self._generate_pdf(
+                    report_response
+                )
+            )
+
+            # --------------------------------------------------
+            # Save PDF
+            # --------------------------------------------------
+
+            pdf_path = (
+                REPORTS_DIR / filename
+            )
+
+            pdf_path.write_bytes(
+                pdf_bytes
+            )
+
+            # --------------------------------------------------
+            # Save Path In Database
+            # --------------------------------------------------
+
+            database_report.report_path = (
+                str(pdf_path)
+            )
+
+            db.commit()
+
+            db.refresh(
+                database_report
+            )
+
+            return report_response
 
         except Exception:
 
@@ -371,6 +429,10 @@ class ReportService:
         """
         Build the API report response.
         """
+
+        # --------------------------------------------------
+        # Follow-up
+        # --------------------------------------------------
 
         if include_follow_up:
 
@@ -402,9 +464,14 @@ class ReportService:
                 ),
             )
 
+        # --------------------------------------------------
+        # Response
+        # --------------------------------------------------
+
         return ReportResponse(
 
             metadata=ReportMetadata(
+
                 report_id=report_id,
 
                 report_name=(
@@ -447,7 +514,9 @@ class ReportService:
 
                 risk_level=prediction.risk_level,
 
-                recommendation=prediction.recommendation,
+                recommendation=(
+                    prediction.recommendation
+                ),
             ),
 
             recommendations=(
@@ -471,6 +540,479 @@ class ReportService:
             follow_up=follow_up,
 
             doctor_notes=doctor_notes,
+        )
+
+    # ==========================================================
+    # Generate PDF
+    # ==========================================================
+
+    def _generate_pdf(
+        self,
+        report: ReportResponse,
+    ):
+        """
+        Generate a PDF from a ReportResponse.
+
+        Returns:
+            (pdf_bytes, filename)
+        """
+
+        buffer = BytesIO()
+
+        document = SimpleDocTemplate(
+            buffer,
+
+            pagesize=A4,
+
+            title=(
+                "Parkinson Disease "
+                "Assessment Report"
+            ),
+        )
+
+        styles = (
+            getSampleStyleSheet()
+        )
+
+        story = []
+
+        # --------------------------------------------------
+        # Title
+        # --------------------------------------------------
+
+        story.append(
+            Paragraph(
+                "Parkinson Disease Assessment Report",
+                styles["Title"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                20,
+            )
+        )
+
+        # --------------------------------------------------
+        # Report Information
+        # --------------------------------------------------
+
+        metadata = report.metadata
+
+        story.append(
+            Paragraph(
+                "<b>Report Information</b>",
+                styles["Heading2"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Report ID:</b> "
+                f"{metadata.report_id}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Generated:</b> "
+                f"{metadata.generated_at}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Version:</b> "
+                f"{escape(str(metadata.version))}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        # --------------------------------------------------
+        # Patient Information
+        # --------------------------------------------------
+
+        patient = report.patient
+
+        story.append(
+            Paragraph(
+                "Patient Information",
+                styles["Heading2"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Patient:</b> "
+                f"{escape(str(patient.full_name))}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Patient ID:</b> "
+                f"{patient.patient_id}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Age:</b> "
+                f"{patient.age}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Gender:</b> "
+                f"{escape(str(patient.gender))}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        # --------------------------------------------------
+        # Prediction Information
+        # --------------------------------------------------
+
+        prediction = report.prediction
+
+        story.append(
+            Paragraph(
+                "Prediction Result",
+                styles["Heading2"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Prediction:</b> "
+                f"{escape(str(prediction.prediction))}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Confidence:</b> "
+                f"{prediction.confidence}%",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Risk Score:</b> "
+                f"{prediction.risk_score}%",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                f"<b>Risk Level:</b> "
+                f"{escape(str(prediction.risk_level))}",
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        # --------------------------------------------------
+        # Recommendation
+        # --------------------------------------------------
+
+        story.append(
+            Paragraph(
+                "Recommendation",
+                styles["Heading2"],
+            )
+        )
+
+        story.append(
+            Paragraph(
+                escape(
+                    str(
+                        prediction.recommendation
+                    )
+                ),
+                styles["Normal"],
+            )
+        )
+
+        story.append(
+            Spacer(
+                1,
+                15,
+            )
+        )
+
+        # --------------------------------------------------
+        # Recommendations
+        # --------------------------------------------------
+
+        if report.recommendations:
+
+            story.append(
+                Paragraph(
+                    "Recommendations",
+                    styles["Heading2"],
+                )
+            )
+
+            for item in (
+                report.recommendations
+            ):
+
+                story.append(
+                    Paragraph(
+                        (
+                            f"<b>{escape(str(item.title))}"
+                            f":</b> "
+                            f"{escape(str(item.description))}"
+                        ),
+                        styles["Normal"],
+                    )
+                )
+
+                story.append(
+                    Spacer(
+                        1,
+                        5,
+                    )
+                )
+
+            story.append(
+                Spacer(
+                    1,
+                    10,
+                )
+            )
+
+        # --------------------------------------------------
+        # Exercises
+        # --------------------------------------------------
+
+        if report.exercises:
+
+            story.append(
+                Paragraph(
+                    "Exercise Guidance",
+                    styles["Heading2"],
+                )
+            )
+
+            for item in report.exercises:
+
+                story.append(
+                    Paragraph(
+                        (
+                            f"<b>{escape(str(item.name))}"
+                            f":</b> "
+                            f"{escape(str(item.duration))}, "
+                            f"{escape(str(item.frequency))}. "
+                            f"{escape(str(item.description))}"
+                        ),
+                        styles["Normal"],
+                    )
+                )
+
+                story.append(
+                    Spacer(
+                        1,
+                        5,
+                    )
+                )
+
+            story.append(
+                Spacer(
+                    1,
+                    10,
+                )
+            )
+
+        # --------------------------------------------------
+        # Medication
+        # --------------------------------------------------
+
+        if report.medication:
+
+            story.append(
+                Paragraph(
+                    "Medication Guidance",
+                    styles["Heading2"],
+                )
+            )
+
+            for item in report.medication:
+
+                story.append(
+                    Paragraph(
+                        (
+                            f"<b>{escape(str(item.title))}"
+                            f":</b> "
+                            f"{escape(str(item.description))}"
+                        ),
+                        styles["Normal"],
+                    )
+                )
+
+                story.append(
+                    Spacer(
+                        1,
+                        5,
+                    )
+                )
+
+            story.append(
+                Spacer(
+                    1,
+                    10,
+                )
+            )
+
+        # --------------------------------------------------
+        # Follow-up
+        # --------------------------------------------------
+
+        if report.follow_up:
+
+            story.append(
+                Paragraph(
+                    "Follow-up Plan",
+                    styles["Heading2"],
+                )
+            )
+
+            story.append(
+                Paragraph(
+                    (
+                        f"<b>Next Visit:</b> "
+                        f"{escape(str(report.follow_up.next_visit))}"
+                    ),
+                    styles["Normal"],
+                )
+            )
+
+            story.append(
+                Paragraph(
+                    (
+                        f"<b>Specialist:</b> "
+                        f"{escape(str(report.follow_up.specialist))}"
+                    ),
+                    styles["Normal"],
+                )
+            )
+
+            story.append(
+                Paragraph(
+                    (
+                        f"<b>Notes:</b> "
+                        f"{escape(str(report.follow_up.notes))}"
+                    ),
+                    styles["Normal"],
+                )
+            )
+
+            story.append(
+                Spacer(
+                    1,
+                    15,
+                )
+            )
+
+        # --------------------------------------------------
+        # Doctor Notes
+        # --------------------------------------------------
+
+        if report.doctor_notes:
+
+            story.append(
+                Paragraph(
+                    "Doctor Notes",
+                    styles["Heading2"],
+                )
+            )
+
+            story.append(
+                Paragraph(
+                    escape(
+                        str(
+                            report.doctor_notes
+                        )
+                    ),
+                    styles["Normal"],
+                )
+            )
+
+            story.append(
+                Spacer(
+                    1,
+                    15,
+                )
+            )
+
+        # --------------------------------------------------
+        # Medical Disclaimer
+        # --------------------------------------------------
+
+        story.append(
+            Paragraph(
+                "<b>Medical Disclaimer:</b> "
+                "This report provides AI-assisted "
+                "screening information. It does not "
+                "diagnose Parkinson's disease and "
+                "should not replace evaluation by "
+                "a qualified healthcare professional.",
+                styles["Normal"],
+            )
+        )
+
+        # --------------------------------------------------
+        # Build PDF
+        # --------------------------------------------------
+
+        document.build(
+            story
+        )
+
+        pdf_bytes = (
+            buffer.getvalue()
+        )
+
+        buffer.close()
+
+        filename = (
+            f"report_{report.metadata.report_id}.pdf"
+        )
+
+        return (
+            pdf_bytes,
+            filename,
         )
 
     # ==========================================================
@@ -499,18 +1041,23 @@ class ReportService:
             )
 
             if report is None:
+
                 return None
 
             patient = report.patient
 
             if patient is None:
+
                 return None
 
             prediction_record = (
                 db.query(Prediction)
                 .filter(
-                    Prediction.id == report.prediction_id,
-                    Prediction.patient_id == patient.id,
+                    Prediction.id
+                    == report.prediction_id,
+
+                    Prediction.patient_id
+                    == patient.id,
                 )
                 .first()
             )
@@ -565,14 +1112,16 @@ class ReportService:
 
                 patient = report.patient
 
+                if patient is None:
+
+                    continue
+
                 result.append(
                     ReportSummary(
 
                         report_id=report.id,
 
-                        patient_id=(
-                            patient.id
-                        ),
+                        patient_id=patient.id,
 
                         patient_name=(
                             f"{patient.first_name} "
@@ -590,6 +1139,7 @@ class ReportService:
                 )
 
             return ReportList(
+
                 total_reports=len(
                     result
                 ),
@@ -635,14 +1185,16 @@ class ReportService:
 
                 patient = report.patient
 
+                if patient is None:
+
+                    continue
+
                 result.append(
                     ReportSummary(
 
                         report_id=report.id,
 
-                        patient_id=(
-                            patient.id
-                        ),
+                        patient_id=patient.id,
 
                         patient_name=(
                             f"{patient.first_name} "
@@ -674,244 +1226,128 @@ class ReportService:
         report_id: int,
     ):
         """
-        Generate the PDF from the database report.
+        Return the stored PDF.
+
+        If the PDF does not exist, regenerate it and save it.
         """
 
-        report = self.get_report(
-            report_id
-        )
+        db = SessionLocal()
 
-        if report is None:
-            return None
+        try:
 
-        buffer = BytesIO()
-
-        document = SimpleDocTemplate(
-            buffer,
-
-            pagesize=A4,
-
-            title=(
-                "Parkinson Disease "
-                "Assessment Report"
-            ),
-        )
-
-        styles = getSampleStyleSheet()
-
-        story = []
-
-        # --------------------------------------------------
-        # Title
-        # --------------------------------------------------
-
-        story.append(
-            Paragraph(
-                "Parkinson Disease Assessment Report",
-                styles["Title"],
+            database_report = (
+                db.query(Report)
+                .filter(
+                    Report.id
+                    == report_id
+                )
+                .first()
             )
-        )
 
-        story.append(
-            Spacer(
-                1,
-                20,
+            if database_report is None:
+
+                return None
+
+            # --------------------------------------------------
+            # Existing PDF
+            # --------------------------------------------------
+
+            if database_report.report_path:
+
+                existing_path = Path(
+                    database_report.report_path
+                )
+
+                if existing_path.exists():
+
+                    return (
+                        existing_path.read_bytes(),
+                        existing_path.name,
+                    )
+
+            # --------------------------------------------------
+            # Rebuild Report Response
+            # --------------------------------------------------
+
+            patient = (
+                database_report.patient
             )
-        )
 
-        # --------------------------------------------------
-        # Report Information
-        # --------------------------------------------------
+            if patient is None:
 
-        metadata = report.metadata
+                return None
 
-        story.append(
-            Paragraph(
-                f"<b>Report ID:</b> "
-                f"{metadata.report_id}",
+            prediction_record = (
+                db.query(Prediction)
+                .filter(
+                    Prediction.id
+                    == database_report.prediction_id,
 
-                styles["Normal"],
+                    Prediction.patient_id
+                    == patient.id,
+                )
+                .first()
             )
-        )
 
-        story.append(
-            Paragraph(
-                f"<b>Generated:</b> "
-                f"{metadata.generated_at}",
-
-                styles["Normal"],
+            prediction = (
+                self._prediction_response(
+                    prediction_record,
+                    patient.id,
+                )
             )
-        )
 
-        story.append(
-            Paragraph(
-                f"<b>Version:</b> "
-                f"{metadata.version}",
+            report_response = (
+                self._build_report_response(
+                    report_id=database_report.id,
 
-                styles["Normal"],
+                    patient=patient,
+
+                    prediction=prediction,
+                )
             )
-        )
 
-        story.append(
-            Spacer(
-                1,
-                15,
+            # --------------------------------------------------
+            # Generate PDF
+            # --------------------------------------------------
+
+            pdf_bytes, filename = (
+                self._generate_pdf(
+                    report_response
+                )
             )
-        )
 
-        # --------------------------------------------------
-        # Patient Information
-        # --------------------------------------------------
-
-        patient = report.patient
-
-        story.append(
-            Paragraph(
-                "Patient Information",
-
-                styles["Heading2"],
+            pdf_path = (
+                REPORTS_DIR / filename
             )
-        )
 
-        story.append(
-            Paragraph(
-                f"<b>Patient:</b> "
-                f"{escape(str(patient.full_name))}",
-
-                styles["Normal"],
+            pdf_path.write_bytes(
+                pdf_bytes
             )
-        )
 
-        story.append(
-            Paragraph(
-                f"<b>Patient ID:</b> "
-                f"{patient.patient_id}",
+            # --------------------------------------------------
+            # Store Path
+            # --------------------------------------------------
 
-                styles["Normal"],
+            database_report.report_path = (
+                str(pdf_path)
             )
-        )
 
-        story.append(
-            Paragraph(
-                f"<b>Age:</b> "
-                f"{patient.age}",
+            db.commit()
 
-                styles["Normal"],
+            return (
+                pdf_bytes,
+                filename,
             )
-        )
 
-        story.append(
-            Paragraph(
-                f"<b>Gender:</b> "
-                f"{escape(str(patient.gender))}",
+        except Exception:
 
-                styles["Normal"],
-            )
-        )
+            db.rollback()
 
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
+            raise
 
-        # --------------------------------------------------
-        # Prediction Information
-        # --------------------------------------------------
+        finally:
 
-        prediction = report.prediction
-
-        story.append(
-            Paragraph(
-                "Prediction Result",
-
-                styles["Heading2"],
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"<b>Prediction:</b> "
-                f"{escape(str(prediction.prediction))}",
-
-                styles["Normal"],
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"<b>Confidence:</b> "
-                f"{prediction.confidence}%",
-
-                styles["Normal"],
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"<b>Risk Score:</b> "
-                f"{prediction.risk_score}%",
-
-                styles["Normal"],
-            )
-        )
-
-        story.append(
-            Paragraph(
-                f"<b>Risk Level:</b> "
-                f"{escape(str(prediction.risk_level))}",
-
-                styles["Normal"],
-            )
-        )
-
-        story.append(
-            Spacer(
-                1,
-                15,
-            )
-        )
-
-        # --------------------------------------------------
-        # Disclaimer
-        # --------------------------------------------------
-
-        story.append(
-            Paragraph(
-                "<b>Medical Disclaimer:</b> "
-                "This report provides AI-assisted "
-                "screening information. It does not "
-                "diagnose Parkinson's disease and "
-                "should not replace evaluation by "
-                "a qualified healthcare professional.",
-
-                styles["Normal"],
-            )
-        )
-
-        # --------------------------------------------------
-        # Build PDF
-        # --------------------------------------------------
-
-        document.build(
-            story
-        )
-
-        pdf_bytes = (
-            buffer.getvalue()
-        )
-
-        buffer.close()
-
-        filename = (
-            f"report_{report_id}.pdf"
-        )
-
-        return (
-            pdf_bytes,
-            filename,
-        )
+            db.close()
 
     # ==========================================================
     # Delete Report
@@ -924,7 +1360,7 @@ class ReportService:
         DeleteReportResponse
     ]:
         """
-        Delete a report from the database.
+        Delete a report from the database and its PDF file.
         """
 
         db = SessionLocal()
@@ -941,7 +1377,32 @@ class ReportService:
             )
 
             if report is None:
+
                 return None
+
+            # --------------------------------------------------
+            # Delete PDF
+            # --------------------------------------------------
+
+            if report.report_path:
+
+                pdf_path = Path(
+                    report.report_path
+                )
+
+                if pdf_path.exists():
+
+                    try:
+
+                        pdf_path.unlink()
+
+                    except OSError:
+
+                        pass
+
+            # --------------------------------------------------
+            # Delete Database Record
+            # --------------------------------------------------
 
             db.delete(
                 report
@@ -950,6 +1411,7 @@ class ReportService:
             db.commit()
 
             return DeleteReportResponse(
+
                 message=(
                     f"Report {report_id} "
                     "deleted successfully."
@@ -1023,7 +1485,8 @@ class ReportService:
             ),
 
             risk_score=(
-                prediction_record.probability * 100
+                prediction_record.probability
+                * 100
                 if prediction_record.probability
                 is not None
                 else 0.0
@@ -1074,6 +1537,13 @@ class ReportService:
                 "is recommended."
             )
 
+        if level == "medium risk":
+
+            return (
+                "Further clinical evaluation "
+                "is recommended."
+            )
+
         if level == "low risk":
 
             return (
@@ -1097,6 +1567,7 @@ class ReportService:
         return [
 
             RecommendationItem(
+
                 title="Lifestyle",
 
                 description=(
@@ -1106,6 +1577,7 @@ class ReportService:
             ),
 
             RecommendationItem(
+
                 title="Diet",
 
                 description=(
@@ -1126,6 +1598,7 @@ class ReportService:
         return [
 
             ExerciseItem(
+
                 name="Walking",
 
                 duration="30 minutes",
@@ -1139,6 +1612,7 @@ class ReportService:
             ),
 
             ExerciseItem(
+
                 name="Balance Training",
 
                 duration="20 minutes",
@@ -1163,6 +1637,7 @@ class ReportService:
         return [
 
             MedicationItem(
+
                 title="Medication Guidance",
 
                 description=(
@@ -1172,6 +1647,7 @@ class ReportService:
             ),
 
             MedicationItem(
+
                 title="Medication Safety",
 
                 description=(
