@@ -1,5 +1,5 @@
 import streamlit as st
-
+from pathlib import Path
 from utils.api_client import (
     login_user,
     get_analytics,
@@ -12,6 +12,24 @@ from utils.session import (
     initialize_session,
 )
 
+# ==========================================================
+# Frontend Banner
+# ==========================================================
+
+FRONTEND_DIR = Path(__file__).resolve().parent
+
+FRONTEND_BANNER = (
+    FRONTEND_DIR
+    / "assets"
+    / "images"
+    / "frontend_banner.png"
+)
+
+if FRONTEND_BANNER.exists():
+    st.image(
+        str(FRONTEND_BANNER),
+        use_container_width=True,
+    )
 
 # ==========================================================
 # Page Configuration
