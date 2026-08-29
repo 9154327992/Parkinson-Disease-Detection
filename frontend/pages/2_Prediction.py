@@ -737,28 +737,28 @@ with st.expander(
         """
 The prediction model uses 22 voice measurements:
 
-1. MDVP:Fo(Hz)
-2. MDVP:Fhi(Hz)
-3. MDVP:Flo(Hz)
-4. MDVP:Jitter(%)
-5. MDVP:Jitter(Abs)
-6. MDVP:RAP
-7. MDVP:PPQ
-8. Jitter:DDP
-9. MDVP:Shimmer
-10. MDVP:Shimmer(dB)
-11. Shimmer:APQ3
-12. Shimmer:APQ5
-13. MDVP:APQ
-14. Shimmer:DDA
-15. NHR
-16. HNR
-17. RPDE
-18. DFA
-19. Spread1
-20. Spread2
-21. D2
-22. PPE
+1. MDVP:Fo(Hz): Average fundamental frequency of the voice, representing the typical vocal pitch.
+2. MDVP:Fhi(Hz): Highest fundamental frequency detected in the voice recording.
+3. MDVP:Flo(Hz): Lowest fundamental frequency detected in the voice recording.
+4. MDVP:Jitter(%): Percentage of short-term variation in vocal pitch from one cycle to the next.
+5. MDVP:Jitter(Abs): Absolute amount of short-term variation in vocal pitch.
+6. MDVP:RAP: Relative average perturbation measuring short-term pitch instability.
+7. MDVP:PPQ: Pitch perturbation quotient measuring periodic variation in vocal frequency.
+8. Jitter:DDP: A derived measure of pitch variation based on differences between consecutive pitch periods.
+9. MDVP:Shimmer: Short-term variation in the amplitude or loudness of consecutive voice cycles.
+10. MDVP:Shimmer(dB): Shimmer expressed in decibels, describing short-term amplitude variation.
+11. Shimmer:APQ3: Amplitude perturbation measured over three consecutive voice cycles.
+12. Shimmer:APQ5: Amplitude perturbation measured over five consecutive voice cycles.
+13. MDVP:APQ: Average perturbation quotient measuring variation in vocal amplitude.
+14. Shimmer:DDA: Derived measure representing amplitude variation across consecutive voice cycles.
+15. NHR: Noise-to-harmonics ratio estimating the amount of noise relative to harmonic voice components.
+16. HNR: Harmonics-to-noise ratio estimating how strong harmonic components are compared with noise.
+17. RPDE: Recurrence period density entropy describing irregularity and complexity in vocal dynamics.
+18. DFA: Detrended fluctuation analysis measuring long-range correlations in the voice signal.
+19. spread1: Nonlinear frequency variation measure associated with the distribution of voice frequencies.
+20. spread2: Another nonlinear measure describing variation in the voice frequency characteristics.
+21. D2: Correlation dimension measuring the complexity of the vocal signal.
+22. PPE: Pitch period entropy measuring the unpredictability or irregularity of vocal pitch.
         """
     )
 
