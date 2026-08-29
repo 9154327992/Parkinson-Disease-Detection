@@ -1,7 +1,7 @@
 import streamlit as st
 from pathlib import Path
+
 from utils.api_client import (
-    login_user,
     get_analytics,
     get_patient_history,
     get_reports,
@@ -12,24 +12,40 @@ from utils.session import (
     initialize_session,
 )
 
+
 # ==========================================================
-# Frontend Banner
+# Paths
 # ==========================================================
 
-FRONTEND_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = Path(
+    __file__
+).resolve().parent
 
-FRONTEND_BANNER = (
+ASSETS_DIR = (
     FRONTEND_DIR
     / "assets"
+)
+
+IMAGES_DIR = (
+    ASSETS_DIR
     / "images"
+)
+
+LOGO_PATH = (
+    ASSETS_DIR
+    / "logo.png"
+)
+
+FAVICON_PATH = (
+    ASSETS_DIR
+    / "favicon.ico"
+)
+
+FRONTEND_BANNER = (
+    IMAGES_DIR
     / "frontend_banner.png"
 )
 
-if FRONTEND_BANNER.exists():
-    st.image(
-        str(FRONTEND_BANNER),
-        use_container_width=True,
-    )
 
 # ==========================================================
 # Page Configuration
@@ -37,9 +53,32 @@ if FRONTEND_BANNER.exists():
 
 st.set_page_config(
     page_title="Parkinson Disease Detection Agent",
-    page_icon="🧠",
+    page_icon=(
+        str(FAVICON_PATH)
+        if FAVICON_PATH.exists()
+        else "🧠"
+    ),
     layout="wide",
+    initial_sidebar_state="expanded",
 )
+
+
+# ==========================================================
+# Application Logo
+# ==========================================================
+
+if LOGO_PATH.exists():
+
+    try:
+
+        st.logo(
+            str(LOGO_PATH),
+            size="large",
+        )
+
+    except Exception:
+
+        pass
 
 
 # ==========================================================
@@ -53,9 +92,7 @@ initialize_session()
 # Helper Functions
 # ==========================================================
 
-def safe_list(
-    value,
-):
+def safe_list(value):
     """
     Convert common API responses into a list.
     """
@@ -64,6 +101,7 @@ def safe_list(
         value,
         list,
     ):
+
         return value
 
 
@@ -99,6 +137,7 @@ def get_metric(
         data,
         dict,
     ):
+
         return default
 
 
@@ -111,6 +150,7 @@ def get_metric(
         if value is not None:
 
             try:
+
                 return int(
                     value
                 )
@@ -124,6 +164,24 @@ def get_metric(
 
 
     return default
+
+
+# ==========================================================
+# Frontend Banner
+# ==========================================================
+
+if FRONTEND_BANNER.exists():
+
+    st.image(
+        str(FRONTEND_BANNER),
+        use_container_width=True,
+    )
+
+else:
+
+    st.warning(
+        "Frontend banner image was not found."
+    )
 
 
 # ==========================================================
@@ -161,6 +219,7 @@ role = st.session_state.get(
     "User",
 )
 
+
 # ==========================================================
 # Logged-in Header
 # ==========================================================
@@ -187,8 +246,87 @@ st.success(
 
 with st.sidebar:
 
+    # ------------------------------------------------------
+    # Logo
+    # ------------------------------------------------------
+
+    if LOGO_PATH.exists():
+
+        st.image(
+            str(LOGO_PATH),
+            width=170,
+        )
+
+    else:
+
+        st.markdown(
+            """
+            <div style="
+                text-align:center;
+                font-size:42px;
+                padding:10px;
+            ">
+                🧠
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            font-weight:700;
+            font-size:18px;
+            margin-bottom:10px;
+        ">
+            Parkinson Disease
+        </div>
+
+        <div style="
+            text-align:center;
+            font-size:13px;
+            opacity:0.7;
+            margin-bottom:15px;
+        ">
+            Detection Agent
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+    st.divider()
+
+
     st.caption(
         f"Backend: {get_api_url()}"
+    )
+
+
+    st.divider()
+
+
+    st.markdown(
+        "### 🧭 Quick Navigation"
+    )
+
+    st.caption(
+        "Use the navigation menu to open the "
+        "different sections of the application."
+    )
+
+
+    st.divider()
+
+
+    st.caption(
+        f"👤 User: {username}"
+    )
+
+    st.caption(
+        f"🔐 Role: {role}"
     )
 
 
@@ -200,11 +338,31 @@ with st.spinner(
     "Loading dashboard..."
 ):
 
-    analytics = get_analytics()
+    try:
 
-    history = get_patient_history()
+        analytics = get_analytics()
 
-    reports = get_reports()
+    except Exception:
+
+        analytics = {}
+
+
+    try:
+
+        history = get_patient_history()
+
+    except Exception:
+
+        history = []
+
+
+    try:
+
+        reports = get_reports()
+
+    except Exception:
+
+        reports = []
 
 
 # ==========================================================
@@ -329,8 +487,6 @@ total_patients = get_metric(
 
 if total_patients == 0:
 
-    # Try analytics patient section.
-
     patient_data = analytics.get(
         "patient",
         {},
@@ -423,12 +579,6 @@ with col3:
 
 
 with col4:
-
-    risk_total = (
-        high_risk
-        + medium_risk
-        + low_risk
-    )
 
     st.metric(
         "⚠️ High Risk",
@@ -556,10 +706,7 @@ st.subheader(
 
 if history_list:
 
-    recent = history_list[
-        :5
-    ]
-
+    recent = history_list[:5]
 
     rows = []
 
@@ -570,64 +717,64 @@ if history_list:
             item,
             dict,
         ):
+
             continue
 
 
         patient_name = (
-            item.get(
-                "patient_name"
-            )
-            or item.get(
-                "name"
-            )
+            item.get("patient_name")
+            or item.get("name")
             or "Unknown"
         )
 
 
         diagnosis = (
-            item.get(
-                "diagnosis"
-            )
-            or item.get(
-                "prediction"
-            )
-            or item.get(
-                "prediction_result"
-            )
+            item.get("diagnosis")
+            or item.get("prediction")
+            or item.get("prediction_result")
             or "Unknown"
         )
 
 
         risk_level = (
-            item.get(
-                "risk_level"
-            )
-            or item.get(
-                "risk_category"
-            )
+            item.get("risk_level")
+            or item.get("risk_category")
             or "Unknown"
         )
 
 
-        risk_score = (
-            item.get(
-                "risk_score"
-            )
+        risk_score = item.get(
+            "risk_score"
         )
 
 
         created_at = (
-            item.get(
-                "created_at"
-            )
-            or item.get(
-                "timestamp"
-            )
-            or item.get(
-                "date"
-            )
+            item.get("created_at")
+            or item.get("timestamp")
+            or item.get("date")
             or "N/A"
         )
+
+
+        formatted_risk_score = "N/A"
+
+
+        if risk_score is not None:
+
+            try:
+
+                formatted_risk_score = (
+                    f"{float(risk_score):.2f}%"
+                )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+
+                formatted_risk_score = str(
+                    risk_score
+                )
 
 
         rows.append(
@@ -642,11 +789,7 @@ if history_list:
                     risk_level,
 
                 "Risk Score":
-                    (
-                        f"{float(risk_score):.2f}%"
-                        if risk_score is not None
-                        else "N/A"
-                    ),
+                    formatted_risk_score,
 
                 "Date":
                     created_at,
@@ -763,6 +906,7 @@ st.markdown(
 This platform provides:
 
 - 🩺 AI-assisted Parkinson's screening
+- 🎙️ Voice-based analysis
 - 👤 Patient management
 - 📋 Prediction history
 - 📄 Medical report management
@@ -773,6 +917,27 @@ This platform provides:
 **Important:** Prediction results are AI-assisted
 screening information and should not be treated as
 a medical diagnosis.
+"""
+)
+
+
+# ==========================================================
+# Medical Disclaimer
+# ==========================================================
+
+st.warning(
+    """
+⚠️ **Medical Disclaimer**
+
+This application provides educational and
+AI-assisted screening information.
+
+Prediction results are not a diagnosis and should
+not replace professional medical advice, diagnosis,
+or treatment.
+
+If you have persistent or concerning symptoms,
+consult a qualified healthcare professional.
 """
 )
 
