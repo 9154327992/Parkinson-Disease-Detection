@@ -486,27 +486,55 @@ if (
 
     st.session_state.scroll_to_answer = False
 
-    st.markdown(
+    import streamlit.components.v1 as components
+
+    components.html(
         """
         <script>
         setTimeout(function() {
 
-            const target =
-                document.getElementById("latest-answer");
+            try {
 
-            if (target) {
+                const parentDocument =
+                    window.parent.document;
 
-                target.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                });
+                const messages =
+                    parentDocument.querySelectorAll(
+                        '[data-testid="stChatMessage"]'
+                    );
+
+                if (messages.length > 0) {
+
+                    const lastMessage =
+                        messages[messages.length - 1];
+
+                    lastMessage.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center"
+                    });
+
+                } else {
+
+                    window.parent.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: "smooth"
+                    });
+
+                }
+
+            } catch (error) {
+
+                console.log(
+                    "Automatic scroll failed:",
+                    error
+                );
 
             }
 
-        }, 500);
+        }, 800);
         </script>
         """,
-        unsafe_allow_html=True,
+        height=0,
     )
 
 
