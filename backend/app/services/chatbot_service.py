@@ -851,12 +851,16 @@ class ChatbotService:
 
                 "**Healthy practices include:**\n\n"
 
-                + "\n".join(
-                    f"• {item}"
-                    for item in information.prevention
-                )
+                "• **Regular physical activity**\n"
+                "  Staying physically active can support overall "
+                "health and mobility.\n\n"
 
-                + "\n\n"
+                "• **Healthy diet**\n"
+                "  A balanced diet can support general health.\n\n"
+
+                "• **Routine medical care**\n"
+                "  Regular healthcare visits can help address "
+                "health concerns appropriately.\n\n"
 
                 "These measures do not guarantee that Parkinson "
                 "disease will be prevented.\n\n"
