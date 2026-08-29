@@ -1,22 +1,7 @@
 import streamlit as st
-
 from pathlib import Path
-from utils.api_client import (
-    ask_ai_assistant,
-)
 
-IMAGE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "assets"
-    / "images"
-    / "chatbot_banner.png"
-)
-
-if IMAGE_PATH.exists():
-    st.image(
-        str(IMAGE_PATH),
-        use_container_width=True,
-    )
+from utils.api_client import ask_ai_assistant
 
 
 # ==========================================================
@@ -31,17 +16,49 @@ st.set_page_config(
 
 
 # ==========================================================
+# Paths
+# ==========================================================
+
+FRONTEND_DIR = Path(
+    __file__
+).resolve().parents[1]
+
+IMAGE_PATH = (
+    FRONTEND_DIR
+    / "assets"
+    / "images"
+    / "chatbot_banner.png"
+)
+
+
+# ==========================================================
 # Session State
 # ==========================================================
 
 if "chat_history" not in st.session_state:
-
     st.session_state.chat_history = []
 
 
 if "ai_error" not in st.session_state:
-
     st.session_state.ai_error = None
+
+
+# ==========================================================
+# Banner
+# ==========================================================
+
+if IMAGE_PATH.exists():
+
+    st.image(
+        str(IMAGE_PATH),
+        use_container_width=True,
+    )
+
+else:
+
+    st.warning(
+        "Chatbot banner image was not found."
+    )
 
 
 # ==========================================================
@@ -52,45 +69,121 @@ st.title(
     "🤖 AI Health Assistant"
 )
 
-
-st.write(
+st.markdown(
     """
-    Ask questions about Parkinson's Disease, symptoms,
-    diagnosis, exercise, medication, nutrition, and
-    healthy lifestyle recommendations.
-    """
+Ask questions about **Parkinson's disease, symptoms,
+diagnosis, exercise, nutrition, medication, voice
+changes, and healthy lifestyle practices.**
+"""
 )
+
+st.caption(
+    "AI-assisted educational health information"
+)
+
+st.divider()
+
+
+# ==========================================================
+# Suggested Questions
+# ==========================================================
+
+st.subheader(
+    "💡 Suggested Questions"
+)
+
+st.markdown(
+    "Choose a question or type your own below."
+)
+
+
+suggested_questions = [
+
+    "What is Parkinson's disease?",
+
+    "What are the early symptoms of Parkinson's disease?",
+
+    "How can the risk of Parkinson's disease be reduced?",
+
+    "How is Parkinson's disease diagnosed?",
+
+    "Is Parkinson's disease curable?",
+
+    "What exercises may be beneficial for people with Parkinson's?",
+
+    "What foods are recommended for a healthy lifestyle?",
+
+    "What causes tremors and slowed movement?",
+
+    "What is bradykinesia?",
+
+    "What are Parkinson's-related voice changes?",
+
+]
+
+
+# ==========================================================
+# Suggested Question Buttons
+# ==========================================================
+
+question_columns = st.columns(2)
+
+
+for index, question_text in enumerate(
+    suggested_questions
+):
+
+    column = question_columns[
+        index % 2
+    ]
+
+    with column:
+
+        if st.button(
+            question_text,
+            key=f"question_{index}",
+            use_container_width=True,
+        ):
+
+            st.session_state[
+                "pending_question"
+            ] = question_text
+
+            st.rerun()
 
 
 st.divider()
 
 
 # ==========================================================
-# Ask AI
+# AI Request Function
 # ==========================================================
 
 def ask_question(
     question: str,
 ):
     """
-    Send a question to the FastAPI chatbot.
-
-    Handles dictionary, string, None, and unexpected
-    API responses safely.
+    Send a question to the FastAPI AI assistant
+    and store the response in chat history.
     """
 
     question = str(
         question
     ).strip()
 
-
     if not question:
-
         return
 
 
     # ------------------------------------------------------
-    # Add User Message
+    # Clear previous error
+    # ------------------------------------------------------
+
+    st.session_state.ai_error = None
+
+
+    # ------------------------------------------------------
+    # Store User Message
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
@@ -101,15 +194,14 @@ def ask_question(
     )
 
 
-    st.session_state.ai_error = None
-
-
     # ------------------------------------------------------
-    # Ask Backend
+    # Call Backend
     # ------------------------------------------------------
+
+    response = None
 
     with st.spinner(
-        "🤖 AI is thinking..."
+        "🤖 AI Health Assistant is thinking..."
     ):
 
         try:
@@ -120,11 +212,12 @@ def ask_question(
 
         except Exception as exc:
 
-            response = None
-
             st.session_state.ai_error = (
-                f"AI Assistant request failed: {exc}"
+                "Unable to connect to the AI Health "
+                "Assistant."
             )
+
+            response = None
 
 
     # ------------------------------------------------------
@@ -134,20 +227,14 @@ def ask_question(
     if response is None:
 
         answer = (
-            "Unable to connect to the AI Health "
-            "Assistant. Please try again."
+            "I could not get a response from the "
+            "AI Health Assistant. Please check the "
+            "backend connection and try again."
         )
 
 
-        if not st.session_state.ai_error:
-
-            st.session_state.ai_error = (
-                "The backend did not return a response."
-            )
-
-
     # ------------------------------------------------------
-    # Dictionary Response
+    # Handle Dictionary Response
     # ------------------------------------------------------
 
     elif isinstance(
@@ -155,32 +242,33 @@ def ask_question(
         dict,
     ):
 
-        # Our api_client may return "answer".
-        # The backend may return "response".
-
         answer = (
             response.get("answer")
             or response.get("response")
             or response.get("message")
+            or response.get("content")
             or ""
         )
+
+        answer = str(
+            answer
+        ).strip()
 
 
         if not answer:
 
             answer = (
-                "The AI Assistant returned an "
-                "empty response."
+                "The AI Health Assistant returned "
+                "an empty response."
             )
 
-
             st.session_state.ai_error = (
-                "The AI Assistant returned no answer."
+                "The backend returned no answer."
             )
 
 
         # --------------------------------------------------
-        # Backend failure
+        # Backend explicitly reported failure
         # --------------------------------------------------
 
         if response.get(
@@ -188,18 +276,14 @@ def ask_question(
         ) is False:
 
             st.session_state.ai_error = (
-                response.get(
-                    "answer"
-                )
-                or response.get(
-                    "response"
-                )
+                response.get("error")
+                or response.get("message")
                 or "AI Assistant request failed."
             )
 
 
     # ------------------------------------------------------
-    # Plain Text Response
+    # Handle String Response
     # ------------------------------------------------------
 
     elif isinstance(
@@ -213,7 +297,7 @@ def ask_question(
         if not answer:
 
             answer = (
-                "The AI Assistant returned "
+                "The AI Health Assistant returned "
                 "an empty response."
             )
 
@@ -225,115 +309,54 @@ def ask_question(
     else:
 
         answer = (
-            "The AI Assistant returned an "
-            "unexpected response."
+            "The AI Health Assistant returned "
+            "an unexpected response."
         )
 
-
         st.session_state.ai_error = (
-            f"Unexpected response type: "
+            "Unexpected backend response type: "
             f"{type(response).__name__}"
         )
 
 
     # ------------------------------------------------------
-    # Save AI Response
+    # Store Assistant Response
     # ------------------------------------------------------
 
     st.session_state.chat_history.append(
         {
             "role": "assistant",
-            "content": str(
-                answer
-            ),
+            "content": answer,
         }
     )
 
 
 # ==========================================================
-# Suggested Questions
+# Process Suggested Question
 # ==========================================================
 
-st.subheader(
-    "💡 Suggested Questions"
-)
+if "pending_question" in st.session_state:
 
-
-# ==========================================================
-# Default Questions
-# ==========================================================
-
-suggested_questions = [
-    "What is Parkinson's Disease?",
-    "What causes hand tremors?",
-    "What are the early symptoms?",
-    "Is Parkinson curable?",
-    "How is Parkinson diagnosed?",
-    "What foods are recommended?",
-    "Which exercises are beneficial?",
-    "How can stress be reduced?",
-    "Explain Bradykinesia.",
-    "Explain Voice Disorders.",
-]
-
-
-# ----------------------------------------------------------
-# Limit displayed questions
-# ----------------------------------------------------------
-
-suggested_questions = (
-    suggested_questions[:10]
-)
-
-
-# ==========================================================
-# Suggested Question Buttons
-# ==========================================================
-
-col1, col2 = st.columns(
-    2
-)
-
-
-for index, question in enumerate(
-    suggested_questions
-):
-
-    column = (
-        col1
-        if index % 2 == 0
-        else col2
+    pending_question = (
+        st.session_state.pop(
+            "pending_question"
+        )
     )
 
+    ask_question(
+        pending_question
+    )
 
-    with column:
-
-        if st.button(
-            question,
-            key=(
-                f"suggested_question_"
-                f"{index}"
-            ),
-            width="stretch",
-        ):
-
-            ask_question(
-                question
-            )
-
-            st.rerun()
-
-
-st.divider()
+    st.rerun()
 
 
 # ==========================================================
-# Error Information
+# Error Display
 # ==========================================================
 
 if st.session_state.ai_error:
 
-    st.warning(
+    st.error(
         "⚠️ "
         + str(
             st.session_state.ai_error
@@ -354,8 +377,11 @@ if not st.session_state.chat_history:
 
     st.info(
         """
-        Select a suggested question above
-        or type your own question below.
+        👋 Welcome to the AI Health Assistant.
+
+        Ask a question about Parkinson's disease,
+        symptoms, diagnosis, exercise, nutrition,
+        medication, voice changes, or healthy living.
         """
     )
 
@@ -370,7 +396,6 @@ else:
             message,
             dict,
         ):
-
             continue
 
 
@@ -378,7 +403,6 @@ else:
             "role",
             "assistant",
         )
-
 
         content = message.get(
             "content",
@@ -410,13 +434,9 @@ else:
 # ==========================================================
 
 question = st.chat_input(
-    "Ask your medical question..."
+    "Ask your health question..."
 )
 
-
-# ==========================================================
-# Process User Input
-# ==========================================================
 
 if question:
 
@@ -428,22 +448,87 @@ if question:
 
 
 # ==========================================================
-# Clear Conversation
+# Conversation Controls
+# ==========================================================
+
+if st.session_state.chat_history:
+
+    st.divider()
+
+    control_col1, control_col2 = (
+        st.columns(2)
+    )
+
+
+    with control_col1:
+
+        if st.button(
+            "🗑 Clear Conversation",
+            use_container_width=True,
+        ):
+
+            st.session_state.chat_history = []
+
+            st.session_state.ai_error = None
+
+            st.rerun()
+
+
+    with control_col2:
+
+        if st.button(
+            "🔄 Start New Conversation",
+            use_container_width=True,
+        ):
+
+            st.session_state.chat_history = []
+
+            st.session_state.ai_error = None
+
+            st.rerun()
+
+
+# ==========================================================
+# Health Assistant Guidance
 # ==========================================================
 
 st.divider()
 
-
-if st.button(
-    "🗑 Clear Conversation",
-    width="stretch",
+with st.expander(
+    "ℹ️ What can I ask?"
 ):
 
-    st.session_state.chat_history = []
+    st.markdown(
+        """
+### Parkinson's Disease
 
-    st.session_state.ai_error = None
+- What is Parkinson's disease?
+- What are the common symptoms?
+- What are early warning signs?
+- How is Parkinson's diagnosed?
+- Is Parkinson's curable?
 
-    st.rerun()
+### Lifestyle
+
+- What exercises may help?
+- What foods support a healthy lifestyle?
+- How can sleep be improved?
+- How can stress be managed?
+
+### Voice and Movement
+
+- What is bradykinesia?
+- What causes tremors?
+- Why can Parkinson's affect speech?
+- What are common voice changes?
+
+### General Health
+
+You can also ask about general health topics,
+but the assistant provides **educational information**
+and cannot provide a personal diagnosis.
+"""
+    )
 
 
 # ==========================================================
@@ -452,19 +537,20 @@ if st.button(
 
 st.divider()
 
-
 st.warning(
     """
-    ⚠️ **Medical Disclaimer**
+⚠️ **Medical Disclaimer**
 
-    The AI Health Assistant provides general
-    educational information and is not a substitute
-    for professional medical advice, diagnosis,
-    or treatment.
+The AI Health Assistant provides general educational
+information. It is not a substitute for professional
+medical advice, diagnosis, or treatment.
 
-    Always consult a qualified healthcare professional
-    for personal medical decisions.
-    """
+The assistant cannot diagnose Parkinson's disease or
+determine an individual's medical condition.
+
+If you have persistent, worsening, or concerning
+symptoms, consult a qualified healthcare professional.
+"""
 )
 
 
