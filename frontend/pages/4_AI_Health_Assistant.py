@@ -1,6 +1,6 @@
 import streamlit as st
 
-
+from pathlib import Path
 from utils.api_client import (
     ask_ai_assistant,
 )
