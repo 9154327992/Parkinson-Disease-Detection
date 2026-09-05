@@ -1928,7 +1928,6 @@ def ask_ai_assistant(
         result,
         dict,
     ):
-
         return None
 
     returned_conversation_id = (
