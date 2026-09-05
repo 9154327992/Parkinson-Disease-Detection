@@ -39,7 +39,6 @@ st.set_page_config(
 
 initialize_session()
 
-
 # ==========================================================
 # Responsive Banner
 # ==========================================================
@@ -54,12 +53,10 @@ IMAGE_PATH = (
 
 if IMAGE_PATH.exists():
 
-    image_bytes = IMAGE_PATH.read_bytes()
-
     import base64
 
     image_base64 = base64.b64encode(
-        image_bytes
+        IMAGE_PATH.read_bytes()
     ).decode(
         "utf-8"
     )
@@ -67,31 +64,34 @@ if IMAGE_PATH.exists():
 
     st.html(
         f"""
-        <div class="responsive-banner">
-            <img
-                src="data:image/png;base64,{image_base64}"
-                alt="Parkinson Disease Detection Banner"
-            >
-        </div>
-
         <style>
 
-        .responsive-banner {{
+        .banner-wrapper {{
             width: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
         }}
 
-        .responsive-banner img {{
-            width: 100%;
-            max-width: 100%;
+        .banner-wrapper img {{
+            width: 100vw;
             height: auto;
             display: block;
-            object-fit: contain;
+
+            margin-left: 50%;
+            transform: translateX(-50%);
         }}
 
         </style>
+
+
+        <div class="banner-wrapper">
+
+            <img
+                src="data:image/png;base64,{image_base64}"
+                alt="Parkinson Disease Detection"
+            >
+
+        </div>
         """
     )
 
