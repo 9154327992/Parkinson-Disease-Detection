@@ -14,40 +14,6 @@ from utils.session import (
 
 
 # ==========================================================
-# Paths
-# ==========================================================
-
-FRONTEND_DIR = Path(
-    __file__
-).resolve().parent
-
-ASSETS_DIR = (
-    FRONTEND_DIR
-    / "assets"
-)
-
-IMAGES_DIR = (
-    ASSETS_DIR
-    / "images"
-)
-
-LOGO_PATH = (
-    ASSETS_DIR
-    / "logo.png"
-)
-
-FAVICON_PATH = (
-    ASSETS_DIR
-    / "favicon.ico"
-)
-
-FRONTEND_BANNER = (
-    IMAGES_DIR
-    / "frontend_banner.png"
-)
-
-
-# ==========================================================
 # Page Configuration
 # ==========================================================
 
@@ -87,6 +53,119 @@ if LOGO_PATH.exists():
 
 initialize_session()
 
+# ==========================================================
+# Frontend Banner
+# ==========================================================
+
+FRONTEND_BANNER = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "images"
+    / "frontend_banner.png"
+)
+
+
+if FRONTEND_BANNER.exists():
+
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        FRONTEND_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <style>
+
+        .frontend-banner-wrapper {{
+            width: 100%;
+            margin: 0 0 1rem 0;
+            padding: 0;
+        }}
+
+
+        .frontend-banner {{
+            /*
+            Responsive behavior:
+            - Smaller on low-resolution screens
+            - Larger on high-resolution screens
+            - No image cropping
+            - Original aspect ratio preserved
+            */
+
+            width: min(100%, 1600px);
+
+            height: auto;
+
+            display: block;
+
+            margin-left: auto;
+            margin-right: auto;
+
+            object-fit: contain;
+
+            border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .frontend-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .frontend-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / high-resolution screens */
+
+        @media (min-width: 1401px) {{
+
+            .frontend-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
+        }}
+
+        </style>
+
+
+        <div class="frontend-banner-wrapper">
+
+            <img
+                class="frontend-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Parkinson Disease Detection Agent"
+            >
+
+        </div>
+        """
+    )
+
+
+else:
+
+    st.warning(
+        "Frontend banner image was not found."
+    )
 
 # ==========================================================
 # Helper Functions
