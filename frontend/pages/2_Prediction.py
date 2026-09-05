@@ -5,24 +5,6 @@ from utils.api_client import (
     predict_audio,
 )
 
-# ==========================================================
-# Prediction Banner
-# ==========================================================
-
-FRONTEND_DIR = Path(__file__).resolve().parents[1]
-
-PREDICTION_BANNER = (
-    FRONTEND_DIR
-    / "assets"
-    / "images"
-    / "prediction_banner.png"
-)
-
-if PREDICTION_BANNER.exists():
-    st.image(
-        str(PREDICTION_BANNER),
-        use_container_width=True,
-    )
 
 # ==========================================================
 # Page Configuration
@@ -34,6 +16,111 @@ st.set_page_config(
     layout="wide",
 )
 
+# ==========================================================
+# Prediction Banner
+# ==========================================================
+
+PREDICTION_BANNER = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "prediction_banner.png"
+)
+
+
+if PREDICTION_BANNER.exists():
+
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        PREDICTION_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <style>
+
+        .prediction-banner-wrapper {{
+            width: 100%;
+            margin: 0 0 1rem 0;
+            padding: 0;
+        }}
+
+
+        .prediction-banner {{
+            width: min(100%, 1600px);
+
+            height: auto;
+
+            display: block;
+
+            margin-left: auto;
+            margin-right: auto;
+
+            object-fit: contain;
+
+            border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .prediction-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .prediction-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / High Resolution Screens */
+
+        @media (min-width: 1401px) {{
+
+            .prediction-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
+        }}
+
+        </style>
+
+
+        <div class="prediction-banner-wrapper">
+
+            <img
+                class="prediction-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Parkinson Disease Prediction"
+            >
+
+        </div>
+        """
+    )
+
+
+else:
+
+    st.warning(
+        "Prediction banner image was not found."
+    )
 
 # ==========================================================
 # Header
