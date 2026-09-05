@@ -37,14 +37,14 @@ class ChatbotService:
             or str(uuid4())
         )
 
-        conversation_history = self._history.get(
+        history = self._history.get(
             conversation_id,
             [],
         )
 
         answer = self._generate_response(
             message=request.message,
-            history=conversation_history,
+            history=history,
         )
 
         user_message = ChatMessage(
@@ -53,17 +53,21 @@ class ChatbotService:
             timestamp=datetime.utcnow(),
         )
 
-        self._history.setdefault(
-            conversation_id,
-            [],
-        ).append(
-            user_message
-        )
-
         assistant_message = ChatMessage(
             role="assistant",
             content=answer,
             timestamp=datetime.utcnow(),
+        )
+
+        self._history.setdefault(
+            conversation_id,
+            [],
+        )
+
+        self._history[
+            conversation_id
+        ].append(
+            user_message
         )
 
         self._history[
@@ -80,23 +84,22 @@ class ChatbotService:
                 "World Health Organization",
             ],
             suggestions=[
-                "What is Parkinson's Disease?",
-                "What causes hand tremors?",
+                "What is Parkinson's disease?",
                 "What are the early symptoms?",
                 "How can Parkinson risk be reduced?",
-                "Is Parkinson curable?",
-                "How is Parkinson diagnosed?",
-                "What foods are recommended?",
-                "Which exercises are beneficial?",
-                "How can stress be reduced?",
-                "Explain Bradykinesia.",
-                "Explain Voice Disorders.",
+                "Is Parkinson's disease curable?",
+                "How is Parkinson's disease diagnosed?",
+                "What foods support a healthy lifestyle?",
+                "Which exercises may be beneficial?",
+                "How can stress be managed?",
+                "What is bradykinesia?",
+                "What are Parkinson's-related voice changes?",
             ],
             timestamp=datetime.utcnow(),
         )
 
     # ==========================================================
-    # Conversation Context
+    # Context
     # ==========================================================
 
     def _get_context(
@@ -104,9 +107,12 @@ class ChatbotService:
         history,
     ) -> str:
 
+        if not history:
+            return ""
+
         messages = []
 
-        for message in history[-8:]:
+        for message in history[-10:]:
 
             content = getattr(
                 message,
@@ -115,7 +121,6 @@ class ChatbotService:
             )
 
             if content:
-
                 messages.append(
                     str(content).lower()
                 )
@@ -125,7 +130,31 @@ class ChatbotService:
         )
 
     # ==========================================================
-    # Generate Response
+    # Helpers
+    # ==========================================================
+
+    def _contains_any(
+        self,
+        text: str,
+        keywords,
+    ) -> bool:
+
+        return any(
+            keyword in text
+            for keyword in keywords
+        )
+
+    def _disclaimer(
+        self,
+    ) -> str:
+
+        return (
+            "This information is educational and is not a "
+            "substitute for professional medical advice."
+        )
+
+    # ==========================================================
+    # Response Generation
     # ==========================================================
 
     def _generate_response(
@@ -147,7 +176,7 @@ class ChatbotService:
         if not text:
 
             return (
-                "Please enter a question about Parkinson disease "
+                "Please enter a question about Parkinson's disease "
                 "or another supported health topic."
             )
 
@@ -159,7 +188,6 @@ class ChatbotService:
             "hi",
             "hello",
             "hey",
-            "hiya",
             "good morning",
             "good afternoon",
             "good evening",
@@ -169,588 +197,434 @@ class ChatbotService:
                 "Hello! 👋 I am the Parkinson Disease "
                 "AI Health Assistant.\n\n"
                 "I can provide educational information about "
-                "Parkinson disease, symptoms, causes, risk factors, "
-                "diagnosis, treatment, exercise, nutrition, "
-                "stress, sleep, voice changes, and healthy habits.\n\n"
+                "Parkinson's disease, symptoms, causes, risk "
+                "factors, diagnosis, treatment, exercise, "
+                "nutrition, sleep, stress, movement, and "
+                "voice changes.\n\n"
                 "How can I help you?"
             )
 
         # ======================================================
-        # Prevention / Risk Reduction
+        # CURABILITY
+        #
+        # IMPORTANT:
+        # This must appear BEFORE the generic Parkinson rule.
         # ======================================================
 
-        prevention_keywords = [
-
-            "prevent",
-            "prevention",
-            "preventing",
-
-            "avoid parkinson",
-            "avoid the disease",
-            "avoid it",
-
-            "reduce risk",
-            "reduce the risk",
-
-            "lower risk",
-            "lower the risk",
-
-            "how to avoid",
-            "how can i avoid",
-
-            "how to prevent",
-            "how can i prevent",
-
-            "can it be prevented",
-            "can this be prevented",
-
-            "can parkinson be prevented",
-            "is parkinson preventable",
-
-            "how to prevent it",
-            "how can i prevent it",
-
-            "what can i do to prevent",
-        ]
-
-        if any(
-            keyword in text
-            for keyword in prevention_keywords
+        if self._contains_any(
+            text,
+            [
+                "curable",
+                "cure parkinson",
+                "cure for parkinson",
+                "can parkinson be cured",
+                "is there a cure",
+            ],
         ):
 
-            information = (
-                self.parkinson_information()
+            return (
+                "**Parkinson's disease currently does not have "
+                "a definitive cure.**\n\n"
+                "However, treatments and rehabilitation can help "
+                "manage symptoms and support quality of life. "
+                "Treatment may include medication, exercise, "
+                "physical therapy, speech therapy, and other "
+                "support depending on the individual's needs.\n\n"
+                + self._disclaimer()
             )
 
+        # ======================================================
+        # PREVENTION / RISK REDUCTION
+        # ======================================================
+
+        if self._contains_any(
+            text,
+            [
+                "prevent",
+                "prevention",
+                "preventing",
+                "reduce risk",
+                "reduce the risk",
+                "risk be reduced",
+                "lower risk",
+                "avoid parkinson",
+                "avoid the disease",
+                "how can i avoid",
+                "how to avoid",
+                "how can i prevent",
+                "how to prevent",
+                "can it be prevented",
+                "can parkinson be prevented",
+                "is parkinson preventable",
+                "prevent it",
+                "avoid it",
+                "reduce its risk",
+            ],
+        ):
+
             return (
-                "There is currently no guaranteed way to prevent "
-                "Parkinson disease. However, healthy lifestyle "
+                "There is currently **no guaranteed way to prevent "
+                "Parkinson's disease**. However, healthy lifestyle "
                 "practices can support overall health and may help "
-                "reduce some risk factors.\n\n"
+                "reduce certain risk factors.\n\n"
 
                 "**Healthy practices include:**\n\n"
 
-                "• **Regular physical activity**\n"
-                "  Regular movement and exercise can support "
-                "general health and mobility.\n\n"
+                "• **Regular physical activity** — supports "
+                "general health, mobility, and physical fitness.\n\n"
 
-                "• **A balanced diet**\n"
-                "  Eating a varied and nutritious diet can support "
-                "overall health.\n\n"
+                "• **A balanced diet** — supports overall health "
+                "and nutritional well-being.\n\n"
 
-                "• **Good sleep and stress management**\n"
-                "  Maintaining healthy sleep habits and managing "
-                "stress can support general well-being.\n\n"
+                "• **Good sleep** — healthy sleep habits support "
+                "general physical and mental well-being.\n\n"
 
-                "• **Routine medical care**\n"
-                "  Regular healthcare visits can help identify and "
-                "address health concerns.\n\n"
+                "• **Stress management** — relaxation, exercise, "
+                "and social support may help manage stress.\n\n"
 
-                "These measures do not guarantee that Parkinson "
+                "• **Routine medical care** — regular healthcare "
+                "visits can help identify health concerns.\n\n"
+
+                "These practices do not guarantee that Parkinson's "
                 "disease will be prevented.\n\n"
 
-                + information.disclaimer
+                + self._disclaimer()
             )
 
         # ======================================================
-        # Follow-up prevention question
+        # DIAGNOSIS
         # ======================================================
 
-        if (
-            "parkinson" in context
-            and (
-                "prevent it" in text
-                or "avoid it" in text
-                or "reduce its risk" in text
-            )
+        if self._contains_any(
+            text,
+            [
+                "diagnosed",
+                "diagnosis",
+                "diagnose parkinson",
+                "diagnostic test",
+                "how is parkinson diagnosed",
+            ],
         ):
 
-            information = (
-                self.parkinson_information()
-            )
-
             return (
-                "If you are referring to Parkinson disease, there "
-                "is currently no guaranteed way to prevent it. "
-                "However, regular exercise, a balanced diet, "
-                "healthy sleep habits, stress management, and "
-                "routine medical care can support overall health.\n\n"
+                "Parkinson's disease is generally diagnosed through "
+                "a clinical evaluation rather than one single test.\n\n"
 
-                "These practices do not guarantee prevention.\n\n"
+                "**The assessment may include:**\n\n"
 
-                + information.disclaimer
+                "• Medical history\n"
+                "• Review of symptoms\n"
+                "• Neurological examination\n"
+                "• Assessment of movement and balance\n"
+                "• Additional tests when needed to rule out "
+                "other conditions\n\n"
+
+                "Diagnosis should be made by a qualified healthcare "
+                "professional.\n\n"
+
+                + self._disclaimer()
             )
 
         # ======================================================
-        # What is Parkinson Disease?
+        # EARLY SYMPTOMS
         # ======================================================
 
-        if (
-            "what is parkinson" in text
-            or "what's parkinson" in text
-            or "define parkinson" in text
-            or "tell me about parkinson" in text
-            or (
-                (
-                    "parkinson disease" in text
-                    or "parkinson's disease" in text
-                )
-                and len(text.split()) <= 7
-            )
+        if self._contains_any(
+            text,
+            [
+                "early symptom",
+                "early symptoms",
+                "early sign",
+                "early signs",
+                "first symptoms",
+                "warning signs",
+            ],
         ):
 
-            information = (
-                self.parkinson_information()
+            return (
+                "**Early symptoms associated with Parkinson's "
+                "disease may include:**\n\n"
+
+                "• Tremor or shaking\n"
+                "• Slowed movement\n"
+                "• Muscle stiffness or rigidity\n"
+                "• Changes in walking or posture\n"
+                "• Reduced facial expression\n"
+                "• Softer voice or speech changes\n"
+                "• Changes in handwriting\n\n"
+
+                "Symptoms vary between individuals and these "
+                "symptoms can also occur with other conditions.\n\n"
+
+                + self._disclaimer()
             )
+
+        # ======================================================
+        # CAUSES
+        # ======================================================
+
+        if self._contains_any(
+            text,
+            [
+                "what causes parkinson",
+                "causes of parkinson",
+                "cause of parkinson",
+                "why does parkinson happen",
+                "why do people get parkinson",
+            ],
+        ):
 
             return (
-                f"{information.definition}\n\n"
+                "The exact cause of Parkinson's disease is not "
+                "fully understood. It is thought to involve a "
+                "combination of factors.\n\n"
 
-                "**Common symptoms:**\n"
+                "**Factors associated with Parkinson's disease "
+                "may include:**\n\n"
 
-                + "\n".join(
-                    f"• {symptom}"
-                    for symptom
-                    in information.symptoms
-                )
+                "• Changes involving dopamine-producing neurons\n"
+                "• Genetic factors\n"
+                "• Environmental influences\n"
+                "• Increasing age\n\n"
 
-                + "\n\n"
+                "Having a risk factor does not mean a person will "
+                "develop Parkinson's disease.\n\n"
 
-                + information.disclaimer
+                + self._disclaimer()
             )
 
         # ======================================================
-        # Tremors
+        # RISK FACTORS
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
-                "hand tremor",
-                "hand tremors",
-                "my hands shake",
-                "hands shake",
-                "shaking hands",
+        if self._contains_any(
+            text,
+            [
+                "risk factor",
+                "risk factors",
+                "who is at risk",
+                "risk of parkinson",
+            ],
+        ):
+
+            return (
+                "Factors associated with a higher risk of "
+                "Parkinson's disease can include:\n\n"
+
+                "• Increasing age\n"
+                "• Family history in some cases\n"
+                "• Certain environmental influences\n\n"
+
+                "Risk factors do not guarantee that a person will "
+                "develop the disease.\n\n"
+
+                + self._disclaimer()
+            )
+
+        # ======================================================
+        # TREATMENT
+        # ======================================================
+
+        if self._contains_any(
+            text,
+            [
+                "treatment for parkinson",
+                "treatments for parkinson",
+                "how is parkinson treated",
+                "parkinson treatment",
+            ],
+        ):
+
+            return (
+                "Parkinson's disease management may include a "
+                "combination of approaches depending on the "
+                "individual's symptoms and needs.\n\n"
+
+                "**Approaches may include:**\n\n"
+
+                "• Medication\n"
+                "• Physical therapy\n"
+                "• Exercise and movement programs\n"
+                "• Speech and communication therapy\n"
+                "• Occupational therapy\n"
+                "• Other supportive care\n\n"
+
+                "Treatment should be planned with qualified "
+                "healthcare professionals."
+            )
+
+        # ======================================================
+        # MEDICATION
+        # ======================================================
+
+        if self._contains_any(
+            text,
+            [
+                "medication",
+                "medications",
+                "medicine",
+                "medicines",
+            ],
+        ):
+
+            return (
+                "Medication can be an important part of managing "
+                "Parkinson's disease symptoms. The appropriate "
+                "medication and dose depend on the individual.\n\n"
+
+                "Do not start, stop, or change medication without "
+                "guidance from a qualified healthcare professional."
+            )
+
+        # ======================================================
+        # TREMORS
+        # ======================================================
+
+        if self._contains_any(
+            text,
+            [
                 "tremor",
                 "tremors",
-                "shaking",
-            ]
+                "hand shake",
+                "hands shake",
+                "shaking hands",
+            ],
         ):
 
             return (
-                "Hand tremors can have several possible causes. "
-                "They may occur with conditions such as Parkinson "
-                "disease or essential tremor and can also be "
-                "associated with medication effects, stress, "
-                "anxiety, caffeine use, or other medical conditions.\n\n"
+                "Tremors can have several possible causes. They may "
+                "occur with Parkinson's disease or other conditions "
+                "and can also be associated with stress, anxiety, "
+                "caffeine, medication effects, or other medical "
+                "conditions.\n\n"
 
                 "A tremor alone does not establish a diagnosis. "
                 "Persistent or worsening tremors should be evaluated "
-                "by a qualified healthcare professional.\n\n"
+                "by a healthcare professional.\n\n"
 
-                "This information is educational and is not a "
-                "substitute for professional medical advice."
+                + self._disclaimer()
             )
 
         # ======================================================
-        # Early Symptoms
+        # BRADYKINESIA
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
-                "early symptom",
-                "early symptoms",
-                "early signs",
-                "first symptoms",
-                "initial symptoms",
-                "symptoms of parkinson",
-            ]
-        ):
-
-            information = (
-                self.parkinson_information()
-            )
-
-            return (
-                "Common symptoms associated with Parkinson "
-                "disease include:\n\n"
-
-                + "\n".join(
-                    f"• {symptom}"
-                    for symptom
-                    in information.symptoms
-                )
-
-                + "\n\n"
-
-                "Symptoms can vary between individuals. "
-                "Persistent or concerning symptoms should be "
-                "evaluated by a healthcare professional.\n\n"
-
-                + information.disclaimer
-            )
-
-        # ======================================================
-        # Bradykinesia
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
                 "bradykinesia",
                 "slow movement",
                 "slowness of movement",
-            ]
+            ],
         ):
 
             return (
                 "**Bradykinesia** means slowness of movement. "
                 "It is one of the movement-related features "
-                "associated with Parkinson disease.\n\n"
+                "associated with Parkinson's disease.\n\n"
 
-                "It can make everyday activities take longer and "
-                "may affect walking, getting up, dressing, writing, "
-                "or other fine-motor activities.\n\n"
+                "It may affect activities such as walking, getting "
+                "up, dressing, writing, and other everyday tasks.\n\n"
 
-                "Persistent movement changes should be evaluated "
-                "by a qualified healthcare professional."
+                + self._disclaimer()
             )
 
         # ======================================================
-        # Rigidity
+        # RIGIDITY
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
                 "rigidity",
                 "muscle stiffness",
                 "stiff muscles",
-                "stiffness",
-            ]
+            ],
         ):
 
             return (
-                "Rigidity refers to stiffness or resistance when "
-                "a limb or joint is moved. It can occur as a "
-                "movement-related symptom in Parkinson disease.\n\n"
+                "Rigidity refers to increased muscle stiffness or "
+                "resistance during movement. It can occur as a "
+                "movement-related symptom associated with "
+                "Parkinson's disease.\n\n"
 
                 "Persistent stiffness can have many causes and "
-                "should be evaluated by a healthcare professional."
+                "should be assessed by a healthcare professional."
             )
 
         # ======================================================
-        # Balance
+        # WALKING / BALANCE
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
                 "balance problem",
                 "balance problems",
-                "postural instability",
-                "falling",
-                "falls",
-            ]
-        ):
-
-            return (
-                "Balance difficulties can occur in Parkinson "
-                "disease and may increase the risk of falls.\n\n"
-
-                "Balance problems can also have many other causes. "
-                "A healthcare professional can help evaluate "
-                "persistent balance difficulties."
-            )
-
-        # ======================================================
-        # Walking
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
                 "walking problem",
                 "walking problems",
                 "difficulty walking",
-                "walking difficulty",
                 "freezing",
                 "shuffling",
-            ]
+                "falling",
+                "falls",
+            ],
         ):
 
             return (
-                "Parkinson disease can affect walking and movement. "
-                "Some people may experience slower walking, shorter "
-                "steps, shuffling, or freezing of gait.\n\n"
+                "Parkinson's disease can affect walking and balance. "
+                "Some people may experience slower movement, shorter "
+                "steps, shuffling, freezing of gait, or balance "
+                "difficulties.\n\n"
 
-                "Persistent mobility problems should be assessed "
-                "by a healthcare professional."
+                "Persistent balance or mobility problems should be "
+                "evaluated by a healthcare professional."
             )
 
         # ======================================================
-        # Voice / Speech
+        # VOICE / SPEECH
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
+                "voice",
+                "speech",
                 "voice disorder",
-                "voice disorders",
-                "voice problem",
-                "voice problems",
-                "speech problem",
-                "speech problems",
-                "voice change",
                 "voice changes",
                 "soft voice",
-                "speech changes",
-            ]
+            ],
         ):
 
             return (
-                "Voice and speech changes can occur in Parkinson "
-                "disease. Some people may experience a softer voice, "
-                "reduced vocal intensity, or changes in speech clarity.\n\n"
+                "Parkinson's disease can sometimes affect voice and "
+                "speech. Changes may include reduced vocal volume, "
+                "a softer voice, or changes in speech clarity.\n\n"
 
                 "Persistent voice or speech changes should be "
                 "evaluated by an appropriate healthcare professional."
             )
 
         # ======================================================
-        # Causes
+        # EXERCISE
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
-                "what causes parkinson",
-                "causes of parkinson",
-                "cause of parkinson",
-                "why does parkinson happen",
-                "why do people get parkinson",
-            ]
-        ):
-
-            information = (
-                self.parkinson_information()
-            )
-
-            return (
-                "Factors associated with Parkinson disease include:\n\n"
-
-                + "\n".join(
-                    f"• {cause}"
-                    for cause
-                    in information.causes
-                )
-
-                + "\n\n"
-
-                + information.disclaimer
-            )
-
-        # ======================================================
-        # Risk Factors
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
-                "risk factor",
-                "risk factors",
-                "who is at risk",
-                "risk of parkinson",
-            ]
-        ):
-
-            information = (
-                self.parkinson_information()
-            )
-
-            return (
-                "Risk factors associated with Parkinson disease "
-                "include:\n\n"
-
-                + "\n".join(
-                    f"• {risk}"
-                    for risk
-                    in information.risk_factors
-                )
-
-                + "\n\n"
-
-                + information.disclaimer
-            )
-
-        # ======================================================
-        # Diagnosis
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
-                "how is parkinson diagnosed",
-                "how to diagnose parkinson",
-                "diagnosis of parkinson",
-                "diagnose parkinson",
-                "diagnostic test",
-                "parkinson diagnosis",
-            ]
-        ):
-
-            information = (
-                self.parkinson_information()
-            )
-
-            return (
-                "Parkinson disease diagnosis generally involves:\n\n"
-
-                + "\n".join(
-                    f"• {item}"
-                    for item
-                    in information.diagnosis
-                )
-
-                + "\n\n"
-
-                "Diagnosis should be performed by a qualified "
-                "healthcare professional.\n\n"
-
-                + information.disclaimer
-            )
-
-        # ======================================================
-        # Cure
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
-                "is parkinson curable",
-                "can parkinson be cured",
-                "can parkinson's be cured",
-                "cure for parkinson",
-                "is there a cure for parkinson",
-            ]
-        ):
-
-            return (
-                "Parkinson disease currently does not have a "
-                "definitive cure. However, treatment and "
-                "rehabilitation can help manage symptoms and "
-                "support quality of life.\n\n"
-
-                "Treatment decisions should be made with qualified "
-                "healthcare professionals."
-            )
-
-        # ======================================================
-        # Treatment
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
-                "treatment for parkinson",
-                "treat parkinson",
-                "how is parkinson treated",
-                "parkinson treatment",
-                "treatments for parkinson",
-            ]
-        ):
-
-            information = (
-                self.parkinson_information()
-            )
-
-            return (
-                "Educational treatment approaches include:\n\n"
-
-                + "\n".join(
-                    f"• {item}"
-                    for item
-                    in information.treatment
-                )
-
-                + "\n\n"
-
-                + information.disclaimer
-            )
-
-        # ======================================================
-        # Medication
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
-                "medication",
-                "medications",
-                "medicine",
-                "medicines",
-            ]
-        ):
-
-            return (
-                "Medication can be part of Parkinson disease "
-                "management, but the appropriate medication and "
-                "dose depend on the individual.\n\n"
-
-                "Medication should only be started, stopped, or "
-                "changed under the guidance of a qualified "
-                "healthcare professional."
-            )
-
-        # ======================================================
-        # Food / Nutrition
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
-                "food",
-                "foods",
-                "diet",
-                "nutrition",
-                "what should i eat",
-                "what can i eat",
-            ]
-        ):
-
-            return (
-                "A balanced and nutritious diet can support "
-                "general health.\n\n"
-
-                "Healthy eating can include a variety of "
-                "nutrient-rich foods, fruits, vegetables, whole "
-                "grains, protein, and adequate hydration.\n\n"
-
-                "Specific dietary changes should be discussed with "
-                "a qualified healthcare professional or dietitian."
-            )
-
-        # ======================================================
-        # Exercise
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
                 "exercise",
+                "exercises",
                 "physical activity",
                 "workout",
                 "fitness",
-                "which exercises",
-            ]
+            ],
         ):
 
             return (
-                "Regular physical activity can support mobility "
-                "and general health.\n\n"
+                "Regular physical activity can support general "
+                "health and mobility.\n\n"
 
-                "Examples may include:\n\n"
+                "**Examples may include:**\n\n"
 
                 "• Walking\n"
                 "• Stretching\n"
@@ -758,193 +632,200 @@ class ChatbotService:
                 "• Strength exercises\n"
                 "• Physical therapy exercises\n\n"
 
-                "The most appropriate exercise program depends on "
-                "the person's health and abilities."
+                "The most suitable exercise program depends on the "
+                "person's health and physical abilities."
             )
 
         # ======================================================
-        # Stress
+        # FOOD / NUTRITION
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
-                "stress",
-                "anxiety",
-                "reduce stress",
-                "manage stress",
-                "relax",
-            ]
+        if self._contains_any(
+            text,
+            [
+                "food",
+                "foods",
+                "diet",
+                "nutrition",
+                "eat",
+            ],
         ):
 
             return (
-                "Stress management may include:\n\n"
+                "A balanced and nutritious diet can support general "
+                "health.\n\n"
+
+                "Healthy eating may include a variety of:\n\n"
+
+                "• Fruits and vegetables\n"
+                "• Whole grains\n"
+                "• Protein-rich foods\n"
+                "• Adequate fluids\n\n"
+
+                "Specific dietary advice should be discussed with a "
+                "qualified healthcare professional or dietitian."
+            )
+
+        # ======================================================
+        # STRESS
+        # ======================================================
+
+        if self._contains_any(
+            text,
+            [
+                "stress",
+                "anxiety",
+                "relax",
+                "reduce stress",
+                "manage stress",
+            ],
+        ):
+
+            return (
+                "General stress-management strategies may include:\n\n"
 
                 "• Regular physical activity\n"
                 "• Adequate sleep\n"
                 "• Relaxation or breathing exercises\n"
-                "• Social support\n"
-                "• Maintaining regular routines\n\n"
+                "• Maintaining routines\n"
+                "• Social support\n\n"
 
-                "Professional support may be helpful when stress "
-                "or anxiety significantly affects daily life."
+                "Professional support may be helpful when stress or "
+                "anxiety significantly affects daily life."
             )
 
         # ======================================================
-        # Sleep
+        # SLEEP
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
                 "sleep",
                 "insomnia",
-                "sleep problem",
-                "sleep problems",
                 "difficulty sleeping",
-            ]
+            ],
         ):
 
             return (
                 "Sleep difficulties can occur for many reasons.\n\n"
 
-                "Helpful general practices may include maintaining "
+                "General healthy sleep practices may include keeping "
                 "a regular sleep schedule and discussing persistent "
                 "sleep problems with a healthcare professional."
             )
 
         # ======================================================
-        # Prediction
+        # PREDICTION
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
                 "prediction",
                 "model result",
                 "voice prediction",
-                "machine learning result",
-            ]
+                "machine learning",
+            ],
         ):
 
             return (
-                "The prediction is generated from voice features "
-                "using a trained machine-learning model.\n\n"
+                "The prediction in this system is generated from "
+                "voice measurements using a machine-learning model.\n\n"
 
-                "The prediction is not a medical diagnosis and "
-                "should be interpreted with appropriate clinical "
-                "assessment."
+                "It is not a medical diagnosis and should be "
+                "interpreted together with appropriate clinical "
+                "evaluation."
             )
 
         # ======================================================
-        # Confidence
+        # GENERIC "WHAT IS PARKINSON?"
+        #
+        # This is intentionally near the end so that specific
+        # questions are handled first.
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
-                "confidence",
-                "accuracy",
-                "accurate",
-                "how accurate",
-            ]
+        if (
+            "what is parkinson" in text
+            or "what's parkinson" in text
+            or "define parkinson" in text
+            or text in {
+                "parkinson",
+                "parkinson disease",
+                "parkinson's disease",
+            }
         ):
 
             return (
-                "The prediction system reports a confidence value "
-                "based on the machine-learning model output.\n\n"
+                "Parkinson's disease is a progressive neurological "
+                "disorder that primarily affects movement.\n\n"
 
-                "Confidence should not be interpreted as a medical "
-                "diagnosis or a guarantee."
+                "**Common symptoms can include:**\n\n"
+
+                "• Tremor\n"
+                "• Rigidity or muscle stiffness\n"
+                "• Slowed movement\n"
+                "• Balance problems\n"
+                "• Changes in walking\n"
+                "• Voice or speech changes\n\n"
+
+                + self._disclaimer()
             )
 
         # ======================================================
-        # Help
+        # HELP
         # ======================================================
 
-        if any(
-            keyword in text
-            for keyword in [
+        if self._contains_any(
+            text,
+            [
                 "help",
                 "what can you do",
                 "what can you answer",
                 "topics",
-            ]
+            ],
         ):
 
             return (
                 "I can help with educational questions about:\n\n"
 
-                "• Parkinson disease\n"
-                "• Tremors\n"
-                "• Early symptoms\n"
-                "• Bradykinesia\n"
-                "• Rigidity\n"
-                "• Balance and walking\n"
-                "• Voice and speech changes\n"
+                "• Parkinson's disease\n"
+                "• Symptoms and early signs\n"
+                "• Tremors and bradykinesia\n"
                 "• Causes and risk factors\n"
                 "• Prevention and healthy habits\n"
-                "• Diagnosis\n"
-                "• Treatment\n"
-                "• Medication\n"
-                "• Nutrition\n"
-                "• Exercise\n"
-                "• Stress and anxiety\n"
-                "• Sleep\n"
+                "• Diagnosis and treatment\n"
+                "• Exercise and nutrition\n"
+                "• Stress and sleep\n"
+                "• Voice and speech changes\n"
                 "• Prediction results"
             )
 
         # ======================================================
-        # Follow-up question
-        # ======================================================
-
-        if (
-            any(
-                word in text
-                for word in [
-                    "it",
-                    "this",
-                    "that",
-                ]
-            )
-            and "parkinson" in context
-        ):
-
-            return (
-                "I understand you may be referring to Parkinson "
-                "disease. Please tell me what you would like to "
-                "know about it.\n\n"
-
-                "For example:\n"
-                "• Symptoms\n"
-                "• Prevention\n"
-                "• Causes\n"
-                "• Diagnosis\n"
-                "• Treatment\n"
-                "• Exercise or diet"
-            )
-
-        # ======================================================
-        # Default
+        # DEFAULT
         # ======================================================
 
         return (
-            "I can answer educational questions about Parkinson "
-            "disease, including symptoms, causes, risk factors, "
-            "prevention, diagnosis, treatment, exercise, nutrition, "
-            "stress, sleep, and voice changes.\n\n"
+            "I can provide educational information about "
+            "Parkinson's disease and related topics.\n\n"
 
-            "Try asking:\n\n"
+            "**You can ask about:**\n\n"
 
-            "• What is Parkinson's Disease?\n"
-            "• What are the early symptoms?\n"
-            "• How can Parkinson risk be reduced?\n"
-            "• Is Parkinson curable?\n"
-            "• How is Parkinson diagnosed?"
+            "• Symptoms\n"
+            "• Causes and risk factors\n"
+            "• Prevention and healthy habits\n"
+            "• Diagnosis\n"
+            "• Treatment\n"
+            "• Exercise\n"
+            "• Nutrition\n"
+            "• Stress and sleep\n"
+            "• Voice and speech changes\n\n"
+
+            "For example: **Is Parkinson's disease curable?**"
         )
 
     # ==========================================================
-    # Conversation History
+    # History
     # ==========================================================
 
     def get_history(
@@ -999,7 +880,7 @@ class ChatbotService:
         )
 
     # ==========================================================
-    # Suggested Questions
+    # Suggestions
     # ==========================================================
 
     def suggested_questions(
@@ -1007,66 +888,54 @@ class ChatbotService:
     ) -> list[SuggestedQuestion]:
 
         questions = [
-
             (
-                "What is Parkinson's Disease?",
+                "What is Parkinson's disease?",
                 "General",
             ),
-
-            (
-                "What causes hand tremors?",
-                "Symptoms",
-            ),
-
             (
                 "What are the early symptoms?",
                 "Symptoms",
             ),
-
             (
                 "How can Parkinson risk be reduced?",
                 "Prevention",
             ),
-
             (
-                "Is Parkinson curable?",
+                "Is Parkinson's disease curable?",
                 "Treatment",
             ),
-
             (
-                "How is Parkinson diagnosed?",
+                "How is Parkinson's disease diagnosed?",
                 "Diagnosis",
             ),
-
             (
-                "What foods are recommended?",
+                "What foods support a healthy lifestyle?",
                 "Nutrition",
             ),
-
             (
-                "Which exercises are beneficial?",
+                "Which exercises may be beneficial?",
                 "Exercise",
             ),
-
             (
-                "How can stress be reduced?",
+                "How can stress be managed?",
                 "Lifestyle",
             ),
-
             (
-                "Explain Bradykinesia.",
+                "What is bradykinesia?",
+                "Symptoms",
+            ),
+            (
+                "What are Parkinson's-related voice changes?",
                 "Symptoms",
             ),
         ]
 
         return [
-
             SuggestedQuestion(
                 id=index,
                 question=question,
                 category=category,
             )
-
             for index, (
                 question,
                 category,
@@ -1091,36 +960,34 @@ class ChatbotService:
     ) -> list[FAQItem]:
 
         return [
-
             FAQItem(
                 question=(
-                    "Can this system diagnose Parkinson disease?"
+                    "Can this system diagnose Parkinson's disease?"
                 ),
                 answer=(
-                    "No. The system provides a machine-learning "
-                    "prediction and does not replace professional "
-                    "medical evaluation."
+                    "No. The system provides educational "
+                    "information and machine-learning predictions. "
+                    "It does not replace professional medical "
+                    "evaluation."
                 ),
             ),
-
             FAQItem(
                 question=(
-                    "Can Parkinson disease be prevented?"
+                    "Can Parkinson's disease be prevented?"
                 ),
                 answer=(
-                    "There is currently no guaranteed way to prevent "
-                    "Parkinson disease. Healthy lifestyle practices "
-                    "may support overall health."
+                    "There is currently no guaranteed way to "
+                    "prevent Parkinson's disease. Healthy lifestyle "
+                    "practices can support overall health."
                 ),
             ),
-
             FAQItem(
                 question=(
-                    "Is Parkinson disease curable?"
+                    "Is Parkinson's disease curable?"
                 ),
                 answer=(
-                    "Parkinson disease currently does not have a "
-                    "definitive cure, although treatments can help "
+                    "Parkinson's disease currently does not have a "
+                    "definitive cure, although treatment can help "
                     "manage symptoms."
                 ),
             ),
@@ -1135,43 +1002,39 @@ class ChatbotService:
     ) -> list[EducationalTopic]:
 
         return [
-
             EducationalTopic(
-                title="Parkinson Disease",
+                title="Parkinson's Disease",
                 description=(
-                    "General information about Parkinson disease."
+                    "General educational information about "
+                    "Parkinson's disease."
                 ),
                 category="Disease",
             ),
-
             EducationalTopic(
                 title="Symptoms",
                 description=(
-                    "Motor and non-motor symptoms."
+                    "Movement-related and other symptoms."
                 ),
                 category="Disease",
             ),
-
             EducationalTopic(
                 title="Prevention",
                 description=(
-                    "Risk reduction and healthy lifestyle practices."
+                    "Healthy lifestyle practices and risk reduction."
                 ),
                 category="Lifestyle",
             ),
-
             EducationalTopic(
                 title="Diagnosis",
                 description=(
-                    "Clinical evaluation and neurological assessment."
+                    "Clinical and neurological assessment."
                 ),
                 category="Diagnosis",
             ),
-
             EducationalTopic(
                 title="Treatment",
                 description=(
-                    "Medication, rehabilitation, and exercise."
+                    "Treatment and rehabilitation approaches."
                 ),
                 category="Treatment",
             ),
@@ -1193,8 +1056,8 @@ class ChatbotService:
             risk_level="Unknown",
             explanation=(
                 "The prediction should be interpreted together "
-                "with the actual patient record and clinical "
-                "assessment."
+                "with the actual patient record and appropriate "
+                "clinical assessment."
             ),
         )
 
@@ -1210,8 +1073,8 @@ class ChatbotService:
         return ReportExplanation(
             report_id=report_id,
             summary=(
-                "The report summarizes prediction results, "
-                "recommendations, and follow-up guidance."
+                "The report summarizes prediction results and "
+                "related recommendations."
             ),
             recommendations=[
                 "Consult a qualified healthcare professional.",
@@ -1229,55 +1092,45 @@ class ChatbotService:
     ) -> ParkinsonInformation:
 
         return ParkinsonInformation(
-
             definition=(
-                "Parkinson disease is a progressive neurological "
+                "Parkinson's disease is a progressive neurological "
                 "disorder that primarily affects movement."
             ),
-
             symptoms=[
                 "Tremor",
                 "Rigidity",
                 "Slowed movement",
                 "Balance problems",
             ],
-
             causes=[
-                "Loss of dopamine-producing neurons",
+                "Changes involving dopamine-producing neurons",
                 "Genetic factors",
                 "Environmental influences",
             ],
-
             risk_factors=[
                 "Increasing age",
                 "Family history",
-                "Environmental exposure",
+                "Environmental influences",
             ],
-
             diagnosis=[
-                "Neurological examination",
                 "Medical history",
+                "Neurological examination",
                 "Clinical assessment",
             ],
-
             treatment=[
                 "Medication",
                 "Physical therapy",
                 "Speech therapy",
                 "Exercise",
             ],
-
             prevention=[
                 "Regular physical activity",
-                "Healthy diet",
-                "Good sleep and stress management",
+                "Balanced diet",
+                "Good sleep",
+                "Stress management",
                 "Routine medical care",
             ],
-
-            disclaimer=(
-                "This information is educational and is not a "
-                "substitute for professional medical advice."
-            ),
+            disclaimer=self._disclaimer(),
         )
 
     # ==========================================================
@@ -1291,6 +1144,6 @@ class ChatbotService:
         return ChatbotStatus(
             status="Online",
             model_name="Parkinson AI Assistant",
-            version="1.1.0",
+            version="1.2.0",
             knowledge_base="Medical Knowledge Base",
         )
