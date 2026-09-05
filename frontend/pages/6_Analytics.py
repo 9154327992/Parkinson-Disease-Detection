@@ -6,20 +6,6 @@ from utils.api_client import (
     get_patient_history,
 )
 
-IMAGE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "assets"
-    / "images"
-    / "analytics_banner.png"
-)
-
-if IMAGE_PATH.exists():
-    st.image(
-        str(IMAGE_PATH),
-        use_container_width=True,
-    )
-
-
 # ==========================================================
 # Page Configuration
 # ==========================================================
@@ -30,6 +16,111 @@ st.set_page_config(
     layout="wide",
 )
 
+# ==========================================================
+# Analytics Banner
+# ==========================================================
+
+ANALYTICS_BANNER = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "analytics_banner.png"
+)
+
+
+if ANALYTICS_BANNER.exists():
+
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        ANALYTICS_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <style>
+
+        .analytics-banner-wrapper {{
+            width: 100%;
+            margin: 0 0 1rem 0;
+            padding: 0;
+        }}
+
+
+        .analytics-banner {{
+            width: min(100%, 1600px);
+
+            height: auto;
+
+            display: block;
+
+            margin-left: auto;
+            margin-right: auto;
+
+            object-fit: contain;
+
+            border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .analytics-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .analytics-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / High Resolution Screens */
+
+        @media (min-width: 1401px) {{
+
+            .analytics-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
+        }}
+
+        </style>
+
+
+        <div class="analytics-banner-wrapper">
+
+            <img
+                class="analytics-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Parkinson Disease Analytics"
+            >
+
+        </div>
+        """
+    )
+
+
+else:
+
+    st.warning(
+        "Analytics banner image was not found."
+    )
 
 # ==========================================================
 # Header
