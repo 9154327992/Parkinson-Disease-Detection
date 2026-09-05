@@ -49,24 +49,15 @@ if CHATBOT_BANNER.exists():
             padding: 0;
         }}
 
-
         .chatbot-banner {{
             width: min(100%, 1600px);
-
             height: auto;
-
             display: block;
-
             margin-left: auto;
             margin-right: auto;
-
             object-fit: contain;
-
             border-radius: 12px;
         }}
-
-
-        /* Small screens */
 
         @media (max-width: 768px) {{
 
@@ -76,9 +67,6 @@ if CHATBOT_BANNER.exists():
 
         }}
 
-
-        /* Medium screens */
-
         @media (min-width: 769px) and (max-width: 1400px) {{
 
             .chatbot-banner {{
@@ -86,9 +74,6 @@ if CHATBOT_BANNER.exists():
             }}
 
         }}
-
-
-        /* Large / High Resolution Screens */
 
         @media (min-width: 1401px) {{
 
@@ -100,7 +85,6 @@ if CHATBOT_BANNER.exists():
         }}
 
         </style>
-
 
         <div class="chatbot-banner-wrapper">
 
