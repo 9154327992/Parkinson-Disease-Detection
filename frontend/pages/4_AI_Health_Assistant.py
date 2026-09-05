@@ -603,6 +603,11 @@ if st.session_state.chat_history:
 
             st.session_state.pending_question = None
 
+            st.session_state.pop(
+                "chat_conversation_id",
+                None,
+            )
+
             st.rerun()
 
 
