@@ -24,6 +24,9 @@ st.set_page_config(
 # Banner
 # ==========================================================
 
+st.markdown(
+    unsafe_allow_html=True,
+)
 IMAGE_PATH = (
     Path(__file__).resolve().parents[1]
     / "assets"
