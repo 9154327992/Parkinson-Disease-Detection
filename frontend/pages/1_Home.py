@@ -73,15 +73,64 @@ if HOME_BANNER.exists():
             padding: 0;
         }}
 
+
         .home-banner {{
-            width: 100%;
+            /*
+            Responsive width:
+
+            Small screens:
+            Banner becomes smaller.
+
+            Large/high-resolution screens:
+            Banner becomes larger.
+            */
+
+            width: min(100%, 1600px);
+
             height: auto;
-            max-width: 100%;
+
             display: block;
+
+            margin-left: auto;
+            margin-right: auto;
 
             object-fit: contain;
 
             border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .home-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .home-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / high-resolution screens */
+
+        @media (min-width: 1401px) {{
+
+            .home-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
         }}
 
         </style>
