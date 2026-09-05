@@ -172,9 +172,50 @@ def get_metric(
 
 if FRONTEND_BANNER.exists():
 
-    st.image(
-        str(FRONTEND_BANNER),
-        use_container_width=True,
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        FRONTEND_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <div class="app-banner-container">
+
+            <img
+                class="app-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Parkinson Disease Detection Agent"
+            >
+
+        </div>
+        """
+    )
+
+    st.html(
+        """
+        <style>
+
+        .app-banner-container {
+            width: 100%;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .app-banner {
+            width: 100%;
+            height: clamp(140px, 18vw, 320px);
+            object-fit: cover;
+            display: block;
+            border-radius: 12px;
+        }
+
+        </style>
+        """
     )
 
 else:
