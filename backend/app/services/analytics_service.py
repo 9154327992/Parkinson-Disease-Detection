@@ -1,5 +1,13 @@
-from collections import Counter, defaultdict
-from typing import List
+from collections import Counter
+from datetime import datetime
+
+from app.database.database import SessionLocal
+
+from app.database.models import (
+    Patient,
+    Prediction,
+    Report,
+)
 
 from app.schemas.analytics import (
     DashboardAnalytics,
@@ -14,33 +22,114 @@ from app.schemas.analytics import (
     AnalyticsSummary,
 )
 
-from app.services.prediction_service import (
-    PredictionService,
-)
-
 
 class AnalyticsService:
     """
-    Service for analytics and dashboard data.
+    Service for database-based analytics.
     """
 
-    def __init__(self):
-        """
-        Use the shared PredictionService storage.
-        """
-
-        self.prediction_service = PredictionService()
-
     # ==========================================================
-    # Internal Records
+    # Database Helper
     # ==========================================================
 
-    def _records(self):
+    def _get_session(self):
         """
-        Return all actual prediction records.
+        Create a database session.
         """
 
-        return PredictionService.predictions
+        return SessionLocal()
+
+
+    # ==========================================================
+    # Patient Name Helper
+    # ==========================================================
+
+    @staticmethod
+    def _patient_name(patient):
+        """
+        Safely create a patient display name.
+        """
+
+        if patient is None:
+            return "Unknown Patient"
+
+        first_name = (
+            patient.first_name
+            or ""
+        ).strip()
+
+        last_name = (
+            patient.last_name
+            or ""
+        ).strip()
+
+        full_name = (
+            f"{first_name} {last_name}"
+        ).strip()
+
+        return (
+            full_name
+            or f"Patient {patient.id}"
+        )
+
+
+    # ==========================================================
+    # Prediction Type Helper
+    # ==========================================================
+
+    @staticmethod
+    def _is_parkinson(prediction):
+        """
+        Determine whether a prediction represents
+        a Parkinson classification.
+        """
+
+        value = str(
+            prediction.prediction
+            or ""
+        ).strip().lower()
+
+        return (
+            "parkinson" in value
+        )
+
+
+    # ==========================================================
+    # Risk Score Helper
+    # ==========================================================
+
+    @staticmethod
+    def _risk_score(prediction):
+        """
+        Convert stored probability into percentage.
+
+        Supports both:
+        - 0.0 to 1.0 probability
+        - already stored percentages
+        """
+
+        value = (
+            prediction.probability
+            or 0.0
+        )
+
+        try:
+
+            value = float(value)
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+
+            return 0.0
+
+        if 0 <= value <= 1:
+
+            value *= 100
+
+        return value
+
 
     # ==========================================================
     # Dashboard Metrics
@@ -50,89 +139,109 @@ class AnalyticsService:
         self,
     ) -> DashboardAnalytics:
         """
-        Calculate dashboard metrics from actual predictions.
+        Calculate dashboard metrics directly
+        from the database.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        total_predictions = len(
-            records
-        )
+        try:
 
-        # ------------------------------------------------------
-        # Unique Patients
-        # ------------------------------------------------------
-
-        patients = set()
-
-        for record in records.values():
-
-            patients.add(
-                (
-                    record["patient_name"],
-                    record["age"],
-                    record["gender"],
-                )
+            total_patients = (
+                db.query(Patient).count()
             )
 
-        total_patients = len(
-            patients
-        )
+            total_predictions = (
+                db.query(Prediction).count()
+            )
 
-        # ------------------------------------------------------
-        # Prediction Counts
-        # ------------------------------------------------------
+            total_reports = (
+                db.query(Report).count()
+            )
 
-        healthy_cases = 0
+            predictions = (
+                db.query(Prediction).all()
+            )
 
-        parkinson_cases = 0
+            healthy_cases = 0
+            parkinson_cases = 0
 
-        high_risk_cases = 0
+            high_risk_cases = 0
+            medium_risk_cases = 0
+            low_risk_cases = 0
 
-        medium_risk_cases = 0
 
-        low_risk_cases = 0
+            for prediction in predictions:
 
-        for record in records.values():
+                if self._is_parkinson(
+                    prediction
+                ):
 
-            response = record["response"]
+                    parkinson_cases += 1
 
-            if response.prediction_value == 1:
+                else:
 
-                parkinson_cases += 1
+                    healthy_cases += 1
 
-            else:
 
-                healthy_cases += 1
+                risk_level = str(
+                    prediction.risk_level
+                    or ""
+                ).strip().lower()
 
-            if response.risk_level == "High Risk":
 
-                high_risk_cases += 1
+                if (
+                    "high" in risk_level
+                ):
 
-            elif response.risk_level == "Medium Risk":
+                    high_risk_cases += 1
 
-                medium_risk_cases += 1
 
-            elif response.risk_level == "Low Risk":
+                elif (
+                    "medium" in risk_level
+                ):
 
-                low_risk_cases += 1
+                    medium_risk_cases += 1
 
-        return DashboardAnalytics(
 
-            total_patients=total_patients,
+                elif (
+                    "low" in risk_level
+                ):
 
-            total_predictions=total_predictions,
+                    low_risk_cases += 1
 
-            healthy_cases=healthy_cases,
 
-            parkinson_cases=parkinson_cases,
+            return DashboardAnalytics(
 
-            high_risk_cases=high_risk_cases,
+                total_patients=
+                    total_patients,
 
-            medium_risk_cases=medium_risk_cases,
+                total_predictions=
+                    total_predictions,
 
-            low_risk_cases=low_risk_cases,
-        )
+                total_reports=
+                    total_reports,
+
+                healthy_cases=
+                    healthy_cases,
+
+                parkinson_cases=
+                    parkinson_cases,
+
+                high_risk_cases=
+                    high_risk_cases,
+
+                medium_risk_cases=
+                    medium_risk_cases,
+
+                low_risk_cases=
+                    low_risk_cases,
+            )
+
+        finally:
+
+            db.close()
+
 
     # ==========================================================
     # Prediction Statistics
@@ -142,91 +251,111 @@ class AnalyticsService:
         self,
     ) -> PredictionAnalytics:
         """
-        Calculate prediction statistics from actual records.
+        Calculate prediction statistics
+        directly from the database.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        total_predictions = len(
-            records
-        )
+        try:
 
-        healthy_predictions = 0
-
-        parkinson_predictions = 0
-
-        confidence_values = []
-
-        risk_values = []
-
-        for record in records.values():
-
-            response = record["response"]
-
-            confidence_values.append(
-                response.confidence
+            predictions = (
+                db.query(Prediction).all()
             )
 
-            risk_values.append(
-                response.risk_score
+            total_predictions = len(
+                predictions
             )
 
-            if response.prediction_value == 1:
+            healthy_predictions = 0
+            parkinson_predictions = 0
 
-                parkinson_predictions += 1
+            confidence_values = []
+            risk_values = []
 
-            else:
 
-                healthy_predictions += 1
+            for prediction in predictions:
 
-        # ------------------------------------------------------
-        # Average Confidence
-        # ------------------------------------------------------
+                if self._is_parkinson(
+                    prediction
+                ):
 
-        if confidence_values:
+                    parkinson_predictions += 1
+
+                else:
+
+                    healthy_predictions += 1
+
+
+                if (
+                    prediction.confidence
+                    is not None
+                ):
+
+                    confidence_values.append(
+                        float(
+                            prediction.confidence
+                        )
+                    )
+
+
+                risk_values.append(
+                    self._risk_score(
+                        prediction
+                    )
+                )
+
 
             average_confidence = (
+
                 sum(confidence_values)
                 / len(confidence_values)
+
+                if confidence_values
+
+                else 0.0
             )
 
-        else:
-
-            average_confidence = 0.0
-
-        # ------------------------------------------------------
-        # Average Risk
-        # ------------------------------------------------------
-
-        if risk_values:
 
             average_risk_score = (
+
                 sum(risk_values)
                 / len(risk_values)
+
+                if risk_values
+
+                else 0.0
             )
 
-        else:
 
-            average_risk_score = 0.0
+            return PredictionAnalytics(
 
-        return PredictionAnalytics(
+                total_predictions=
+                    total_predictions,
 
-            total_predictions=total_predictions,
+                healthy_predictions=
+                    healthy_predictions,
 
-            healthy_predictions=healthy_predictions,
+                parkinson_predictions=
+                    parkinson_predictions,
 
-            parkinson_predictions=parkinson_predictions,
+                average_confidence=
+                    round(
+                        average_confidence,
+                        2,
+                    ),
 
-            average_confidence=round(
-                average_confidence,
-                2,
-            ),
+                average_risk_score=
+                    round(
+                        average_risk_score,
+                        2,
+                    ),
+            )
 
-            average_risk_score=round(
-                average_risk_score,
-                2,
-            ),
-        )
+        finally:
+
+            db.close()
+
 
     # ==========================================================
     # Patient Statistics
@@ -236,90 +365,109 @@ class AnalyticsService:
         self,
     ) -> PatientAnalytics:
         """
-        Calculate patient demographics from actual records.
+        Calculate patient statistics
+        directly from the database.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        patients = {}
+        try:
 
-        for record in records.values():
-
-            key = (
-                record["patient_name"],
-                record["age"],
-                record["gender"],
+            patients = (
+                db.query(Patient).all()
             )
 
-            patients[key] = {
-                "name": record["patient_name"],
-                "age": record["age"],
-                "gender": record["gender"],
-            }
-
-        patient_list = list(
-            patients.values()
-        )
-
-        total_patients = len(
-            patient_list
-        )
-
-        male_patients = sum(
-            1
-            for patient in patient_list
-            if patient["gender"].lower()
-            == "male"
-        )
-
-        female_patients = sum(
-            1
-            for patient in patient_list
-            if patient["gender"].lower()
-            == "female"
-        )
-
-        other_patients = (
-            total_patients
-            - male_patients
-            - female_patients
-        )
-
-        ages = [
-            patient["age"]
-            for patient in patient_list
-            if isinstance(
-                patient["age"],
-                (int, float),
+            total_patients = len(
+                patients
             )
-        ]
 
-        if ages:
+            male_patients = 0
+            female_patients = 0
+            other_patients = 0
+
+            ages = []
+
+
+            for patient in patients:
+
+                gender = str(
+                    patient.gender
+                    or ""
+                ).strip().lower()
+
+
+                if gender == "male":
+
+                    male_patients += 1
+
+
+                elif gender == "female":
+
+                    female_patients += 1
+
+
+                else:
+
+                    other_patients += 1
+
+
+                if (
+                    patient.age
+                    is not None
+                ):
+
+                    try:
+
+                        ages.append(
+                            float(
+                                patient.age
+                            )
+                        )
+
+                    except (
+                        TypeError,
+                        ValueError,
+                    ):
+
+                        pass
+
 
             average_age = (
+
                 sum(ages)
                 / len(ages)
+
+                if ages
+
+                else 0.0
             )
 
-        else:
 
-            average_age = 0.0
+            return PatientAnalytics(
 
-        return PatientAnalytics(
+                total_patients=
+                    total_patients,
 
-            total_patients=total_patients,
+                male_patients=
+                    male_patients,
 
-            male_patients=male_patients,
+                female_patients=
+                    female_patients,
 
-            female_patients=female_patients,
+                other_patients=
+                    other_patients,
 
-            other_patients=other_patients,
+                average_age=
+                    round(
+                        average_age,
+                        1,
+                    ),
+            )
 
-            average_age=round(
-                average_age,
-                1,
-            ),
-        )
+        finally:
+
+            db.close()
+
 
     # ==========================================================
     # Monthly Trend
@@ -327,89 +475,84 @@ class AnalyticsService:
 
     def monthly_trend(
         self,
-    ) -> List[MonthlyTrend]:
+    ):
         """
-        Calculate monthly prediction counts from actual records.
+        Calculate monthly prediction trend.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        monthly_counts = defaultdict(
-            int
-        )
+        try:
 
-        for record in records.values():
-
-            created_at = (
-                record["response"].created_at
+            predictions = (
+                db.query(Prediction)
+                .order_by(
+                    Prediction.created_at.asc()
+                )
+                .all()
             )
 
-            month_key = (
-                created_at.year,
-                created_at.month,
-            )
 
-            monthly_counts[
-                month_key
-            ] += 1
+            counts = Counter()
 
-        # ------------------------------------------------------
-        # Sort chronologically
-        # ------------------------------------------------------
 
-        sorted_months = sorted(
-            monthly_counts.keys()
-        )
+            for prediction in predictions:
 
-        return [
+                if (
+                    prediction.created_at
+                    is None
+                ):
 
-            MonthlyTrend(
+                    continue
 
-                month=(
-                    self._month_name(
-                        month_number
+
+                key = (
+                    prediction.created_at.year,
+                    prediction.created_at.month,
+                )
+
+
+                counts[key] += 1
+
+
+            results = []
+
+
+            for (
+                year,
+                month,
+            ), count in sorted(
+                counts.items()
+            ):
+
+                month_name = datetime(
+                    year,
+                    month,
+                    1,
+                ).strftime(
+                    "%B %Y"
+                )
+
+
+                results.append(
+
+                    MonthlyTrend(
+
+                        month=
+                            month_name,
+
+                        predictions=
+                            count,
                     )
-                ),
+                )
 
-                predictions=monthly_counts[
-                    (year, month_number)
-                ],
-            )
 
-            for year, month_number
-            in sorted_months
-        ]
+            return results
 
-    # ==========================================================
-    # Month Name
-    # ==========================================================
+        finally:
 
-    def _month_name(
-        self,
-        month_number: int,
-    ) -> str:
-        """
-        Convert month number to month name.
-        """
+            db.close()
 
-        months = [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-        ]
-
-        return months[
-            month_number - 1
-        ]
 
     # ==========================================================
     # Age Distribution
@@ -417,80 +560,102 @@ class AnalyticsService:
 
     def age_distribution(
         self,
-    ) -> List[AgeDistribution]:
+    ):
         """
-        Calculate age distribution from actual patients.
+        Calculate patient age distribution.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        patients = {}
+        try:
 
-        for record in records.values():
-
-            key = (
-                record["patient_name"],
-                record["age"],
-                record["gender"],
+            patients = (
+                db.query(Patient).all()
             )
 
-            patients[key] = record
 
-        distribution = Counter()
+            distribution = Counter()
 
-        for record in patients.values():
 
-            age = record["age"]
+            for patient in patients:
 
-            if age <= 50:
+                if (
+                    patient.age
+                    is None
+                ):
 
-                group = "40-50"
+                    continue
 
-            elif age <= 60:
 
-                group = "51-60"
+                age = patient.age
 
-            elif age <= 70:
 
-                group = "61-70"
+                if age <= 50:
 
-            elif age <= 80:
+                    group = "40-50"
 
-                group = "71-80"
+                elif age <= 60:
 
-            else:
+                    group = "51-60"
 
-                group = "81+"
+                elif age <= 70:
 
-            distribution[group] += 1
+                    group = "61-70"
 
-        ordered_groups = [
-            "40-50",
-            "51-60",
-            "61-70",
-            "71-80",
-            "81+",
-        ]
+                elif age <= 80:
 
-        return [
+                    group = "71-80"
 
-            AgeDistribution(
+                else:
 
-                age_group=group,
+                    group = "81+"
 
-                count=distribution.get(
+
+                distribution[
+                    group
+                ] += 1
+
+
+            groups = [
+
+                "40-50",
+
+                "51-60",
+
+                "61-70",
+
+                "71-80",
+
+                "81+",
+            ]
+
+
+            return [
+
+                AgeDistribution(
+
+                    age_group=
+                        group,
+
+                    count=
+                        distribution.get(
+                            group,
+                            0,
+                        ),
+                )
+
+                for group in groups
+
+                if distribution.get(
                     group,
                     0,
-                ),
-            )
+                ) > 0
+            ]
 
-            for group in ordered_groups
+        finally:
 
-            if distribution.get(
-                group,
-                0,
-            ) > 0
-        ]
+            db.close()
+
 
     # ==========================================================
     # Gender Distribution
@@ -498,71 +663,80 @@ class AnalyticsService:
 
     def gender_distribution(
         self,
-    ) -> List[GenderDistribution]:
+    ):
         """
-        Calculate gender distribution from actual patients.
+        Calculate patient gender distribution.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        patients = {}
+        try:
 
-        for record in records.values():
-
-            key = (
-                record["patient_name"],
-                record["age"],
-                record["gender"],
+            patients = (
+                db.query(Patient).all()
             )
 
-            patients[key] = record
 
-        distribution = Counter()
+            distribution = Counter()
 
-        for record in patients.values():
 
-            gender = record["gender"]
+            for patient in patients:
 
-            if gender.lower() == "male":
+                gender = str(
+                    patient.gender
+                    or ""
+                ).strip().lower()
 
-                label = "Male"
 
-            elif gender.lower() == "female":
+                if gender == "male":
 
-                label = "Female"
+                    label = "Male"
 
-            else:
+                elif gender == "female":
 
-                label = "Other"
+                    label = "Female"
 
-            distribution[label] += 1
+                else:
 
-        return [
+                    label = "Other"
 
-            GenderDistribution(
-                gender="Male",
-                count=distribution.get(
-                    "Male",
-                    0,
+
+                distribution[
+                    label
+                ] += 1
+
+
+            return [
+
+                GenderDistribution(
+                    gender="Male",
+                    count=distribution.get(
+                        "Male",
+                        0,
+                    ),
                 ),
-            ),
 
-            GenderDistribution(
-                gender="Female",
-                count=distribution.get(
-                    "Female",
-                    0,
+                GenderDistribution(
+                    gender="Female",
+                    count=distribution.get(
+                        "Female",
+                        0,
+                    ),
                 ),
-            ),
 
-            GenderDistribution(
-                gender="Other",
-                count=distribution.get(
-                    "Other",
-                    0,
+                GenderDistribution(
+                    gender="Other",
+                    count=distribution.get(
+                        "Other",
+                        0,
+                    ),
                 ),
-            ),
-        ]
+            ]
+
+        finally:
+
+            db.close()
+
 
     # ==========================================================
     # Risk Distribution
@@ -570,51 +744,69 @@ class AnalyticsService:
 
     def risk_distribution(
         self,
-    ) -> List[RiskDistribution]:
+    ):
         """
-        Calculate risk distribution from actual predictions.
+        Calculate prediction risk distribution.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        distribution = Counter()
+        try:
 
-        for record in records.values():
-
-            risk_level = (
-                record["response"].risk_level
+            predictions = (
+                db.query(Prediction).all()
             )
 
-            distribution[
-                risk_level
-            ] += 1
 
-        return [
+            distribution = Counter()
 
-            RiskDistribution(
-                risk_level="Low Risk",
-                count=distribution.get(
-                    "Low Risk",
-                    0,
+
+            for prediction in predictions:
+
+                risk_level = str(
+                    prediction.risk_level
+                    or ""
+                ).strip()
+
+
+                if risk_level:
+
+                    distribution[
+                        risk_level
+                    ] += 1
+
+
+            return [
+
+                RiskDistribution(
+                    risk_level="Low Risk",
+                    count=distribution.get(
+                        "Low Risk",
+                        0,
+                    ),
                 ),
-            ),
 
-            RiskDistribution(
-                risk_level="Medium Risk",
-                count=distribution.get(
-                    "Medium Risk",
-                    0,
+                RiskDistribution(
+                    risk_level="Medium Risk",
+                    count=distribution.get(
+                        "Medium Risk",
+                        0,
+                    ),
                 ),
-            ),
 
-            RiskDistribution(
-                risk_level="High Risk",
-                count=distribution.get(
-                    "High Risk",
-                    0,
+                RiskDistribution(
+                    risk_level="High Risk",
+                    count=distribution.get(
+                        "High Risk",
+                        0,
+                    ),
                 ),
-            ),
-        ]
+            ]
+
+        finally:
+
+            db.close()
+
 
     # ==========================================================
     # Disease Distribution
@@ -622,41 +814,54 @@ class AnalyticsService:
 
     def disease_distribution(
         self,
-    ) -> List[DiseaseDistribution]:
+    ):
         """
-        Calculate disease distribution from actual predictions.
+        Calculate Healthy vs Parkinson distribution.
         """
 
-        records = self._records()
+        db = self._get_session()
 
-        healthy = 0
+        try:
 
-        parkinson = 0
+            predictions = (
+                db.query(Prediction).all()
+            )
 
-        for record in records.values():
 
-            response = record["response"]
+            healthy = 0
+            parkinson = 0
 
-            if response.prediction_value == 1:
 
-                parkinson += 1
+            for prediction in predictions:
 
-            else:
+                if self._is_parkinson(
+                    prediction
+                ):
 
-                healthy += 1
+                    parkinson += 1
 
-        return [
+                else:
 
-            DiseaseDistribution(
-                label="Healthy",
-                count=healthy,
-            ),
+                    healthy += 1
 
-            DiseaseDistribution(
-                label="Parkinson",
-                count=parkinson,
-            ),
-        ]
+
+            return [
+
+                DiseaseDistribution(
+                    label="Healthy",
+                    count=healthy,
+                ),
+
+                DiseaseDistribution(
+                    label="Parkinson",
+                    count=parkinson,
+                ),
+            ]
+
+        finally:
+
+            db.close()
+
 
     # ==========================================================
     # Recent Predictions
@@ -664,88 +869,124 @@ class AnalyticsService:
 
     def recent_predictions(
         self,
-    ) -> List[RecentPrediction]:
+    ):
         """
-        Return actual recent predictions.
+        Return recent predictions.
         """
 
-        records = list(
-            self._records().values()
-        )
+        db = self._get_session()
 
-        records.sort(
-            key=lambda record:
-                record["response"].created_at,
-            reverse=True,
-        )
+        try:
 
-        recent = records[:10]
+            predictions = (
 
-        return [
+                db.query(Prediction)
 
-            RecentPrediction(
+                .order_by(
+                    Prediction.created_at.desc()
+                )
 
-                prediction_id=(
-                    record["response"].prediction_id
-                ),
+                .limit(10)
 
-                patient_name=(
-                    record["patient_name"]
-                ),
-
-                prediction=(
-                    record["response"].prediction
-                ),
-
-                confidence=(
-                    record["response"].confidence
-                ),
-
-                risk_level=(
-                    record["response"].risk_level
-                ),
-
-                created_at=(
-                    record["response"]
-                    .created_at
-                    .isoformat()
-                ),
+                .all()
             )
 
-            for record in recent
-        ]
+
+            results = []
+
+
+            for prediction in predictions:
+
+                results.append(
+
+                    RecentPrediction(
+
+                        prediction_id=
+                            prediction.id,
+
+                        patient_name=
+                            self._patient_name(
+                                prediction.patient
+                            ),
+
+                        prediction=
+                            str(
+                                prediction.prediction
+                                or "Unknown"
+                            ),
+
+                        confidence=
+                            float(
+                                prediction.confidence
+                                or 0.0
+                            ),
+
+                        risk_level=
+                            str(
+                                prediction.risk_level
+                                or "Unknown"
+                            ),
+
+                        created_at=(
+
+                            prediction.created_at.isoformat()
+
+                            if prediction.created_at
+
+                            else ""
+                        ),
+                    )
+                )
+
+
+            return results
+
+        finally:
+
+            db.close()
+
 
     # ==========================================================
-    # Complete Analytics
+    # Complete Analytics Summary
     # ==========================================================
 
     def analytics_summary(
         self,
     ) -> AnalyticsSummary:
         """
-        Return complete analytics based on actual records.
+        Return complete database-based analytics.
         """
 
         return AnalyticsSummary(
 
-            dashboard=self.dashboard(),
+            dashboard=
+                self.dashboard(),
 
-            prediction=self.prediction_statistics(),
+            prediction=
+                self.prediction_statistics(),
 
-            patient=self.patient_statistics(),
+            patient=
+                self.patient_statistics(),
 
-            monthly_trend=self.monthly_trend(),
+            monthly_trend=
+                self.monthly_trend(),
 
-            age_distribution=self.age_distribution(),
+            age_distribution=
+                self.age_distribution(),
 
-            gender_distribution=self.gender_distribution(),
+            gender_distribution=
+                self.gender_distribution(),
 
-            risk_distribution=self.risk_distribution(),
+            risk_distribution=
+                self.risk_distribution(),
 
-            disease_distribution=self.disease_distribution(),
+            disease_distribution=
+                self.disease_distribution(),
 
-            recent_predictions=self.recent_predictions(),
+            recent_predictions=
+                self.recent_predictions(),
         )
+
 
     # ==========================================================
     # Compatibility Alias
@@ -755,7 +996,9 @@ class AnalyticsService:
         self,
     ) -> AnalyticsSummary:
         """
-        Compatibility method for existing routes.
+        Compatibility method.
         """
 
-        return self.analytics_summary()
+        return (
+            self.analytics_summary()
+        )
