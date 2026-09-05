@@ -16,19 +16,45 @@ class DashboardAnalytics(BaseModel):
     Dashboard summary statistics.
     """
 
-    total_patients: int = Field(..., ge=0)
+    total_patients: int = Field(
+        ...,
+        ge=0,
+    )
 
-    total_predictions: int = Field(..., ge=0)
+    total_predictions: int = Field(
+        ...,
+        ge=0,
+    )
 
-    healthy_cases: int = Field(..., ge=0)
+    total_reports: int = Field(
+        ...,
+        ge=0,
+    )
 
-    parkinson_cases: int = Field(..., ge=0)
+    healthy_cases: int = Field(
+        ...,
+        ge=0,
+    )
 
-    high_risk_cases: int = Field(..., ge=0)
+    parkinson_cases: int = Field(
+        ...,
+        ge=0,
+    )
 
-    medium_risk_cases: int = Field(..., ge=0)
+    high_risk_cases: int = Field(
+        ...,
+        ge=0,
+    )
 
-    low_risk_cases: int = Field(..., ge=0)
+    medium_risk_cases: int = Field(
+        ...,
+        ge=0,
+    )
+
+    low_risk_cases: int = Field(
+        ...,
+        ge=0,
+    )
 
 
 # ==========================================================
@@ -133,7 +159,7 @@ class RiskDistribution(BaseModel):
 
 class DiseaseDistribution(BaseModel):
     """
-    Healthy vs Parkinson.
+    Healthy vs Parkinson distribution.
     """
 
     label: str
