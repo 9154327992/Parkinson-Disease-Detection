@@ -41,51 +41,59 @@ initialize_session()
 
 
 # ==========================================================
-# Paths
+# Responsive Banner
 # ==========================================================
 
-FRONTEND_DIR = (
-    Path(__file__)
-    .resolve()
-    .parents[1]
-)
-
-
-ASSETS_DIR = (
-    FRONTEND_DIR
-    / "assets"
-)
-
-
-IMAGES_DIR = (
-    ASSETS_DIR
-    / "images"
-)
-
-
 IMAGE_PATH = (
-    IMAGES_DIR
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
     / "home_banner.png"
 )
 
 
-# ==========================================================
-# Responsive Banner
-# ==========================================================
-
 if IMAGE_PATH.exists():
 
-    st.image(
-        str(IMAGE_PATH),
-        width="stretch",
+    image_bytes = IMAGE_PATH.read_bytes()
+
+    import base64
+
+    image_base64 = base64.b64encode(
+        image_bytes
+    ).decode(
+        "utf-8"
     )
 
-else:
 
-    st.warning(
-        "Home banner image was not found."
+    st.html(
+        f"""
+        <div class="responsive-banner">
+            <img
+                src="data:image/png;base64,{image_base64}"
+                alt="Parkinson Disease Detection Banner"
+            >
+        </div>
+
+        <style>
+
+        .responsive-banner {{
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }}
+
+        .responsive-banner img {{
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+        }}
+
+        </style>
+        """
     )
-
 
 # ==========================================================
 # Title
