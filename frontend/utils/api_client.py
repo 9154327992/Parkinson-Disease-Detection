@@ -1892,46 +1892,31 @@ def delete_patient(
 
 def ask_ai_assistant(
     question: str,
+    conversation_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Ask the FastAPI AI Health Assistant.
-
-    Backend endpoint:
-
-        POST /chatbot/
-
-    Backend request field:
-
-        message
-
-    Backend response contains:
-
-        response
-        conversation_id
-        sources
-        suggestions
-        timestamp
-    """
 
     question = str(
         question
     ).strip()
 
-
     if not question:
-
         return None
 
+    if conversation_id is None:
+
+        conversation_id = st.session_state.get(
+            "chat_conversation_id"
+        )
 
     payload = {
-        "message":
-            question,
+        "message": question,
     }
 
+    if conversation_id:
 
-    # ------------------------------------------------------
-    # FastAPI Chatbot Endpoint
-    # ------------------------------------------------------
+        payload[
+            "conversation_id"
+        ] = conversation_id
 
     result = post(
         "/chatbot/",
@@ -1939,37 +1924,37 @@ def ask_ai_assistant(
         timeout=120,
     )
 
-
-    # ------------------------------------------------------
-    # Return Backend Response
-    # ------------------------------------------------------
-
-    if isinstance(
+    if not isinstance(
         result,
         dict,
     ):
 
-        # --------------------------------------------------
-        # Normalize backend "response" into "answer"
-        # so the Streamlit page can use it.
-        # --------------------------------------------------
+        return None
 
-        if (
-            "answer" not in result
-            and "response" in result
-        ):
+    returned_conversation_id = (
+        result.get(
+            "conversation_id"
+        )
+    )
 
-            result["answer"] = (
-                result.get(
-                    "response"
-                )
-            )
+    if returned_conversation_id:
 
+        st.session_state[
+            "chat_conversation_id"
+        ] = returned_conversation_id
 
-        return result
+    if (
+        "answer" not in result
+        and "response" in result
+    ):
 
+        result[
+            "answer"
+        ] = result.get(
+            "response"
+        )
 
-    return None
+    return result
 
 
 # ==========================================================
