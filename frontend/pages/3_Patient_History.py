@@ -7,25 +7,6 @@ from utils.api_client import (
 )
 
 # ==========================================================
-# History Banner
-# ==========================================================
-
-FRONTEND_DIR = Path(__file__).resolve().parents[1]
-
-HISTORY_BANNER = (
-    FRONTEND_DIR
-    / "assets"
-    / "images"
-    / "history_banner.png"
-)
-
-if HISTORY_BANNER.exists():
-    st.image(
-        str(HISTORY_BANNER),
-        use_container_width=True,
-    )
-
-# ==========================================================
 # Page Configuration
 # ==========================================================
 
@@ -35,6 +16,111 @@ st.set_page_config(
     layout="wide",
 )
 
+# ==========================================================
+# Patient History Banner
+# ==========================================================
+
+HISTORY_BANNER = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "history_banner.png"
+)
+
+
+if HISTORY_BANNER.exists():
+
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        HISTORY_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <style>
+
+        .history-banner-wrapper {{
+            width: 100%;
+            margin: 0 0 1rem 0;
+            padding: 0;
+        }}
+
+
+        .history-banner {{
+            width: min(100%, 1600px);
+
+            height: auto;
+
+            display: block;
+
+            margin-left: auto;
+            margin-right: auto;
+
+            object-fit: contain;
+
+            border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .history-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .history-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / High Resolution Screens */
+
+        @media (min-width: 1401px) {{
+
+            .history-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
+        }}
+
+        </style>
+
+
+        <div class="history-banner-wrapper">
+
+            <img
+                class="history-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Patient History"
+            >
+
+        </div>
+        """
+    )
+
+
+else:
+
+    st.warning(
+        "Patient History banner image was not found."
+    )
 
 # ==========================================================
 # Header
