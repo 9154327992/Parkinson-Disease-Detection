@@ -106,7 +106,7 @@ class ChatbotService:
 
         messages = []
 
-        for message in history[-6:]:
+        for message in history[-8:]:
 
             content = getattr(
                 message,
@@ -120,41 +120,8 @@ class ChatbotService:
                     str(content).lower()
                 )
 
-        return " ".join(messages)
-
-    # ==========================================================
-    # Follow-up Detection
-    # ==========================================================
-
-    def _is_follow_up(
-        self,
-        text: str,
-    ) -> bool:
-
-        follow_up_phrases = [
-
-            "it",
-            "this",
-            "that",
-            "the disease",
-            "the condition",
-
-            "how to prevent it",
-            "how can i prevent it",
-            "can it be prevented",
-            "how to avoid it",
-            "can i avoid it",
-
-            "what about it",
-            "what causes it",
-            "how is it treated",
-            "is it curable",
-            "what are its symptoms",
-        ]
-
-        return any(
-            phrase in text
-            for phrase in follow_up_phrases
+        return " ".join(
+            messages
         )
 
     # ==========================================================
@@ -168,8 +135,7 @@ class ChatbotService:
     ) -> str:
 
         text = str(
-            message
-            or ""
+            message or ""
         ).lower().strip()
 
         history = history or []
@@ -178,21 +144,11 @@ class ChatbotService:
             history
         )
 
-        combined_text = (
-            context
-            + " "
-            + text
-        ).strip()
-
-        # ======================================================
-        # Empty Message
-        # ======================================================
-
         if not text:
 
             return (
-                "Please enter a question about Parkinson "
-                "disease or another supported health topic."
+                "Please enter a question about Parkinson disease "
+                "or another supported health topic."
             )
 
         # ======================================================
@@ -239,10 +195,6 @@ class ChatbotService:
             "lower risk",
             "lower the risk",
 
-            "decrease risk",
-
-            "stay healthy",
-
             "how to avoid",
             "how can i avoid",
 
@@ -259,15 +211,12 @@ class ChatbotService:
             "how can i prevent it",
 
             "what can i do to prevent",
-            "what can we do to prevent",
         ]
 
-        prevention_question = any(
+        if any(
             keyword in text
             for keyword in prevention_keywords
-        )
-
-        if prevention_question:
+        ):
 
             information = (
                 self.parkinson_information()
@@ -297,10 +246,6 @@ class ChatbotService:
                 "  Regular healthcare visits can help identify and "
                 "address health concerns.\n\n"
 
-                "• **Avoiding harmful exposures when possible**\n"
-                "  General safety and healthy lifestyle practices "
-                "may help reduce some environmental health risks.\n\n"
-
                 "These measures do not guarantee that Parkinson "
                 "disease will be prevented.\n\n"
 
@@ -308,16 +253,15 @@ class ChatbotService:
             )
 
         # ======================================================
-        # Follow-up Prevention Question
+        # Follow-up prevention question
         # ======================================================
 
         if (
-            self._is_follow_up(text)
-            and "parkinson" in context
+            "parkinson" in context
             and (
-                "prevent" in text
-                or "avoid" in text
-                or "risk" in text
+                "prevent it" in text
+                or "avoid it" in text
+                or "reduce its risk" in text
             )
         ):
 
@@ -328,10 +272,9 @@ class ChatbotService:
             return (
                 "If you are referring to Parkinson disease, there "
                 "is currently no guaranteed way to prevent it. "
-                "However, maintaining regular physical activity, "
-                "a balanced diet, healthy sleep habits, stress "
-                "management, and routine medical care can support "
-                "overall health.\n\n"
+                "However, regular exercise, a balanced diet, "
+                "healthy sleep habits, stress management, and "
+                "routine medical care can support overall health.\n\n"
 
                 "These practices do not guarantee prevention.\n\n"
 
@@ -343,25 +286,16 @@ class ChatbotService:
         # ======================================================
 
         if (
-
             "what is parkinson" in text
-
             or "what's parkinson" in text
-
             or "define parkinson" in text
-
-            or "about parkinson" in text
-
             or "tell me about parkinson" in text
-
             or (
-                "parkinson disease" in text
-                and len(text.split()) <= 6
-            )
-
-            or (
-                "parkinson's disease" in text
-                and len(text.split()) <= 6
+                (
+                    "parkinson disease" in text
+                    or "parkinson's disease" in text
+                )
+                and len(text.split()) <= 7
             )
         ):
 
@@ -386,7 +320,7 @@ class ChatbotService:
             )
 
         # ======================================================
-        # Hand Tremor / Tremor
+        # Tremors
         # ======================================================
 
         if any(
@@ -411,9 +345,8 @@ class ChatbotService:
                 "anxiety, caffeine use, or other medical conditions.\n\n"
 
                 "A tremor alone does not establish a diagnosis. "
-                "Persistent, worsening, or concerning tremors "
-                "should be evaluated by a qualified healthcare "
-                "professional.\n\n"
+                "Persistent or worsening tremors should be evaluated "
+                "by a qualified healthcare professional.\n\n"
 
                 "This information is educational and is not a "
                 "substitute for professional medical advice."
@@ -472,9 +405,9 @@ class ChatbotService:
         ):
 
             return (
-                "**Bradykinesia** means slowness of movement and "
-                "is one of the movement-related features associated "
-                "with Parkinson disease.\n\n"
+                "**Bradykinesia** means slowness of movement. "
+                "It is one of the movement-related features "
+                "associated with Parkinson disease.\n\n"
 
                 "It can make everyday activities take longer and "
                 "may affect walking, getting up, dressing, writing, "
@@ -524,8 +457,7 @@ class ChatbotService:
 
             return (
                 "Balance difficulties can occur in Parkinson "
-                "disease, particularly as the condition progresses, "
-                "and may increase the risk of falls.\n\n"
+                "disease and may increase the risk of falls.\n\n"
 
                 "Balance problems can also have many other causes. "
                 "A healthcare professional can help evaluate "
@@ -553,8 +485,7 @@ class ChatbotService:
                 "Some people may experience slower walking, shorter "
                 "steps, shuffling, or freezing of gait.\n\n"
 
-                "Walking difficulties can also have other causes, "
-                "so persistent mobility problems should be assessed "
+                "Persistent mobility problems should be assessed "
                 "by a healthcare professional."
             )
 
@@ -701,7 +632,6 @@ class ChatbotService:
                 "can parkinson be cured",
                 "can parkinson's be cured",
                 "cure for parkinson",
-                "cure for parkinson's",
                 "is there a cure for parkinson",
             ]
         ):
@@ -760,8 +690,6 @@ class ChatbotService:
                 "medications",
                 "medicine",
                 "medicines",
-                "drug for parkinson",
-                "drugs for parkinson",
             ]
         ):
 
@@ -788,7 +716,6 @@ class ChatbotService:
                 "nutrition",
                 "what should i eat",
                 "what can i eat",
-                "recommended food",
             ]
         ):
 
@@ -798,8 +725,7 @@ class ChatbotService:
 
                 "Healthy eating can include a variety of "
                 "nutrient-rich foods, fruits, vegetables, whole "
-                "grains, protein, and adequate hydration according "
-                "to individual needs.\n\n"
+                "grains, protein, and adequate hydration.\n\n"
 
                 "Specific dietary changes should be discussed with "
                 "a qualified healthcare professional or dietitian."
@@ -817,7 +743,6 @@ class ChatbotService:
                 "workout",
                 "fitness",
                 "which exercises",
-                "beneficial exercise",
             ]
         ):
 
@@ -881,27 +806,11 @@ class ChatbotService:
         ):
 
             return (
-                "Sleep difficulties can occur for many reasons, "
-                "including in people with Parkinson disease.\n\n"
+                "Sleep difficulties can occur for many reasons.\n\n"
 
                 "Helpful general practices may include maintaining "
                 "a regular sleep schedule and discussing persistent "
                 "sleep problems with a healthcare professional."
-            )
-
-        # ======================================================
-        # Dopamine
-        # ======================================================
-
-        if "dopamine" in text:
-
-            return (
-                "Dopamine is a chemical messenger in the brain "
-                "that plays an important role in movement.\n\n"
-
-                "Parkinson disease is associated with loss of "
-                "dopamine-producing neurons, which contributes "
-                "to movement-related symptoms."
             )
 
         # ======================================================
@@ -915,7 +824,6 @@ class ChatbotService:
                 "model result",
                 "voice prediction",
                 "machine learning result",
-                "prediction result",
             ]
         ):
 
@@ -939,7 +847,6 @@ class ChatbotService:
                 "accuracy",
                 "accurate",
                 "how accurate",
-                "model accuracy",
             ]
         ):
 
@@ -949,54 +856,6 @@ class ChatbotService:
 
                 "Confidence should not be interpreted as a medical "
                 "diagnosis or a guarantee."
-            )
-
-        # ======================================================
-        # Reports
-        # ======================================================
-
-        if "report" in text:
-
-            return (
-                "A prediction report can summarize prediction "
-                "results, confidence, risk level, recommendations, "
-                "and related information.\n\n"
-
-                "The report should not replace professional "
-                "medical evaluation."
-            )
-
-        # ======================================================
-        # Healthy Lifestyle
-        # ======================================================
-
-        if any(
-            keyword in text
-            for keyword in [
-                "healthy habits",
-                "healthy lifestyle",
-                "lifestyle",
-                "healthy living",
-                "what can i do to stay healthy",
-            ]
-        ):
-
-            information = (
-                self.parkinson_information()
-            )
-
-            return (
-                "Healthy lifestyle practices include:\n\n"
-
-                + "\n".join(
-                    f"• {item}"
-                    for item
-                    in information.prevention
-                )
-
-                + "\n\n"
-
-                + information.disclaimer
             )
 
         # ======================================================
@@ -1032,55 +891,56 @@ class ChatbotService:
                 "• Exercise\n"
                 "• Stress and anxiety\n"
                 "• Sleep\n"
-                "• Prediction results\n"
-                "• Model confidence\n"
-                "• Reports\n\n"
-
-                "I provide educational information and cannot "
-                "diagnose disease or prescribe individual treatment."
+                "• Prediction results"
             )
 
         # ======================================================
-        # Smarter Default
+        # Follow-up question
         # ======================================================
 
         if (
-            "it" in text
-            or "this" in text
-            or "that" in text
-        ) and "parkinson" in context:
+            any(
+                word in text
+                for word in [
+                    "it",
+                    "this",
+                    "that",
+                ]
+            )
+            and "parkinson" in context
+        ):
 
             return (
                 "I understand you may be referring to Parkinson "
-                "disease. Could you tell me a little more about "
-                "what you would like to know?\n\n"
+                "disease. Please tell me what you would like to "
+                "know about it.\n\n"
 
                 "For example:\n"
                 "• Symptoms\n"
-                "• Prevention and risk reduction\n"
+                "• Prevention\n"
                 "• Causes\n"
                 "• Diagnosis\n"
                 "• Treatment\n"
                 "• Exercise or diet"
             )
 
+        # ======================================================
+        # Default
+        # ======================================================
+
         return (
-            "I can provide educational information about Parkinson "
-            "disease and related health topics.\n\n"
+            "I can answer educational questions about Parkinson "
+            "disease, including symptoms, causes, risk factors, "
+            "prevention, diagnosis, treatment, exercise, nutrition, "
+            "stress, sleep, and voice changes.\n\n"
 
-            "You can ask about:\n\n"
+            "Try asking:\n\n"
 
-            "• Symptoms\n"
-            "• Causes and risk factors\n"
-            "• Prevention and healthy habits\n"
-            "• Diagnosis\n"
-            "• Treatment\n"
-            "• Exercise and nutrition\n"
-            "• Stress and sleep\n"
-            "• Voice changes\n"
-            "• Prediction results\n\n"
-
-            "For example: **How can Parkinson risk be reduced?**"
+            "• What is Parkinson's Disease?\n"
+            "• What are the early symptoms?\n"
+            "• How can Parkinson risk be reduced?\n"
+            "• Is Parkinson curable?\n"
+            "• How is Parkinson diagnosed?"
         )
 
     # ==========================================================
@@ -1089,11 +949,14 @@ class ChatbotService:
 
     def get_history(
         self,
+        user_id=None,
     ) -> ChatHistoryResponse:
 
         conversations = []
 
-        for conversation_id, messages in self._history.items():
+        for conversation_id, messages in (
+            self._history.items()
+        ):
 
             conversations.append(
                 ConversationHistory(
@@ -1111,18 +974,28 @@ class ChatbotService:
             conversations=conversations,
         )
 
+    def history(
+        self,
+        user_id=None,
+    ) -> ChatHistoryResponse:
+
+        return self.get_history(
+            user_id=user_id
+        )
+
     # ==========================================================
     # Clear History
     # ==========================================================
 
     def clear_history(
         self,
+        user_id=None,
     ) -> ClearChatResponse:
 
         self._history.clear()
 
         return ClearChatResponse(
-            message="Conversation history cleared."
+            message="Chat history cleared."
         )
 
     # ==========================================================
@@ -1203,8 +1076,14 @@ class ChatbotService:
             )
         ]
 
+    def suggestions(
+        self,
+    ) -> list[SuggestedQuestion]:
+
+        return self.suggested_questions()
+
     # ==========================================================
-    # Frequently Asked Questions
+    # FAQ
     # ==========================================================
 
     def faq(
@@ -1219,19 +1098,8 @@ class ChatbotService:
                 ),
                 answer=(
                     "No. The system provides a machine-learning "
-                    "prediction that should be evaluated by a "
-                    "qualified healthcare professional."
-                ),
-            ),
-
-            FAQItem(
-                question=(
-                    "How accurate is the prediction?"
-                ),
-                answer=(
-                    "The system reports model confidence, but "
-                    "confidence should not be interpreted as a "
-                    "medical diagnosis."
+                    "prediction and does not replace professional "
+                    "medical evaluation."
                 ),
             ),
 
@@ -1240,9 +1108,9 @@ class ChatbotService:
                     "Can Parkinson disease be prevented?"
                 ),
                 answer=(
-                    "There is currently no guaranteed way to "
-                    "prevent Parkinson disease. Healthy lifestyle "
-                    "practices may support overall health."
+                    "There is currently no guaranteed way to prevent "
+                    "Parkinson disease. Healthy lifestyle practices "
+                    "may support overall health."
                 ),
             ),
 
@@ -1251,9 +1119,9 @@ class ChatbotService:
                     "Is Parkinson disease curable?"
                 ),
                 answer=(
-                    "Parkinson disease currently does not have "
-                    "a definitive cure, although treatments can "
-                    "help manage symptoms."
+                    "Parkinson disease currently does not have a "
+                    "definitive cure, although treatments can help "
+                    "manage symptoms."
                 ),
             ),
         ]
@@ -1320,13 +1188,13 @@ class ChatbotService:
 
         return PredictionExplanation(
             prediction_id=prediction_id,
-            prediction="Parkinson Detected",
-            confidence=97.8,
-            risk_level="High Risk",
+            prediction="Prediction Result",
+            confidence=0.0,
+            risk_level="Unknown",
             explanation=(
-                "The prediction is based on patterns identified "
-                "from voice measurements using a machine-learning "
-                "model."
+                "The prediction should be interpreted together "
+                "with the actual patient record and clinical "
+                "assessment."
             ),
         )
 
@@ -1346,9 +1214,9 @@ class ChatbotService:
                 "recommendations, and follow-up guidance."
             ),
             recommendations=[
-                "Consult a neurologist.",
-                "Maintain regular exercise.",
-                "Follow up as recommended.",
+                "Consult a qualified healthcare professional.",
+                "Maintain healthy lifestyle practices.",
+                "Follow up as medically recommended.",
             ],
         )
 
