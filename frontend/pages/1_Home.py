@@ -71,16 +71,15 @@ if HOME_BANNER.exists():
             width: 100%;
             margin: 0 0 1rem 0;
             padding: 0;
-            overflow: hidden;
         }}
 
         .home-banner {{
             width: 100%;
-            height: clamp(120px, 20vw, 380px);
-
+            height: auto;
+            max-width: 100%;
             display: block;
 
-            object-fit: cover;
+            object-fit: contain;
 
             border-radius: 12px;
         }}
