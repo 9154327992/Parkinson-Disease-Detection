@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     )
 
     # ------------------------------------------------------
-    # Create database tables
+    # Create Database Tables
     # ------------------------------------------------------
 
     try:
@@ -55,16 +55,17 @@ async def lifespan(app: FastAPI):
             "Database tables initialized successfully."
         )
 
-    except Exception as e:
+    except Exception as exc:
 
         print(
-            f"Database initialization failed: {e}"
+            f"Database initialization failed: {exc}"
         )
 
         raise
 
+
     # ------------------------------------------------------
-    # Seed default development data
+    # Seed Default Development Data
     # ------------------------------------------------------
 
     try:
@@ -83,17 +84,19 @@ async def lifespan(app: FastAPI):
 
             seeder.close()
 
+
         print(
             "Database seed completed successfully."
         )
 
-    except Exception as e:
+    except Exception as exc:
 
         print(
-            f"Database seeding failed: {e}"
+            f"Database seeding failed: {exc}"
         )
 
         raise
+
 
     print(
         "=================================================="
@@ -107,14 +110,25 @@ async def lifespan(app: FastAPI):
         "=================================================="
     )
 
+
+    # Application is running
     yield
+
 
     # ------------------------------------------------------
     # Shutdown
     # ------------------------------------------------------
 
     print(
+        "=================================================="
+    )
+
+    print(
         "Parkinson Disease Detection API shutting down."
+    )
+
+    print(
+        "=================================================="
     )
 
 
@@ -139,16 +153,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ==========================================================
-# Health Check
-# ==========================================================
-
-@app.get("/health")
-def health_check():
-    return {
-        "status": "healthy",
-        "service": "Parkinson Disease Detection API",
-    }
 
 # ==========================================================
 # CORS
@@ -174,13 +178,17 @@ app.add_middleware(
 
 
 # ==========================================================
-# Admin
+# Admin Router
 # ==========================================================
 
 app.include_router(
     admin_router,
+
     prefix="/admin",
-    tags=["Admin"],
+
+    tags=[
+        "Admin"
+    ],
 )
 
 
@@ -310,7 +318,7 @@ async def root():
 
 
 # ==========================================================
-# Health Endpoint
+# Health Check
 # ==========================================================
 
 @app.get(
@@ -319,7 +327,7 @@ async def root():
         "Health"
     ],
 )
-async def health():
+async def health_check():
 
     return {
         "status": "healthy",
