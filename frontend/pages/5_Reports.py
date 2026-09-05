@@ -7,20 +7,6 @@ from utils.api_client import (
     download_report,
 )
 
-IMAGE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "assets"
-    / "images"
-    / "report_banner.png"
-)
-
-if IMAGE_PATH.exists():
-    st.image(
-        str(IMAGE_PATH),
-        use_container_width=True,
-    )
-
-
 # ==========================================================
 # Page Configuration
 # ==========================================================
@@ -31,6 +17,111 @@ st.set_page_config(
     layout="wide",
 )
 
+# ==========================================================
+# Reports Banner
+# ==========================================================
+
+REPORT_BANNER = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "report_banner.png"
+)
+
+
+if REPORT_BANNER.exists():
+
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        REPORT_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <style>
+
+        .report-banner-wrapper {{
+            width: 100%;
+            margin: 0 0 1rem 0;
+            padding: 0;
+        }}
+
+
+        .report-banner {{
+            width: min(100%, 1600px);
+
+            height: auto;
+
+            display: block;
+
+            margin-left: auto;
+            margin-right: auto;
+
+            object-fit: contain;
+
+            border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .report-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .report-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / High Resolution Screens */
+
+        @media (min-width: 1401px) {{
+
+            .report-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
+        }}
+
+        </style>
+
+
+        <div class="report-banner-wrapper">
+
+            <img
+                class="report-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Parkinson Disease Reports"
+            >
+
+        </div>
+        """
+    )
+
+
+else:
+
+    st.warning(
+        "Reports banner image was not found."
+    )
 
 # ==========================================================
 # Header
