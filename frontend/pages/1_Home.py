@@ -1,5 +1,25 @@
 import streamlit as st
+
 from pathlib import Path
+
+
+# ==========================================================
+# API Imports
+# ==========================================================
+
+from utils.api_client import (
+    get_patient_history,
+    get_reports,
+)
+
+
+# ==========================================================
+# Session Import
+# ==========================================================
+
+from utils.session import (
+    initialize_session,
+)
 
 
 # ==========================================================
@@ -14,16 +34,44 @@ st.set_page_config(
 
 
 # ==========================================================
-# Responsive Banner
+# Initialize Session
 # ==========================================================
 
-IMAGE_PATH = (
-    Path(__file__).resolve().parents[1]
+initialize_session()
+
+
+# ==========================================================
+# Paths
+# ==========================================================
+
+FRONTEND_DIR = (
+    Path(__file__)
+    .resolve()
+    .parents[1]
+)
+
+
+ASSETS_DIR = (
+    FRONTEND_DIR
     / "assets"
+)
+
+
+IMAGES_DIR = (
+    ASSETS_DIR
     / "images"
+)
+
+
+IMAGE_PATH = (
+    IMAGES_DIR
     / "home_banner.png"
 )
 
+
+# ==========================================================
+# Responsive Banner
+# ==========================================================
 
 if IMAGE_PATH.exists():
 
@@ -35,406 +83,340 @@ if IMAGE_PATH.exists():
 else:
 
     st.warning(
-        f"Banner image not found: {IMAGE_PATH}"
+        "Home banner image was not found."
     )
 
+
 # ==========================================================
-# Header
+# Title
 # ==========================================================
 
 st.title(
-    "🏠 Home Dashboard"
+    "🏠 Parkinson Disease Detection Agent"
 )
+
 
 st.write(
     """
-Welcome to the **Parkinson Disease Detection Agent**.
-
-This platform uses machine learning and AI-assisted tools
-for Parkinson's disease prediction, patient management,
-analytics, reports, and health education.
-"""
+    An AI-assisted platform for Parkinson's disease
+    screening using voice measurements, patient
+    management, prediction history, analytics,
+    medical reports, and an AI Health Assistant.
+    """
 )
+
 
 st.divider()
 
 
 # ==========================================================
-# Load Data
+# Safe Helper Functions
 # ==========================================================
 
-analytics_response = get_analytics()
-reports_response = get_reports()
-patients_response = get_patients()
-history_response = get_patient_history()
-
-
-# ==========================================================
-# Validate Responses
-# ==========================================================
-
-analytics_available = isinstance(
-    analytics_response,
-    dict,
-)
-
-reports = (
-    reports_response
-    if isinstance(reports_response, list)
-    else []
-)
-
-patients = (
-    patients_response
-    if isinstance(patients_response, list)
-    else []
-)
-
-history = (
-    history_response
-    if isinstance(history_response, list)
-    else []
-)
-
-analytics = (
-    analytics_response
-    if analytics_available
-    else {}
-)
-
-
-# ==========================================================
-# Helper Functions
-# ==========================================================
-
-def first_value(
-    record,
-    keys,
-    default=None,
+def safe_list(
+    value,
 ):
-    """
-    Return the first available value from a dictionary.
-    """
 
-    if not isinstance(
-        record,
+    if isinstance(
+        value,
+        list,
+    ):
+
+        return value
+
+
+    if isinstance(
+        value,
         dict,
     ):
+
+        return (
+            value.get("data")
+            or value.get("items")
+            or value.get("records")
+            or value.get("predictions")
+            or value.get("history")
+            or value.get("reports")
+            or []
+        )
+
+
+    return []
+
+
+def safe_count(
+    value,
+):
+
+    if value is None:
+
+        return 0
+
+
+    if isinstance(
+        value,
+        (list, tuple, set),
+    ):
+
+        return len(value)
+
+
+    if isinstance(
+        value,
+        dict,
+    ):
+
+        for key in [
+            "count",
+            "total",
+            "total_count",
+        ]:
+
+            number = value.get(
+                key
+            )
+
+            if isinstance(
+                number,
+                (int, float),
+            ):
+
+                return int(
+                    number
+                )
+
+
+        for key in [
+            "data",
+            "items",
+            "records",
+            "predictions",
+            "history",
+            "reports",
+        ]:
+
+            item = value.get(
+                key
+            )
+
+            if isinstance(
+                item,
+                list,
+            ):
+
+                return len(
+                    item
+                )
+
+
+    return 0
+
+
+def get_metric(
+    data,
+    keys,
+    default=0,
+):
+
+    if not isinstance(
+        data,
+        dict,
+    ):
+
         return default
+
 
     for key in keys:
 
-        value = record.get(
+        value = data.get(
             key
         )
 
         if value is not None:
+
             return value
+
 
     return default
 
 
-def normalize_patient_name(
-    patient,
-):
-    """
-    Safely determine patient name.
-    """
-
-    name = first_value(
-        patient,
-        [
-            "patient_name",
-            "name",
-            "full_name",
-            "patient",
-        ],
-    )
-
-    if isinstance(
-        name,
-        dict,
-    ):
-
-        name = (
-            name.get("patient_name")
-            or name.get("name")
-            or name.get("full_name")
-        )
-
-    if name:
-        return str(name)
-
-    first_name = first_value(
-        patient,
-        [
-            "first_name",
-            "firstName",
-        ],
-        "",
-    )
-
-    last_name = first_value(
-        patient,
-        [
-            "last_name",
-            "lastName",
-        ],
-        "",
-    )
-
-    full_name = (
-        f"{first_name} {last_name}"
-    ).strip()
-
-    return full_name or "Unknown"
-
-
-def normalize_risk_level(
-    record,
-):
-    """
-    Safely extract risk level.
-    """
-
-    risk = first_value(
-        record,
-        [
-            "risk_level",
-            "risk_category",
-            "risk",
-        ],
-    )
-
-    if isinstance(
-        risk,
-        dict,
-    ):
-
-        risk = (
-            risk.get("risk_level")
-            or risk.get("level")
-            or risk.get("category")
-        )
-
-    if risk is None:
-        return None
-
-    risk = str(
-        risk
-    ).strip().lower()
-
-    if "high" in risk:
-        return "High Risk"
-
-    if "medium" in risk:
-        return "Medium Risk"
-
-    if "low" in risk:
-        return "Low Risk"
-
-    return str(risk).title()
-
-
-def normalize_diagnosis(
-    record,
-):
-    """
-    Safely extract prediction/diagnosis.
-    """
-
-    diagnosis = first_value(
-        record,
-        [
-            "diagnosis",
-            "prediction",
-            "prediction_result",
-            "result",
-        ],
-    )
-
-    if isinstance(
-        diagnosis,
-        dict,
-    ):
-
-        diagnosis = (
-            diagnosis.get("diagnosis")
-            or diagnosis.get("prediction")
-            or diagnosis.get("result")
-        )
-
-    if diagnosis is None:
-        return "Unknown"
-
-    return str(
-        diagnosis
-    )
-
-
-def normalize_patient_id(
-    record,
-):
-    """
-    Safely extract patient ID.
-    """
-
-    return first_value(
-        record,
-        [
-            "patient_id",
-            "id",
-        ],
-        "N/A",
-    )
-
-
 # ==========================================================
-# Analytics Data
+# Fetch Data Safely
 # ==========================================================
 
-dashboard_data = analytics.get(
-    "dashboard",
-    {},
-)
+try:
 
-prediction_data = analytics.get(
-    "prediction",
-    {},
-)
-
-if not isinstance(
-    dashboard_data,
-    dict,
-):
-    dashboard_data = {}
-
-if not isinstance(
-    prediction_data,
-    dict,
-):
-    prediction_data = {}
-
-
-# ==========================================================
-# Dashboard Statistics
-#
-# IMPORTANT:
-# All dashboard totals come from Analytics.
-# This prevents Home from displaying numbers that
-# disagree with the backend dashboard statistics.
-# ==========================================================
-
-total_patients = int(
-    dashboard_data.get(
-        "total_patients",
-        analytics.get(
-            "total_patients",
-            0,
-        ),
+    history_response = (
+        get_patient_history()
     )
-    or 0
+
+except Exception:
+
+    history_response = None
+
+
+try:
+
+    reports_response = (
+        get_reports()
+    )
+
+except Exception:
+
+    reports_response = None
+
+
+history = safe_list(
+    history_response
 )
 
-total_predictions = int(
-    prediction_data.get(
-        "total_predictions",
-        dashboard_data.get(
-            "total_predictions",
-            analytics.get(
-                "total_predictions",
-                0,
-            ),
-        ),
-    )
-    or 0
-)
 
-total_reports = int(
-    dashboard_data.get(
-        "total_reports",
-        analytics.get(
-            "total_reports",
-            0,
-        ),
-    )
-    or 0
-)
-
-high_risk_cases = int(
-    dashboard_data.get(
-        "high_risk_cases",
-        analytics.get(
-            "high_risk_cases",
-            0,
-        ),
-    )
-    or 0
-)
-
-medium_risk_cases = int(
-    dashboard_data.get(
-        "medium_risk_cases",
-        analytics.get(
-            "medium_risk_cases",
-            0,
-        ),
-    )
-    or 0
-)
-
-low_risk_cases = int(
-    dashboard_data.get(
-        "low_risk_cases",
-        analytics.get(
-            "low_risk_cases",
-            0,
-        ),
-    )
-    or 0
+reports = safe_list(
+    reports_response
 )
 
 
 # ==========================================================
-# Dashboard Overview
+# Dashboard Metrics
 # ==========================================================
 
 st.subheader(
-    "📊 Dashboard Overview"
+    "📊 Overview"
 )
 
-col1, col2, col3, col4 = st.columns(4)
+
+metric1, metric2, metric3, metric4 = (
+    st.columns(
+        4
+    )
+)
 
 
-with col1:
+# ----------------------------------------------------------
+# Prediction Count
+# ----------------------------------------------------------
 
-    st.metric(
-        "👤 Total Patients",
-        total_patients,
+prediction_count = (
+    safe_count(
+        history
+    )
+)
+
+
+# ----------------------------------------------------------
+# Report Count
+# ----------------------------------------------------------
+
+report_count = (
+    safe_count(
+        reports
+    )
+)
+
+
+# ----------------------------------------------------------
+# Patient Count
+#
+# This version derives a unique patient count from
+# prediction history so it does not depend on get_analytics().
+# ----------------------------------------------------------
+
+patient_ids = set()
+
+
+for item in history:
+
+    if not isinstance(
+        item,
+        dict,
+    ):
+
+        continue
+
+
+    patient_id = (
+        item.get("patient_id")
+        or item.get("patientId")
     )
 
 
-with col2:
+    if patient_id is not None:
+
+        patient_ids.add(
+            str(patient_id)
+        )
+
+
+patient_count = len(
+    patient_ids
+)
+
+
+# ----------------------------------------------------------
+# High Risk Count
+# ----------------------------------------------------------
+
+high_risk_count = 0
+
+
+for item in history:
+
+    if not isinstance(
+        item,
+        dict,
+    ):
+
+        continue
+
+
+    risk_level = str(
+        item.get(
+            "risk_level",
+            ""
+        )
+    ).lower()
+
+
+    if (
+        "high" in risk_level
+    ):
+
+        high_risk_count += 1
+
+
+# ==========================================================
+# Display Metrics
+# ==========================================================
+
+with metric1:
 
     st.metric(
-        "🧠 Predictions",
-        total_predictions,
+        "👤 Patients",
+        patient_count,
     )
 
 
-with col3:
+with metric2:
 
     st.metric(
-        "⚠️ High Risk Cases",
-        high_risk_cases,
+        "🧪 Predictions",
+        prediction_count,
     )
 
 
-with col4:
+with metric3:
 
     st.metric(
         "📄 Reports",
-        total_reports,
+        report_count,
+    )
+
+
+with metric4:
+
+    st.metric(
+        "⚠️ High Risk",
+        high_risk_count,
     )
 
 
@@ -442,23 +424,26 @@ st.divider()
 
 
 # ==========================================================
-# Quick Actions
+# Quick Navigation
 # ==========================================================
 
 st.subheader(
-    "🚀 Quick Actions"
-)
-
-action1, action2, action3, action4 = (
-    st.columns(4)
+    "🚀 Quick Navigation"
 )
 
 
-with action1:
+nav1, nav2, nav3, nav4 = (
+    st.columns(
+        4
+    )
+)
+
+
+with nav1:
 
     if st.button(
-        "🩺 New Prediction",
-        use_container_width=True,
+        "🧪 New Prediction",
+        width="stretch",
     ):
 
         st.switch_page(
@@ -466,11 +451,11 @@ with action1:
         )
 
 
-with action2:
+with nav2:
 
     if st.button(
         "👤 Patient History",
-        use_container_width=True,
+        width="stretch",
     ):
 
         st.switch_page(
@@ -478,99 +463,28 @@ with action2:
         )
 
 
-with action3:
+with nav3:
+
+    if st.button(
+        "🤖 AI Assistant",
+        width="stretch",
+    ):
+
+        st.switch_page(
+            "pages/4_AI_Health_Assistant.py"
+        )
+
+
+with nav4:
 
     if st.button(
         "📄 Reports",
-        use_container_width=True,
+        width="stretch",
     ):
 
         st.switch_page(
             "pages/5_Reports.py"
         )
-
-
-with action4:
-
-    if st.button(
-        "📊 Analytics",
-        use_container_width=True,
-    ):
-
-        st.switch_page(
-            "pages/6_Analytics.py"
-        )
-
-
-st.divider()
-
-
-# ==========================================================
-# Recent Patients
-# ==========================================================
-
-st.subheader(
-    "👥 Recent Patients"
-)
-
-
-if patients:
-
-    patient_rows = []
-
-    for patient in patients:
-
-        patient_rows.append(
-            {
-                "ID": first_value(
-                    patient,
-                    [
-                        "id",
-                        "patient_id",
-                    ],
-                    "N/A",
-                ),
-
-                "Patient Name":
-                    normalize_patient_name(
-                        patient
-                    ),
-
-                "Age":
-                    first_value(
-                        patient,
-                        [
-                            "age",
-                        ],
-                        "N/A",
-                    ),
-
-                "Gender":
-                    first_value(
-                        patient,
-                        [
-                            "gender",
-                        ],
-                        "N/A",
-                    ),
-            }
-        )
-
-    patient_df = pd.DataFrame(
-        patient_rows
-    )
-
-    st.dataframe(
-        patient_df.head(5),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-else:
-
-    st.info(
-        "No patient records available yet."
-    )
 
 
 st.divider()
@@ -581,80 +495,126 @@ st.divider()
 # ==========================================================
 
 st.subheader(
-    "🧠 Recent Predictions"
+    "🕒 Recent Predictions"
 )
 
 
 if history:
 
-    prediction_rows = []
+    rows = []
 
-    for record in history[:10]:
 
-        prediction_rows.append(
+    for item in history[:5]:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+
+            continue
+
+
+        patient_name = (
+            item.get(
+                "patient_name"
+            )
+            or item.get(
+                "name"
+            )
+            or "Unknown"
+        )
+
+
+        diagnosis = (
+            item.get(
+                "prediction"
+            )
+            or item.get(
+                "diagnosis"
+            )
+            or "Unknown"
+        )
+
+
+        risk_level = (
+            item.get(
+                "risk_level"
+            )
+            or "Unknown"
+        )
+
+
+        risk_score = (
+            item.get(
+                "risk_score"
+            )
+        )
+
+
+        created_at = (
+            item.get(
+                "created_at"
+            )
+            or item.get(
+                "prediction_date"
+            )
+            or ""
+        )
+
+
+        if isinstance(
+            risk_score,
+            (int, float),
+        ):
+
+            risk_score = (
+                f"{risk_score:.2f}"
+            )
+
+        elif risk_score is None:
+
+            risk_score = "N/A"
+
+
+        rows.append(
             {
-                "Prediction ID":
-                    first_value(
-                        record,
-                        [
-                            "prediction_id",
-                            "id",
-                        ],
-                        "N/A",
-                    ),
-
                 "Patient":
-                    normalize_patient_name(
-                        record
-                    ),
+                    patient_name,
 
-                "Diagnosis":
-                    normalize_diagnosis(
-                        record
-                    ),
+                "Prediction":
+                    diagnosis,
 
                 "Risk Level":
-                    normalize_risk_level(
-                        record
-                    )
-                    or "Unknown",
+                    risk_level,
 
                 "Risk Score":
-                    first_value(
-                        record,
-                        [
-                            "risk_score",
-                        ],
-                        "N/A",
-                    ),
+                    risk_score,
 
-                "Created":
-                    first_value(
-                        record,
-                        [
-                            "created_at",
-                            "timestamp",
-                            "date",
-                        ],
-                        "N/A",
-                    ),
+                "Date":
+                    created_at,
             }
         )
 
-    prediction_df = pd.DataFrame(
-        prediction_rows
-    )
 
-    st.dataframe(
-        prediction_df,
-        use_container_width=True,
-        hide_index=True,
-    )
+    if rows:
+
+        st.dataframe(
+            rows,
+            width="stretch",
+            hide_index=True,
+        )
+
+    else:
+
+        st.info(
+            "No prediction records available."
+        )
+
 
 else:
 
     st.info(
-        "No prediction records available yet."
+        "No prediction history available yet."
     )
 
 
@@ -662,51 +622,54 @@ st.divider()
 
 
 # ==========================================================
-# Risk Summary
+# System Features
 # ==========================================================
 
 st.subheader(
-    "⚠️ Risk Summary"
-)
-
-risk_col1, risk_col2, risk_col3 = (
-    st.columns(3)
+    "✨ Platform Features"
 )
 
 
-with risk_col1:
+feature1, feature2, feature3 = (
+    st.columns(
+        3
+    )
+)
 
-    st.metric(
-        "🔴 High Risk",
-        high_risk_cases,
+
+with feature1:
+
+    st.markdown(
+        """
+### 🧪 AI Prediction
+
+Analyze 22 voice measurements using a machine-learning
+model to provide AI-assisted screening information.
+        """
     )
 
 
-with risk_col2:
+with feature2:
 
-    st.metric(
-        "🟠 Medium Risk",
-        medium_risk_cases,
+    st.markdown(
+        """
+### 👤 Patient Management
+
+Store and manage patient information, prediction history,
+and related medical screening records.
+        """
     )
 
 
-with risk_col3:
+with feature3:
 
-    st.metric(
-        "🟢 Low Risk",
-        low_risk_cases,
-    )
+    st.markdown(
+        """
+### 🤖 AI Health Assistant
 
-
-if (
-    high_risk_cases
-    + medium_risk_cases
-    + low_risk_cases
-    == 0
-):
-
-    st.info(
-        "No risk classification data is currently available."
+Ask educational questions about Parkinson's disease,
+symptoms, diagnosis, exercise, nutrition, and healthy habits.
+        """
     )
 
 
@@ -714,86 +677,63 @@ st.divider()
 
 
 # ==========================================================
-# Workflow
+# About
 # ==========================================================
 
 st.subheader(
-    "📋 How It Works"
+    "ℹ️ About"
 )
+
 
 st.markdown(
     """
-**1.** Open **Prediction**
+### Parkinson Disease Detection Agent
 
-**2.** Enter patient information
+This platform provides:
 
-**3.** Enter the required voice measurements or provide an audio recording
+- 🩺 AI-assisted Parkinson's screening
+- 🎙️ Voice-based analysis
+- 👤 Patient management
+- 📋 Prediction history
+- 📄 Medical report management
+- 📊 Analytics
+- 🤖 AI Health Assistant
+- 🛠️ Administrator management
 
-**4.** Analyze the patient
-
-**5.** Review the prediction and risk information
-
-**6.** View the prediction in **Patient History**
-
-**7.** Review generated **Reports**
-
-**8.** Monitor trends in **Analytics**
+**Important:** Prediction results are AI-assisted
+screening information and should not be treated as
+a medical diagnosis.
 """
 )
 
 
-st.divider()
-
-
 # ==========================================================
-# System Status
+# Medical Disclaimer
 # ==========================================================
 
-st.subheader(
-    "💻 System Status"
+st.warning(
+    """
+⚠️ **Medical Disclaimer**
+
+This application provides educational and AI-assisted
+screening information.
+
+Prediction results are not a diagnosis and should not
+replace professional medical advice, diagnosis,
+or treatment.
+
+If you have persistent or concerning symptoms,
+consult a qualified healthcare professional.
+"""
 )
-
-status_col1, status_col2 = (
-    st.columns(2)
-)
-
-
-with status_col1:
-
-    if analytics_available:
-
-        st.success(
-            "🟢 FastAPI Backend Connected"
-        )
-
-    else:
-
-        st.error(
-            "🔴 FastAPI Backend Unavailable"
-        )
-
-
-with status_col2:
-
-    if analytics_available:
-
-        st.success(
-            "🟢 Analytics Service Available"
-        )
-
-    else:
-
-        st.warning(
-            "🟡 Analytics Service Unavailable"
-        )
-
-
-st.divider()
 
 
 # ==========================================================
 # Footer
 # ==========================================================
+
+st.divider()
+
 
 st.caption(
     "© 2026 Parkinson Disease Detection Agent | "
