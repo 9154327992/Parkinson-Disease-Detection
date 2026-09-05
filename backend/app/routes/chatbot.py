@@ -12,14 +12,15 @@ from app.services.chatbot_service import ChatbotService
 
 router = APIRouter(
     prefix="/chatbot",
-    tags=["AI Health Assistant"]
+    tags=["AI Health Assistant"],
 )
+
 
 chatbot_service = ChatbotService()
 
 
 # ==========================================================
-# Chat with AI Assistant
+# Chat
 # ==========================================================
 
 @router.post(
@@ -29,11 +30,8 @@ chatbot_service = ChatbotService()
 )
 def chat(
     request: ChatRequest,
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Chat with the AI Health Assistant.
-    """
 
     try:
 
@@ -41,97 +39,106 @@ def chat(
             request=request
         )
 
-    except ValueError as e:
+    except ValueError as exc:
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail=str(exc),
         )
 
-    except Exception as e:
+    except Exception as exc:
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Chatbot error: {str(e)}"
+            detail=f"Chatbot error: {str(exc)}",
         )
 
 
 # ==========================================================
-# Suggested Questions
+# Suggestions
 # ==========================================================
 
 @router.get("/suggestions")
 def suggestions(
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Return suggested questions.
-    """
 
     return chatbot_service.suggestions()
 
 
 # ==========================================================
-# Chat History
+# History
 # ==========================================================
 
 @router.get("/history")
 def history(
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Return chat history.
-    """
+
+    user_id = None
+
+    if isinstance(
+        current_user,
+        dict,
+    ):
+
+        user_id = current_user.get(
+            "id"
+        )
 
     return chatbot_service.history(
-        current_user["id"]
+        user_id
     )
 
 
 # ==========================================================
-# Clear Chat History
+# Clear History
 # ==========================================================
 
 @router.delete("/history")
 def clear_history(
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Clear chat history.
-    """
 
-    chatbot_service.clear_history(
-        current_user["id"]
+    user_id = None
+
+    if isinstance(
+        current_user,
+        dict,
+    ):
+
+        user_id = current_user.get(
+            "id"
+        )
+
+    return chatbot_service.clear_history(
+        user_id
     )
-
-    return {
-        "message": "Chat history cleared."
-    }
 
 
 # ==========================================================
 # Explain Prediction
 # ==========================================================
 
-@router.get("/prediction/{prediction_id}")
+@router.get(
+    "/prediction/{prediction_id}"
+)
 def explain_prediction(
     prediction_id: int,
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Explain a prediction result in
-    patient-friendly language.
-    """
 
-    explanation = chatbot_service.explain_prediction(
-        prediction_id
+    explanation = (
+        chatbot_service.explain_prediction(
+            prediction_id
+        )
     )
 
     if explanation is None:
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prediction not found."
+            detail="Prediction not found.",
         )
 
     return explanation
@@ -141,51 +148,65 @@ def explain_prediction(
 # Explain Report
 # ==========================================================
 
-@router.get("/report/{report_id}")
+@router.get(
+    "/report/{report_id}"
+)
 def explain_report(
     report_id: int,
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Explain a patient's report.
-    """
 
-    explanation = chatbot_service.explain_report(
-        report_id
+    explanation = (
+        chatbot_service.explain_report(
+            report_id
+        )
     )
 
     if explanation is None:
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Report not found."
+            detail="Report not found.",
         )
 
     return explanation
 
 
 # ==========================================================
-# Parkinson Disease Information
+# Parkinson Information
 # ==========================================================
 
 @router.get("/parkinson")
 def parkinson_information():
-    """
-    Educational information about
-    Parkinson Disease.
-    """
 
     return chatbot_service.parkinson_information()
 
 
 # ==========================================================
-# Frequently Asked Questions
+# FAQ
 # ==========================================================
 
 @router.get("/faq")
 def faq():
-    """
-    Frequently asked questions.
-    """
 
     return chatbot_service.faq()
+
+
+# ==========================================================
+# Educational Topics
+# ==========================================================
+
+@router.get("/topics")
+def educational_topics():
+
+    return chatbot_service.educational_topics()
+
+
+# ==========================================================
+# Status
+# ==========================================================
+
+@router.get("/status")
+def chatbot_status():
+
+    return chatbot_service.status()
