@@ -16,20 +16,110 @@ st.set_page_config(
 
 
 # ==========================================================
-# Paths
+# AI Health Assistant Banner
 # ==========================================================
 
-FRONTEND_DIR = Path(
-    __file__
-).resolve().parents[1]
-
-IMAGE_PATH = (
-    FRONTEND_DIR
+CHATBOT_BANNER = (
+    Path(__file__).resolve().parents[1]
     / "assets"
     / "images"
     / "chatbot_banner.png"
 )
 
+
+if CHATBOT_BANNER.exists():
+
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        CHATBOT_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <style>
+
+        .chatbot-banner-wrapper {{
+            width: 100%;
+            margin: 0 0 1rem 0;
+            padding: 0;
+        }}
+
+
+        .chatbot-banner {{
+            width: min(100%, 1600px);
+
+            height: auto;
+
+            display: block;
+
+            margin-left: auto;
+            margin-right: auto;
+
+            object-fit: contain;
+
+            border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .chatbot-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .chatbot-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / High Resolution Screens */
+
+        @media (min-width: 1401px) {{
+
+            .chatbot-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
+        }}
+
+        </style>
+
+
+        <div class="chatbot-banner-wrapper">
+
+            <img
+                class="chatbot-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="AI Health Assistant"
+            >
+
+        </div>
+        """
+    )
+
+
+else:
+
+    st.warning(
+        "AI Health Assistant banner image was not found."
+    )
 
 # ==========================================================
 # Session State
