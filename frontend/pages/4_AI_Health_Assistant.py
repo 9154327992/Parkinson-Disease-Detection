@@ -131,10 +131,10 @@ if "pending_question" not in st.session_state:
 # Banner
 # ==========================================================
 
-if IMAGE_PATH.exists():
+if CHATBOT_BANNER.exists():
 
     st.image(
-        str(IMAGE_PATH),
+        str(CHATBOT_BANNER),
         use_container_width=True,
     )
 
