@@ -10,20 +10,6 @@ from utils.api_client import (
 
 from pathlib import Path
 
-IMAGE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "assets"
-    / "images"
-    / "home_banner.png"
-)
-
-if IMAGE_PATH.exists():
-    st.image(
-        str(IMAGE_PATH),
-        use_container_width=True,
-    )
-
-
 # ==========================================================
 # Page Configuration
 # ==========================================================
@@ -34,6 +20,24 @@ st.set_page_config(
     layout="wide",
 )
 
+# ==========================================================
+# Banner
+# ==========================================================
+
+IMAGE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "home_banner.png"
+)
+
+
+if IMAGE_PATH.exists():
+
+    st.image(
+        str(IMAGE_PATH),
+        width="stretch",
+    )
 
 # ==========================================================
 # Header
