@@ -40,10 +40,10 @@ st.set_page_config(
 initialize_session()
 
 # ==========================================================
-# Responsive Banner
+# Home Banner
 # ==========================================================
 
-IMAGE_PATH = (
+HOME_BANNER = (
     Path(__file__).resolve().parents[1]
     / "assets"
     / "images"
@@ -51,12 +51,13 @@ IMAGE_PATH = (
 )
 
 
-if IMAGE_PATH.exists():
+if HOME_BANNER.exists():
 
     import base64
 
-    image_base64 = base64.b64encode(
-        IMAGE_PATH.read_bytes()
+
+    banner_base64 = base64.b64encode(
+        HOME_BANNER.read_bytes()
     ).decode(
         "utf-8"
     )
@@ -66,33 +67,44 @@ if IMAGE_PATH.exists():
         f"""
         <style>
 
-        .banner-wrapper {{
+        .home-banner-wrapper {{
             width: 100%;
-            margin: 0;
+            margin: 0 0 1rem 0;
             padding: 0;
+            overflow: hidden;
         }}
 
-        .banner-wrapper img {{
-            width: 100vw;
-            height: auto;
+        .home-banner {{
+            width: 100%;
+            height: clamp(120px, 20vw, 380px);
+
             display: block;
 
-            margin-left: 50%;
-            transform: translateX(-50%);
+            object-fit: cover;
+
+            border-radius: 12px;
         }}
 
         </style>
 
 
-        <div class="banner-wrapper">
+        <div class="home-banner-wrapper">
 
             <img
-                src="data:image/png;base64,{image_base64}"
-                alt="Parkinson Disease Detection"
+                class="home-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Parkinson Disease Detection Home"
             >
 
         </div>
         """
+    )
+
+
+else:
+
+    st.warning(
+        "Home banner image was not found."
     )
 
 # ==========================================================
