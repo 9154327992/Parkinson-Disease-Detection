@@ -12,6 +12,41 @@ from utils.session import (
     initialize_session,
 )
 
+# ==========================================================
+# Project Paths
+# ==========================================================
+
+FRONTEND_DIR = Path(__file__).resolve().parent
+
+
+ASSETS_DIR = (
+    FRONTEND_DIR
+    / "assets"
+)
+
+
+IMAGES_DIR = (
+    ASSETS_DIR
+    / "images"
+)
+
+
+FAVICON_PATH = (
+    ASSETS_DIR
+    / "favicon.ico"
+)
+
+
+LOGO_PATH = (
+    ASSETS_DIR
+    / "logo.png"
+)
+
+
+FRONTEND_BANNER = (
+    IMAGES_DIR
+    / "frontend_banner.png"
+)
 
 # ==========================================================
 # Page Configuration
