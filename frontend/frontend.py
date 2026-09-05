@@ -436,7 +436,7 @@ with st.sidebar:
             font-size:18px;
             margin-bottom:10px;
         ">
-            Parkinson Disease
+            Parkinson Disease Detection Agent
         </div>
 
         <div style="
@@ -445,7 +445,7 @@ with st.sidebar:
             opacity:0.7;
             margin-bottom:15px;
         ">
-            Detection Agent
+            Parkinson Disease Detection Agent
         </div>
         """,
         unsafe_allow_html=True,
