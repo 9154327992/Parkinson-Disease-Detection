@@ -15,25 +15,6 @@ from utils.session import (
 )
 
 # ==========================================================
-# Dashboard Banner
-# ==========================================================
-
-FRONTEND_DIR = Path(__file__).resolve().parents[1]
-
-DASHBOARD_BANNER = (
-    FRONTEND_DIR
-    / "assets"
-    / "images"
-    / "dashboard_banner.png"
-)
-
-if DASHBOARD_BANNER.exists():
-    st.image(
-        str(DASHBOARD_BANNER),
-        use_container_width=True,
-    )
-
-# ==========================================================
 # Page Configuration
 # ==========================================================
 
@@ -43,6 +24,111 @@ st.set_page_config(
     layout="wide",
 )
 
+# ==========================================================
+# Admin Dashboard Banner
+# ==========================================================
+
+DASHBOARD_BANNER = (
+    Path(__file__).resolve().parents[1]
+    / "assets"
+    / "images"
+    / "dashboard_banner.png"
+)
+
+
+if DASHBOARD_BANNER.exists():
+
+    import base64
+
+
+    banner_base64 = base64.b64encode(
+        DASHBOARD_BANNER.read_bytes()
+    ).decode(
+        "utf-8"
+    )
+
+
+    st.html(
+        f"""
+        <style>
+
+        .dashboard-banner-wrapper {{
+            width: 100%;
+            margin: 0 0 1rem 0;
+            padding: 0;
+        }}
+
+
+        .dashboard-banner {{
+            width: min(100%, 1600px);
+
+            height: auto;
+
+            display: block;
+
+            margin-left: auto;
+            margin-right: auto;
+
+            object-fit: contain;
+
+            border-radius: 12px;
+        }}
+
+
+        /* Small screens */
+
+        @media (max-width: 768px) {{
+
+            .dashboard-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Medium screens */
+
+        @media (min-width: 769px) and (max-width: 1400px) {{
+
+            .dashboard-banner {{
+                width: 100%;
+            }}
+
+        }}
+
+
+        /* Large / High Resolution Screens */
+
+        @media (min-width: 1401px) {{
+
+            .dashboard-banner {{
+                width: 100%;
+                max-width: 1600px;
+            }}
+
+        }}
+
+        </style>
+
+
+        <div class="dashboard-banner-wrapper">
+
+            <img
+                class="dashboard-banner"
+                src="data:image/png;base64,{banner_base64}"
+                alt="Administrator Dashboard"
+            >
+
+        </div>
+        """
+    )
+
+
+else:
+
+    st.warning(
+        "Admin Dashboard banner image was not found."
+    )
 
 # ==========================================================
 # Session
