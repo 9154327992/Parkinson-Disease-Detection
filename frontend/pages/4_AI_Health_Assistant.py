@@ -573,16 +573,17 @@ if st.session_state.chat_history:
 
         if st.button(
             "🗑 Clear Conversation",
-            use_container_width=True,
+            width="stretch",
         ):
 
             st.session_state.chat_history = []
 
             st.session_state.ai_error = None
 
-            st.session_state.scroll_to_answer = False
-
-            st.session_state.pending_question = None
+            st.session_state.pop(
+                "chat_conversation_id",
+                None,
+            )
 
             st.rerun()
 
