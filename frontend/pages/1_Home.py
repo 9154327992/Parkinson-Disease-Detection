@@ -1,14 +1,6 @@
 import streamlit as st
-import pandas as pd
-
-from utils.api_client import (
-    get_analytics,
-    get_reports,
-    get_patients,
-    get_patient_history,
-)
-
 from pathlib import Path
+
 
 # ==========================================================
 # Page Configuration
@@ -20,13 +12,11 @@ st.set_page_config(
     layout="wide",
 )
 
+
 # ==========================================================
-# Banner
+# Responsive Banner
 # ==========================================================
 
-st.markdown(
-    unsafe_allow_html=True,
-)
 IMAGE_PATH = (
     Path(__file__).resolve().parents[1]
     / "assets"
@@ -40,6 +30,12 @@ if IMAGE_PATH.exists():
     st.image(
         str(IMAGE_PATH),
         width="stretch",
+    )
+
+else:
+
+    st.warning(
+        f"Banner image not found: {IMAGE_PATH}"
     )
 
 # ==========================================================
