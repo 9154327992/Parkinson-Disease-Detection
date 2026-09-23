@@ -128,24 +128,6 @@ if "pending_question" not in st.session_state:
 
 
 # ==========================================================
-# Banner
-# ==========================================================
-
-if CHATBOT_BANNER.exists():
-
-    st.image(
-        str(CHATBOT_BANNER),
-        use_container_width=True,
-    )
-
-else:
-
-    st.warning(
-        "Chatbot banner image was not found."
-    )
-
-
-# ==========================================================
 # Header
 # ==========================================================
 
